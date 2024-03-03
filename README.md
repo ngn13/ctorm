@@ -1,5 +1,5 @@
 # ctorm | simple web framework for C
-![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker)
+![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml)
 
 ctorm is a libevent based, multi-threaded HTTP server for `HTTP/1.1` and `HTTP/1.0`.
 It has a (fairly) easy API for general web server applications. 
