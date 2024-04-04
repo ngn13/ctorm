@@ -24,11 +24,11 @@ Benchmark results for hello world applications (see [benchmark](benchmark/)):
 
 | Framework        | Time per request | 
 | ---------------- | ---------------- |
-| Crow (C++)       | 3.983 ms         |
-| Fiber (Go)       | 4.818 ms         |
-| **Ctorm (C)**    | **5.071 ms**     |
-| Tide (Rust)      | 10.584 ms        |
-| Express (NodeJS) | 24.873 ms        |
+| Crow (C++)       | ~3.9 ms          |
+| Fiber (Go)       | ~4.8 ms          |
+| **Ctorm (C)**    | **~5.0 ms**      |
+| Tide (Rust)      | ~10.5 ms         |
+| Express (NodeJS) | ~24.8 ms         |
 
 ### Installation
 You will need the following software in order to build and install ctorm:
