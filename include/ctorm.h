@@ -2,34 +2,35 @@
 
 #include "errors.h"
 #include "http.h"
+#include "log.h"
 #include "req.h"
 #include "res.h"
-#include "log.h"
 
-typedef void(*route)(req_t*, res_t*);
-typedef struct routemap {
+typedef void (*route_t)(req_t *, res_t *);
+
+typedef struct routemap_t {
+  struct routemap_t *next;
   bool regex;
-  char* path;
+  char *path;
   int method;
-  route handler; 
-} routemap;
+  route_t handler;
+} routemap_t;
 
 typedef struct app_t {
-  routemap* maps;
-  size_t map_size;
-  char* staticpath;
-  char* staticdir;
-  route allroute;
+  routemap_t *maps;
+  char *staticpath;
+  char *staticdir;
+  route_t allroute;
   int socket;
 } app_t;
 
 void app_init();
-bool app_run(const char*);
-bool app_add(char*, bool, char*, route);
-void app_route(req_t*, res_t*);
-void app_static(char*, char*);
-void app_404(req_t*, res_t*);
-void app_all(route);
+bool app_run(const char *);
+bool app_add(char *, bool, char *, route_t);
+void app_route(req_t *, res_t *);
+void app_static(char *, char *);
+void app_404(req_t *, res_t *);
+void app_all(route_t);
 
 #define GET(path, func) app_add("GET", false, path, func)
 #define PUT(path, func) app_add("PUT", false, path, func)

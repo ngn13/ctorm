@@ -29,4 +29,7 @@ uninstall:
 	rm $(DESTDIR)$(PREFIX)/lib/libctorm.so
 	rm -r $(DESTDIR)/usr/include/ctorm
 
-.PHONY: test install uninstall 
+format:
+	clang-format -i -style=file src/*.c include/*.h example/*.c
+
+.PHONY: test install uninstall format 

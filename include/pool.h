@@ -11,7 +11,7 @@ typedef struct work_t {
 
 typedef struct pool_t {
   pthread_mutex_t mutex;
-  
+
   pthread_cond_t work_lock;
   pthread_cond_t thread_lock;
 
@@ -24,5 +24,5 @@ typedef struct pool_t {
 } pool_t;
 
 pool_t *pool_init(int);
-bool pool_add(pool_t*, func_t, void*);
-void pool_stop(pool_t*);
+bool pool_add(pool_t *, func_t, void *);
+void pool_stop(pool_t *);

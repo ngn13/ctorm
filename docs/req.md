@@ -23,7 +23,7 @@ Body is completely plain binary data.
 ```c
 char* body = req->body;
 // this will read arbitrary data, again the data does 
-// null terminator not end with a 
+// not end with a null terminator 
 printf("Body: %s\n", req->body);
 ```
 
@@ -59,7 +59,7 @@ if(NULL == msg)
 ### Parse URL encoded form data
 Ctorm can parse simple URL encoded form data from the request body:
 ```c
-pairs_t* body = req_body_parse(req);
+body_t* body = req_body_parse(req);
 if(NULL == body)
   // body is empty or not parsable
 ```

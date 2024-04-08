@@ -1,56 +1,54 @@
 #include "../include/pool.h"
 #include <stdlib.h>
 
-work_t* pool_work(func_t func, void *arg){
+work_t *pool_work(func_t func, void *arg) {
   work_t *work = malloc(sizeof(work_t));
-  work->next = NULL;  
+  work->next = NULL;
   work->func = func;
   work->arg = arg;
   return work;
 }
 
-void pool_free(work_t* work){
-  free(work);
-}
+void pool_free(work_t *work) { free(work); }
 
-work_t* pool_get(pool_t* tp){
-  work_t* work;
+work_t *pool_get(pool_t *tp) {
+  work_t *work;
   work = tp->first;
-  if(NULL == work)
+  if (NULL == work)
     return NULL;
 
   tp->first = work->next;
-  if(NULL == tp->first){    
+  if (NULL == tp->first) {
     tp->last = NULL;
-  } 
+  }
 
   return work;
 }
 
-void* pool_worker(void *arg){
-  pool_t* tp = arg;
-  work_t* work;
-  
-  while(true){
+void *pool_worker(void *arg) {
+  pool_t *tp = arg;
+  work_t *work;
+
+  while (true) {
     pthread_mutex_lock(&(tp->mutex));
-    while(tp->first == NULL && !tp->stop)
+    while (tp->first == NULL && !tp->stop)
       pthread_cond_wait(&(tp->work_lock), &(tp->mutex));
 
-    if(tp->stop)
+    if (tp->stop)
       break;
 
     work = pool_get(tp);
     tp->active++;
     pthread_mutex_unlock(&(tp->mutex));
 
-    if(work != NULL) {
+    if (work != NULL) {
       work->func(work->arg);
       pool_free(work);
     }
 
     pthread_mutex_lock(&(tp->mutex));
     tp->active--;
-    if(!tp->stop && tp->active == 0 && tp->first == NULL)
+    if (!tp->stop && tp->active == 0 && tp->first == NULL)
       pthread_cond_signal(&(tp->thread_lock));
     pthread_mutex_unlock(&(tp->mutex));
   }
@@ -61,7 +59,7 @@ void* pool_worker(void *arg){
   return NULL;
 }
 
-pool_t *pool_init(int n){
+pool_t *pool_init(int n) {
   pool_t *tp = calloc(1, sizeof(pool_t));
   tp->all = n;
 
@@ -73,14 +71,14 @@ pool_t *pool_init(int n){
   tp->last = NULL;
 
   pthread_t handle;
-  for (int i=0; i<n; i++) {
+  for (int i = 0; i < n; i++) {
     pthread_create(&handle, NULL, pool_worker, tp);
     pthread_detach(handle);
   }
   return tp;
 }
 
-bool pool_add(pool_t *tp, func_t func, void *arg){
+bool pool_add(pool_t *tp, func_t func, void *arg) {
   work_t *work = pool_work(func, arg);
   if (work == NULL)
     return false;
@@ -99,16 +97,16 @@ bool pool_add(pool_t *tp, func_t func, void *arg){
   return true;
 }
 
-void pool_stop(pool_t *tp){
+void pool_stop(pool_t *tp) {
   pthread_mutex_lock(&(tp->mutex));
 
-  work_t* f = tp->first;
-  while(f != NULL) {
-    work_t* n = f->next;
+  work_t *f = tp->first;
+  while (f != NULL) {
+    work_t *n = f->next;
     pool_free(n);
     f = n;
   }
-  
+
   tp->stop = true;
   pthread_cond_broadcast(&(tp->work_lock));
   pthread_mutex_unlock(&(tp->mutex));

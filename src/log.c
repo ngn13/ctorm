@@ -7,85 +7,76 @@
 #include <time.h>
 
 bool log_ = true;
-void log_set(bool enabled){
-  log_ = enabled;
-}
+void log_set(bool enabled) { log_ = enabled; }
 
-bool log_enabled(){
-  return log_;
-}
+bool log_enabled() { return log_; }
 
-void get_time(char* res){
+void get_time(char *res) {
   time_t now = time(NULL);
   struct tm tm = *localtime(&now);
 
-  sprintf(res, "(%02d/%02d/%04d %02d:%02d)",
-      tm.tm_mday, tm.tm_mon+1, (tm.tm_year+1900),
-      tm.tm_min, tm.tm_hour);
+  sprintf(res, "(%02d/%02d/%04d %02d:%02d)", tm.tm_mday, tm.tm_mon + 1,
+          (tm.tm_year + 1900), tm.tm_min, tm.tm_hour);
 }
 
-void log_req(double time, req_t* req, res_t* res){
-  if(!log_)
+void log_req(double time, req_t *req, res_t *res) {
+  if (!log_)
     return;
 
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_BOLD 
-      COLOR_MAGENTA"%s [ LOG ] "COLOR_RESET 
-      COLOR_CYAN"(%.0fμs)"COLOR_RESET
-      COLOR_GREEN" %s %s"COLOR_CYAN" => "COLOR_RESET"%d",
-      tstr, time, req_method(req), req->encpath, res->code);
+  printf(COLOR_BOLD COLOR_MAGENTA "%s [ LOG ] " COLOR_RESET COLOR_CYAN
+                                  "(%.0fμs)" COLOR_RESET COLOR_GREEN
+                                  " %s %s" COLOR_CYAN " => " COLOR_RESET "%d",
+         tstr, time, req_method(req), req->encpath, res->code);
   printf("\n");
 }
 
-void info(const char* msg, ...){
+void info(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
 
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_BOLD 
-      COLOR_BLUE"%s [INFO ] "COLOR_RESET, tstr);
+  printf(COLOR_BOLD COLOR_BLUE "%s [INFO ] " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
-  
+
   va_end(args);
 }
 
-void error(const char* msg, ...){
-  va_list args;
-  va_start(args, msg);
-  
-  char tstr[25];
-  get_time(tstr);
-
-  printf(COLOR_BOLD 
-      COLOR_RED"%s [ERROR] "COLOR_RESET, tstr);
-  vprintf(msg, args);
-  printf("\n");
-  
-  va_end(args);
-}
-
-void warn(const char* msg, ...){
+void error(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
 
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_BOLD 
-      COLOR_YELLO"%s [WARN ] "COLOR_RESET, tstr);
+  printf(COLOR_BOLD COLOR_RED "%s [ERROR] " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
-  
+
   va_end(args);
 }
 
-void debug(const char* msg, ...){
-  if(DEBUG==0)
+void warn(const char *msg, ...) {
+  va_list args;
+  va_start(args, msg);
+
+  char tstr[25];
+  get_time(tstr);
+
+  printf(COLOR_BOLD COLOR_YELLO "%s [WARN ] " COLOR_RESET, tstr);
+  vprintf(msg, args);
+  printf("\n");
+
+  va_end(args);
+}
+
+void debug(const char *msg, ...) {
+  if (DEBUG == 0)
     return;
 
   va_list args;
@@ -94,12 +85,9 @@ void debug(const char* msg, ...){
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_BOLD 
-      COLOR_CYAN"%s [DEBUG] "COLOR_RESET, tstr);
+  printf(COLOR_BOLD COLOR_CYAN "%s [DEBUG] " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
-  
+
   va_end(args);
 }
-
-
