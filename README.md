@@ -34,12 +34,14 @@ Benchmark results for hello world applications (see [benchmark](benchmark/)):
 You will need the following software in order to build and install ctorm:
 - GCC and other general build tools (`build-essential`)
 - libevent and it's headers (`libevent`, `libevent-dev`)
-- git (or you can just download the repository as an archive)
+- tar (to extract the release archive)
 
-First clone the repository:
+First [download the latest release](https://github.com/ngn13/ctorm/tags) archive:
 ```bash
-git clone https://github.com/ngn13/ctorm.git
-cd ctorm
+export VERSION="<latest version>"
+wget https://github.com/ngn13/ctorm/archive/refs/tags/$VERSION.tar.gz
+tar xf $VERSION.tar.gz
+cd ctorm-$VERSION
 ```
 
 Then use the `make` command for the build and install:
