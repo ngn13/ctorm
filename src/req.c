@@ -51,7 +51,7 @@ table_t *req_body_parse(req_t *req) {
   char *print = req_body(req);
   table_t *data = malloc(sizeof(table_t));
   table_init(data);
-  if (parse_urldata(data, print, strlen(print)) != P_OK) {
+  if (parse_urldata(data, print, strlen(print)) != RES_OK) {
     free(print);
     table_free(data);
     free(data);

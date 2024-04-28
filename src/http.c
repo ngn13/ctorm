@@ -5,7 +5,7 @@
 #include <string.h>
 
 size_t http_method_sz = 6;
-t_method_map http_method_map[] = {
+method_map_t http_method_map[] = {
     {.code = METHOD_GET, .name = "GET", .body = false},
     {.code = METHOD_HEAD, .name = "HEAD", .body = false},
     {.code = METHOD_POST, .name = "POST", .body = true},
