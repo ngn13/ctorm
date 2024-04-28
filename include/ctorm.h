@@ -6,6 +6,8 @@
 #include "req.h"
 #include "res.h"
 
+#define CTORM_VERSION "1.3"
+
 typedef void (*route_t)(req_t *, res_t *);
 
 typedef struct routemap_t {
