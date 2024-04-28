@@ -3,7 +3,7 @@
 #include "table.h"
 
 typedef struct req_t {
-  t_method method;
+  method_t method;
   char *fullpath;
   char *encpath;
   char *path;

@@ -4,6 +4,10 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
-#define THREADS 50
-typedef int t_socketop[2];
-bool start_socket(app_t *, char *, int);
+#define THREADS 30
+typedef struct socket_args_t {
+  app_t *app;
+  int socket;
+} socket_args_t;
+
+bool socket_start(app_t *, char *, int);

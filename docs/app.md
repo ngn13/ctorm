@@ -24,12 +24,18 @@ GETR("123$", 123_route) // handle routes that end with 123
 ```c
 // static files be served at '/static' path, 
 // from the './files' direcotry
-app_static("/static", "./files");
+app_static(app, "/static", "./files");
+
+// if your app_t object is called 'app', then
+// you can use the macro
+APP_STATIC("/static", "./files");
 ```
 
 ### Setup 404 (all) route 
 By default, routes that does not match with any other will be redirected
 to a 404 page, you set a custom route for this:
 ```c
-app_all(all_route);
+app_all(app, all_route);
+// or you can use the macro
+APP_ALL(all_route);
 ```

@@ -19,9 +19,9 @@
 #include <unistd.h>
 
 pool_t *pool;
-void handle_con(int *sa) {
-  int s = *(int *)sa;
-  debug("(Socket %d) Created thread", s);
+void socket_handle(socket_args_t *_args) {
+  socket_args_t *args = (socket_args_t*)_args;
+  debug("(Socket %d) Created thread", args->socket);
 
   req_t req;
   req_init(&req);
@@ -33,42 +33,44 @@ void handle_con(int *sa) {
   // to complete the request
   clock_t t = clock();
   bool badreq = false;
-  handle_st ret = handle_request(&req, s);
-  debug("Parsed request");
+  parse_ret ret = parse_request(&req, args->socket);
+  debug("(Socket %d) Parsed request", args->socket);
 
   char *buf;
   int bufsz;
 
-  if (H_BADREQ == ret) {
+  if (RET_BADREQ == ret) {
     badreq = true;
     res.code = 400;
     goto CLOSE;
   }
 
-  if (H_CONFAIL == ret) {
+  if (RET_CONFAIL == ret) {
     res_free(&res);
     req_free(&req);
-    free(sa);
-    close(s);
+
+    close(args->socket);
+    free(args);
+
     return;
   }
 
   if (DEBUG) {
     buf = malloc(req_size(&req));
     req_tostr(&req, buf);
-    debug("\n%s", buf);
+    debug("(Socket %d)\n%s", args->socket, buf);
     free(buf);
   }
 
   res_set_version(&res, req.version);
-  app_route(&req, &res);
+  app_route(args->app, &req, &res);
 
 CLOSE:
   bufsz = res_size(&res);
   buf = malloc(bufsz);
 
   res_tostr(&res, buf);
-  send(s, buf, bufsz, 0);
+  send(args->socket, buf, bufsz, 0);
 
   // finish the measurement and print out
   // the result
@@ -82,31 +84,27 @@ CLOSE:
   res_free(&res);
 
   free(buf);
-  free(sa);
-  close(s);
+  close(args->socket);
+  free(args);
 }
 
-bool set_opts(int socket) {
+bool socket_set_opts(int socket) {
   int flag = 1;
-  t_socketop options[] = {
-      // TCP delayed acknowledgment, buffers and combines multiple ACKs to
-      // reduce overhead
-      // it may delay the ACK response by up to 500ms, and we don't want that
-      // because
-      // slow bad fast good
-      {IPPROTO_TCP, TCP_QUICKACK},
 
-      // nagle's algorithm buffers and combines outgoing packets to solve the
-      // "small-packet problem",
-      // we want to send all the packets as fast as possible so we can disable
-      // buffering with TCP_NODELAY
-      {IPPROTO_TCP, TCP_NODELAY},
-  };
+  // TCP delayed acknowledgment, buffers and combines multiple ACKs to
+  // reduce overhead
+  // it may delay the ACK response by up to 500ms, and we don't want that
+  // because
+  // slow bad fast good
+  if (setsockopt(socket, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag)) < 0)
+    return false;
 
-  for (int i = 0; i < sizeof(options) / sizeof(t_socketop); i++)
-    if (setsockopt(socket, options[i][0], options[i][1], &flag, sizeof(flag)) <
-        0)
-      return false;
+  // nagle's algorithm buffers and combines outgoing packets to solve the
+  // "small-packet problem",
+  // we want to send all the packets as fast as possible so we can disable
+  // buffering with TCP_NODELAY
+  if (setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0)
+    return false;
 
   struct timeval timeout;
   timeout.tv_sec = 10;
@@ -119,11 +117,12 @@ bool set_opts(int socket) {
 
 void socket_con(struct evconnlistener *listener, evutil_socket_t fd,
                 struct sockaddr *address, int socklen, void *ctx) {
+  socket_args_t *args = malloc(sizeof(socket_args_t));
+  args->socket = fd;
+  args->app = ctx;
 
-  set_opts(fd);
-  int *sock = malloc(sizeof(int));
-  memcpy(sock, &fd, sizeof(int));
-  pool_add(pool, (void *)handle_con, (void *)sock);
+  socket_set_opts(fd);
+  pool_add(pool, (void *)socket_handle, (void *)args);
 }
 
 void socket_err(struct evconnlistener *listener, void *ctx) {
@@ -133,7 +132,7 @@ void socket_err(struct evconnlistener *listener, void *ctx) {
   event_base_loopexit(base, NULL);
 }
 
-bool start_socket(app_t *app, char *addr, int port) {
+bool socket_start(app_t *app, char *addr, int port) {
   struct sockaddr_in address;
   bzero(&address, sizeof(address));
   pool = pool_init(THREADS);
@@ -150,9 +149,10 @@ bool start_socket(app_t *app, char *addr, int port) {
   }
 
   struct evconnlistener *listener = evconnlistener_new_bind(
-      base, socket_con, NULL,
+      base, socket_con, app,
       LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE | LEV_OPT_THREADSAFE, -1,
       (struct sockaddr *)&address, sizeof(address));
+
   if (NULL == listener) {
     errno = ListenFailed;
     return ret;

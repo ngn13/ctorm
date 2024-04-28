@@ -4,7 +4,7 @@ general logging usage.
 
 ### General logging functions 
 ```c
-info("lalala some information");
+info("some information");
 warn("there may be something wrong");
 error("PANIC!!");
 ```

@@ -33,17 +33,17 @@
 #include <string.h>
 #include <unistd.h>
 
-app_t *app;
-void app_init() {
-  app = malloc(sizeof(app_t));
+app_t *app_new() {
+  app_t *app = malloc(sizeof(app_t));
   app->allroute = app_404;
   app->staticdir = NULL;
   app->staticpath = NULL;
   app->maps = NULL;
   setbuf(stdout, NULL);
+  return app;
 }
 
-bool app_run(const char *addr) {
+bool app_run(app_t *app, const char *addr) {
   char *save, *ip = NULL, *ports = NULL;
   char *addrcpy = strdup(addr);
   int port = -1;
@@ -67,7 +67,7 @@ bool app_run(const char *addr) {
   }
 
   info("Starting the application on http://%s:%d", ip, port);
-  if (start_socket(app, ip, port)) {
+  if (socket_start(app, ip, port)) {
     free(addrcpy);
     return true;
   }
@@ -77,14 +77,14 @@ FAIL:
   return false;
 }
 
-void app_static(char *path, char *dir) {
+void app_static(app_t *app, char *path, char *dir) {
   app->staticpath = path;
-  app->staticdir = dir;
+  app->staticdir  = dir;
 }
 
-void app_all(route_t handler) { app->allroute = handler; }
+void app_all(app_t *app, route_t handler) { app->allroute = handler; }
 
-bool app_add(char *method, bool regex, char *path, route_t handler) {
+bool app_add(app_t *app, char *method, bool regex, char *path, route_t handler) {
   routemap_t *new = malloc(sizeof(routemap_t));
   if (NULL == new) {
     errno = AllocFailed;
@@ -118,7 +118,7 @@ void app_404(req_t *req, res_t *res) {
   res->code = 404;
 }
 
-void app_route(req_t *req, res_t *res) {
+void app_route(app_t *app, req_t *req, res_t *res) {
   bool found = false;
   regex_t regex;
 
@@ -162,7 +162,7 @@ void app_route(req_t *req, res_t *res) {
   if (found)
     goto DONE;
 
-  if (NULL == app->staticpath || NULL == app->staticdir)
+  if (NULL == app->staticpath || NULL == app->staticdir || METHOD_GET != req->method)
     goto DONE;
 
   char *staticpath, *realpath = strdup(req->path);

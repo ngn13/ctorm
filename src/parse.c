@@ -21,15 +21,15 @@ char name_valid[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_";
 char *versions[] = {"HTTP/1.1", "HTTP/1.0"};
 
-enum parse_st parse_order[] = {
+enum parse_state parse_order[] = {
     METHOD, SPACE, PATH, VERSION, NEWLINE, NAME, VALUE, NEWLINE, BODY,
 };
 
-handle_st handle_request(req_t *req, int s) {
+parse_ret parse_request(req_t *req, int s) {
   size_t i = 0, indx = 0,
-         parse_max = sizeof(parse_order) / sizeof(enum parse_st) - 1;
-  enum parse_st *order = parse_order;
-  parse_res r = P_FAIL;
+         parse_max = sizeof(parse_order) / sizeof(enum parse_state) - 1;
+  enum parse_state *order = parse_order;
+  parse_res r = RES_FAIL;
   char cur[1] = "0";
   bool done = false;
   char buf[BUF_MAX + 1];
@@ -39,10 +39,10 @@ handle_st handle_request(req_t *req, int s) {
       continue;
 
     if (BODY != order[i] && cur[0] == '\0')
-      return H_BADREQ;
+      return RET_BADREQ;
 
     if (indx >= BUF_MAX)
-      return H_BADREQ;
+      return RET_BADREQ;
 
     buf[indx] = cur[0];
     buf[indx + 1] = '\0';
@@ -52,9 +52,9 @@ handle_st handle_request(req_t *req, int s) {
       r = parse_method(req, indx, buf);
       break;
     case SPACE:
-      r = P_FAIL;
+      r = RES_FAIL;
       if (eq(buf, " "))
-        r = P_OK;
+        r = RES_OK;
       break;
     case PATH:
       r = parse_path(req, indx, buf);
@@ -63,14 +63,14 @@ handle_st handle_request(req_t *req, int s) {
       r = parse_version(req, indx, buf);
       break;
     case NEWLINE:
-      r = P_FAIL;
+      r = RES_FAIL;
       if (eq(buf, "\n")) {
-        r = P_OK;
+        r = RES_OK;
         break;
       }
 
       if (i - 1 == VALUE) {
-        r = P_CONT;
+        r = RES_CONT;
         i -= 2;
       }
       break;
@@ -91,12 +91,12 @@ handle_st handle_request(req_t *req, int s) {
       break;
     }
 
-    if (P_FAIL == r)
-      return H_BADREQ;
+    if (RES_FAIL == r)
+      return RET_BADREQ;
 
-    if (P_OK == r) {
+    if (RES_OK == r) {
       debug("(Socket %d) Parsing the next section (%d/%d)", s, i, parse_max);
-      r = P_FAIL;
+      r = RES_FAIL;
       indx = 0;
       i++;
 
@@ -122,7 +122,7 @@ handle_st handle_request(req_t *req, int s) {
   if (!done) {
     debug("(Socket %d) %s, most likely the connection died", s,
           strerror(errno));
-    return H_CONFAIL;
+    return RET_CONFAIL;
   }
 
   debug("Decoding URL");
@@ -142,7 +142,7 @@ handle_st handle_request(req_t *req, int s) {
   free(pathdup);
   req->path = strdup(req->encpath);
   urldecode(req->path);
-  return H_OK;
+  return RET_OK;
 }
 
 parse_res parse_urldata(table_t *data, char *rest, int size) {
@@ -186,26 +186,26 @@ parse_res parse_urldata(table_t *data, char *rest, int size) {
     }
   }
 
-  return P_OK;
+  return RES_OK;
 }
 
 parse_res parse_body(req_t *req, int i, char *buf) {
   int size = req_body_size(req);
   if (i + 1 != size)
-    return P_CONT;
+    return RES_CONT;
 
   req->body = malloc(i + 1);
   memcpy(req->body, buf, i + 1);
   req->bodysz = i + 1;
-  return P_OK;
+  return RES_OK;
 }
 
 parse_res parse_header_value(req_t *req, int i, char *buf) {
   if (buf[i] != '\n')
-    return P_CONT;
+    return RES_CONT;
 
   if (!validate(buf, value_valid, '\n'))
-    return P_FAIL;
+    return RES_FAIL;
 
   char val[i + 1];
   for (int c = 0; c < i + 1; c++) {
@@ -213,14 +213,14 @@ parse_res parse_header_value(req_t *req, int i, char *buf) {
   }
   val[i] = '\0';
   req_add_header_value(req, val);
-  return P_OK;
+  return RES_OK;
 }
 
 parse_res parse_header_name(req_t *req, int i, char *buf) {
   size_t namel = strlen(url_valid);
 
   if (i + 1 < 3)
-    return P_CONT;
+    return RES_CONT;
 
   for (int c = 0; c < i + 1; c++) {
     int valid = 0;
@@ -241,11 +241,11 @@ parse_res parse_header_name(req_t *req, int i, char *buf) {
       valid = 1;
 
     if (!valid)
-      return P_FAIL;
+      return RES_FAIL;
   }
 
   if (buf[i] != ' ' || buf[i - 1] != ':')
-    return P_CONT;
+    return RES_CONT;
 
   char name[i];
   for (int c = 0; c < i; c++)
@@ -253,31 +253,31 @@ parse_res parse_header_name(req_t *req, int i, char *buf) {
   name[i - 1] = '\0';
 
   req_add_header(req, name);
-  return P_OK;
+  return RES_OK;
 }
 
 parse_res parse_version(req_t *req, int i, char *buf) {
   for (int v = 0; v < sizeof(versions) / sizeof(char *); v++) {
     if (eq(versions[v], buf)) {
       req->version = versions[v];
-      return P_OK;
+      return RES_OK;
     }
 
     if (startswith(versions[v], buf))
-      return P_CONT;
+      return RES_CONT;
   }
-  return P_FAIL;
+  return RES_FAIL;
 }
 
 parse_res parse_path(req_t *req, int i, char *buf) {
   if (i + 1 == 1)
-    return P_CONT;
+    return RES_CONT;
 
   if (!validate(buf, url_valid, ' '))
-    return P_FAIL;
+    return RES_FAIL;
 
   if (buf[i] != ' ')
-    return P_CONT;
+    return RES_CONT;
 
   req->fullpath = malloc(i + 1);
   for (int c = 0; c < i + 1; c++) {
@@ -285,7 +285,7 @@ parse_res parse_path(req_t *req, int i, char *buf) {
   }
 
   req->fullpath[i] = '\0';
-  return P_OK;
+  return RES_OK;
 }
 
 parse_res parse_method(req_t *req, int i, char *buf) {
@@ -293,7 +293,7 @@ parse_res parse_method(req_t *req, int i, char *buf) {
   for (int s = 0; s < http_method_sz; s++) {
     if (eq(http_method_map[s].name, buf)) {
       req->method = http_method_map[s].code;
-      return P_OK;
+      return RES_OK;
     }
 
     if (startswith(http_method_map[s].name, buf)) {
@@ -303,6 +303,6 @@ parse_res parse_method(req_t *req, int i, char *buf) {
   }
 
   if (!prefix)
-    return P_FAIL;
-  return P_CONT;
+    return RES_FAIL;
+  return RES_CONT;
 }

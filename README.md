@@ -50,26 +50,26 @@ make && sudo make install
 ### Getting started
 #### Hello world application 
 ```c
-#include <ctorm/ctorm.h>
+#include <ctorm/macros.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 // this function handles GET request that go to '/'
 void hello_world(req_t* req, res_t* res){
   // just send the string 'hello world!'
-  res_send(res, "hello world!");
+  RES_SEND("hello world!");
 }
 
 // main function (entrypoint)
 int main(){
   // init the application
-  app_init();
+  app_t *app = app_new();
 
   // setup a GET route for '/'
   GET("/", hello_world);
   
   // start the application on port 8080 
-  app_run("127.0.0.1:8080");
+  APP_RUN("127.0.0.1:8080");
 }
 ```
 

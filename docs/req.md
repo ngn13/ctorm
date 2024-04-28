@@ -45,15 +45,25 @@ char* method = req_method(req);
 ### Get a header of a request
 ```c
 char* agent = req_header(req, "User-Agent");
-if(NULL == agent)
+if(NULL == agent){
   // user-agent header is not set
+  return;
+}
+
+// or you can use the macro
+char* agent = REQ_HEADER("User-Agent");
 ```
 
 ### Get request URL query/parameter
 ```c
 char* msg = req_query(req, "msg");
-if(NULL == msg)
-  // msg parameter is specified 
+if(NULL == msg){
+  // msg parameter is specified
+  return;
+}
+
+// or you can use the macro
+char* agent = REQ_QUERY("msg");
 ```
 
 ### Parse URL encoded form data
