@@ -2,37 +2,23 @@
 #include "req.h"
 #define BUF_MAX 8192
 
-typedef enum parse_res {
-  RES_CONT = 0,
-  RES_FAIL = 1,
-  RES_OK   = 2,
-} parse_res;
-
 typedef enum parse_ret {
-  RET_CONFAIL = 0,
-  RET_BADREQ = 1,
-  RET_OK = 2,
-} parse_ret;
+  RET_CONFAIL  = 0,
+  RET_TOOLARGE = 1,
+  RET_BADREQ   = 2,
+  RET_OK       = 3,
+} parse_ret_t;
 
-enum parse_state {
-  METHOD = 0,
-  SPACE = 1,
-  PATH = 2,
-  VERSION = 3,
-  NEWLINE = 4,
-  NAME = 5,
-  VALUE = 6,
-  BODY = 7,
-};
+typedef enum parse_state {
+  STATE_METHOD_0  = 0, // "GET"
+  STATE_PATH_1    = 1, // "/example"
+  STATE_VERSION_2 = 2, // "HTTP/1.1"
+  STATE_NEWLINE_3 = 3, // "\r\n"
+  STATE_NAME_4    = 4, // "User-Agent"
+  STATE_VALUE_5   = 5, // "curl/8.8.0"
+  STATE_NEWLINE_6 = 6, // "\r\n"
+  STATE_BODY_7    = 7,
+} parse_state_t;
 
-parse_ret parse_request(req_t *, int);
-
-parse_res parse_method(req_t *, int, char *);
-parse_res parse_path(req_t *, int, char *);
-parse_res parse_urldata(table_t *, char *, int);
-parse_res parse_version(req_t *, int, char *);
-
-parse_res parse_header_name(req_t *, int, char *);
-parse_res parse_header_value(req_t *, int, char *);
-
-parse_res parse_body(req_t *, int, char *);
+bool parse_form(table_t *, char *);
+parse_ret_t parse_request(req_t *, int);

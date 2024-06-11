@@ -7,9 +7,14 @@ void hello_world(req_t* req, res_t* res){
 }
 
 int main(){
-  log_set(false);
-  app_t *app = app_new();
+  app_config_t config;
+  app_config_new(&config);
+
+  config.disable_logging = true;
+  app_t *app = app_new(&config);
 
   GET("/", hello_world);
   APP_RUN("127.0.0.1:8080");
+
+  app_free(app);
 }

@@ -4,8 +4,8 @@
 
 typedef void (*func_t)(void *arg);
 typedef struct work_t {
-  func_t func;
-  void *arg;
+  func_t         func;
+  void          *arg;
   struct work_t *next;
 } work_t;
 
@@ -20,9 +20,9 @@ typedef struct pool_t {
 
   work_t *first;
   work_t *last;
-  bool stop;
+  bool    stop;
 } pool_t;
 
 pool_t *pool_init(int);
-bool pool_add(pool_t *, func_t, void *);
-void pool_stop(pool_t *);
+bool    pool_add(pool_t *, func_t, void *);
+void    pool_stop(pool_t *);

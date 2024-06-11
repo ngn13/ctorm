@@ -5,8 +5,8 @@ DEBUG  = 0
 SRCS   = $(wildcard src/*.c)
 OBJS   = $(patsubst src/%.c,dist/%.o,$(SRCS))
 HDRS   = $(wildcard include/*.h) 
-CFLAGS = -O3 -march=native
-LIBS   = -levent -lpthread
+CFLAGS = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
+LIBS   = -lpthread -levent
 
 dist/libctorm.so: $(OBJS) 
 	mkdir -p dist
@@ -15,10 +15,6 @@ dist/libctorm.so: $(OBJS)
 dist/%.o: src/%.c 
 	mkdir -p dist
 	$(CC) -c -Wall -fPIC -o $@ $^ $(LIBS) $(CFLAGS) -DDEBUG=${DEBUG}
-
-test:
-	$(CC) -L./dist example/main.c -lctorm -o dist/example
-	LD_LIBRARY_PATH=./dist dist/example
 
 install:
 	install -m755 dist/libctorm.so $(DESTDIR)$(PREFIX)/lib/libctorm.so
@@ -30,6 +26,6 @@ uninstall:
 	rm -r $(DESTDIR)/usr/include/ctorm
 
 format:
-	clang-format -i -style=file src/*.c include/*.h example/*.c
+	clang-format -i -style=file src/*.c include/*.h example/*/*.c
 
 .PHONY: test install uninstall format 

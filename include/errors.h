@@ -1,19 +1,26 @@
 #pragma once
 
-enum error_t {
-  EventFailed = 9910,
-  ListenFailed = 9912,
-  BadAddress = 9913,
-  BadPort = 9914,
-  OptFailed = 9915,
-  AllocFailed = 9917,
-  UnknownErr = 9918,
-};
+typedef enum app_error_t {
+  BadTcpTimeout = 9908,
+  BadPoolSize   = 9909,
+  EventFailed   = 9910,
+  PoolFailed    = 9911,
+  ListenFailed  = 9912,
+  BadAddress    = 9913,
+  BadPort       = 9914,
+  OptFailed     = 9915,
+  AllocFailed   = 9917,
+  UnknownErr    = 9918,
+  CantRead      = 9919,
+  SizeFail      = 9920,
+  BadReadPerm   = 9921,
+  FileNotExists = 9922,
+} app_error_t;
 
-struct error_desc_t {
-  int code;
+struct app_error_desc_t {
+  int   code;
   char *desc;
 };
 
-char *geterror_code(int);
-char *geterror();
+char *app_geterror_code(app_error_t);
+char *app_geterror();

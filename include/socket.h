@@ -4,10 +4,10 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 
-#define THREADS 30
 typedef struct socket_args_t {
   app_t *app;
-  int socket;
+  int    socket;
+  struct sockaddr* address;
 } socket_args_t;
 
 bool socket_start(app_t *, char *, int);

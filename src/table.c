@@ -19,9 +19,9 @@ bool table_add(table_t *t, char *key, bool alloced) {
   }
 
   new->alloced = alloced;
-  new->key = key;
-  new->next = NULL;
-  new->value = NULL;
+  new->key     = key;
+  new->next    = NULL;
+  new->value   = NULL;
 
   if (NULL == t->head) {
     t->head = new;
@@ -30,7 +30,7 @@ bool table_add(table_t *t, char *key, bool alloced) {
   }
 
   t->tail->next = new;
-  t->tail = new;
+  t->tail       = new;
   return true;
 }
 
@@ -47,6 +47,7 @@ char *table_get(table_t *t, char *key) {
   while (cur) {
     if (eq(cur->key, key))
       return cur->value;
+    cur = cur->next;
   }
   return NULL;
 }
@@ -54,7 +55,7 @@ char *table_get(table_t *t, char *key) {
 bool table_update(table_t *t, char *key, char *value) {
   table_node_t *cur = t->head;
   while (cur) {
-    if (neq(cur->key, key)) {
+    if (!eq(cur->key, key)) {
       cur = cur->next;
       continue;
     }
@@ -82,7 +83,7 @@ char **table_next(table_t *t, char **prev) {
 
   table_node_t *cur = t->head;
   while (cur) {
-    if (neq(cur->key, prev[0])) {
+    if (!eq(cur->key, prev[0])) {
       cur = cur->next;
       continue;
     }
@@ -101,17 +102,40 @@ char **table_next(table_t *t, char **prev) {
   return NULL;
 }
 
+void table_free_node(table_node_t *n){
+  if(n->alloced){
+    free(n->key);
+    free(n->value);
+  }
+  free(n);
+}
+
 void table_free(table_t *t) {
   table_node_t *cur = t->head, *prev;
 
   while (cur) {
-    if (cur->alloced) {
-      free(cur->key);
-      free(cur->value);
+    prev = cur;
+    cur  = cur->next;
+    table_free_node(prev);
+  }
+}
+
+bool table_del(table_t *t, char *key) {
+  table_node_t *cur = t->head, *prev = NULL;
+  while (cur) {
+    if (!eq(cur->key, key)){
+      prev = cur;
+      cur = cur->next;
+      continue;
     }
 
-    prev = cur;
-    cur = cur->next;
-    free(prev);
+    if(NULL == prev)
+      t->head = cur->next;
+    else
+      prev->next = cur->next;
+
+    table_free_node(cur);
+    return true;
   }
+  return false;
 }

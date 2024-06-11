@@ -1,4 +1,5 @@
 #include "../include/util.h"
+#include <sys/stat.h>
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -9,86 +10,62 @@
 #include <string.h>
 #include <unistd.h>
 
-char *readall(char *path, int *sz) {
-  if (!file_canread(path))
-    return NULL;
-
-  int fd = open(path, O_RDONLY);
-  *sz = lseek(fd, 0, SEEK_END);
-  lseek(fd, 0, SEEK_SET);
-
-  char *data = malloc(*sz + 1);
-  read(fd, data, *sz);
-  data[*sz] = '\0';
-  close(fd);
-
-  return data;
-}
-
-// https://gist.github.com/dhess/975639/bb91cd552c0a92306b8ef49b417c6796f67036ce
-char *strrep(char *s1, char *s2, char *s3) {
-  if (!s1 || !s2 || !s3)
-    return 0;
-
-  size_t s1_len = strlen(s1);
-  if (!s1_len)
-    return (char *)s1;
-  size_t s2_len = strlen(s2);
-  if (!s2_len)
-    return (char *)s1;
-
-  size_t count = 0;
-  const char *p = s1;
-  assert(s2_len);
-  do {
-    p = strstr(p, s2);
-    if (p) {
-      p += s2_len;
-      ++count;
-    }
-  } while (p);
-
-  if (!count)
-    return (char *)s1;
-
-  assert(s1_len >= count * s2_len);
-  assert(count);
-  size_t s1_without_s2_len = s1_len - count * s2_len;
-  size_t s3_len = strlen(s3);
-  size_t s1_with_s3_len = s1_without_s2_len + count * s3_len;
-  if (s3_len &&
-      ((s1_with_s3_len <= s1_without_s2_len) || (s1_with_s3_len + 1 == 0)))
-    return 0;
-
-  char *s1_with_s3 = (char *)malloc(s1_with_s3_len + 1);
-  if (!s1_with_s3)
-    return 0;
-
-  char *dst = s1_with_s3;
-  const char *start_substr = s1;
-  size_t i;
-  for (i = 0; i != count; ++i) {
-    const char *end_substr = strstr(start_substr, s2);
-    assert(end_substr);
-    size_t substr_len = end_substr - start_substr;
-    memcpy(dst, start_substr, substr_len);
-    dst += substr_len;
-    memcpy(dst, s3, s3_len);
-    dst += s3_len;
-    start_substr = end_substr + s2_len;
-  }
-
-  size_t remains = s1_len - (start_substr - s1) + 1;
-  assert(dst + remains == s1_with_s3 + s1_with_s3_len + 1);
-  memcpy(dst, start_substr, remains);
-  assert(strlen(s1_with_s3) == s1_with_s3_len);
-  return s1_with_s3;
-}
-
-bool file_canread(char *path) {
-  if (access(path, O_RDONLY) < 0)
+bool eq(char *s1, char *s2){
+  if(NULL == s1 || NULL == s2)
     return false;
+
+  if(strlen(s1) != strlen(s2))
+    return false;
+
+  return strcmp(s1, s2) == 0;
+}
+
+bool startswith(char *str, char *pre){
+  if(NULL == str || NULL == pre)
+    return false;
+
+  size_t prel = strlen(pre);
+  if(prel > strlen(str))
+    return false;
+
+  return strncmp(pre, str, prel) == 0;
+}
+
+bool endswith(char *str, char *suf){
+  if(NULL == str || NULL == suf)
+    return false;
+
+  size_t sufl = strlen(suf);
+  size_t strl = strlen(str);
+
+  if(sufl > strl)
+    return false;
+
+  return strncmp(str+(strl-sufl), suf, sufl) == 0;
+}
+
+bool file_read(char *path, char *buffer, size_t size) {
+  int fd = open(path, O_RDONLY);
+  if(fd < 0)
+    return false;
+
+  if(read(fd, buffer, size)<0)
+    return false;
+
+  close(fd);
   return true;
+}
+
+bool file_canread(char *path){
+  return access(path, O_RDONLY) == 0;
+}
+
+size_t file_size(char *path) {
+  struct stat st;
+  if(stat(path, &st) < 0)
+    return -1;
+
+  return st.st_size;
 }
 
 int digits(int n) {
@@ -105,10 +82,11 @@ char *join(char *p1, char *p2) {
   return fp;
 }
 
-int stolower(char *src, char *dst) {
-  for (int i = 0; src[i]; i++)
+void stolower(char *src, char *dst) {
+  int i = 0;
+  for (; src[i] != 0; i++)
     dst[i] = tolower(src[i]);
-  return 0;
+  dst[i] = 0;
 }
 
 bool contains(char *str, char c) {
@@ -118,9 +96,17 @@ bool contains(char *str, char c) {
   return false;
 }
 
+bool is_letter(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+bool is_digit(char c) {
+  return c >= '0' && c <= '9';
+}
+
 bool validate(char *str, char *valids, char end) {
   size_t validl = strlen(valids);
-  size_t strl = strlen(str);
+  size_t strl   = strlen(str);
 
   for (int c = 0; c < strl; c++) {
     bool pass = false;
@@ -141,8 +127,8 @@ bool validate(char *str, char *valids, char end) {
 }
 
 void urldecode(char *str) {
-  char *curr_ptr = str;
-  char *step_ptr = str;
+  char         *curr_ptr = str;
+  char         *step_ptr = str;
   unsigned char value;
 
   while (*curr_ptr) {
@@ -151,7 +137,7 @@ void urldecode(char *str) {
     else if (*curr_ptr == '%') {
       sscanf(curr_ptr + 1, "%02hhx", &value);
       *step_ptr = value;
-      curr_ptr = curr_ptr + 2;
+      curr_ptr  = curr_ptr + 2;
     } else
       *step_ptr = *curr_ptr;
     curr_ptr++;

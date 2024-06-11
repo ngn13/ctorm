@@ -1,3 +1,12 @@
+```
+        __                     
+  _____/ /__________  ____ ___ 
+ / ___/ __/ ___/ __ \/ __ `__ \
+/ /__/ /_/ /  / /_/ / / / / / /
+\___/\__/_/   \____/_/ /_/ /_/ v1.3 
+                               
+```
+
 # ctorm | simple web framework for C
 ![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml)
 
@@ -36,7 +45,8 @@ You will need the following software in order to build and install ctorm:
 - libevent and it's headers (`libevent`, `libevent-dev`)
 - tar (to extract the release archive)
 
-First [download the latest release](https://github.com/ngn13/ctorm/tags) archive:
+First [download the latest release](https://github.com/ngn13/ctorm/tags) archive,
+**do not compile from the latest commit**:
 ```bash
 export VERSION="<latest version>"
 wget https://github.com/ngn13/ctorm/archive/refs/tags/$VERSION.tar.gz

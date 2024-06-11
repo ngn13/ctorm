@@ -1,6 +1,8 @@
 #include "../include/res.h"
 #include "../include/util.h"
+#include "../include/errors.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,16 +11,18 @@
 void res_init(res_t *res) {
   table_init(&res->headers);
   table_init(&res->render);
-  res->version = NULL;
-  res->body = NULL;
-  res->code = 200;
+
+  res->version  = NULL;
+  res->bodysize = 0;
+  res->body     = NULL;
+  res->code     = 200;
 
   res_set(res, "Server", "ctorm");
   res_set(res, "Connection", "close");
   res_set(res, "Content-Length", "0");
 
   struct tm *gmt;
-  time_t raw;
+  time_t     raw;
 
   time(&raw);
   gmt = gmtime(&raw);
@@ -32,7 +36,6 @@ void res_init(res_t *res) {
 void res_free(res_t *res) {
   table_free(&res->headers);
   table_free(&res->render);
-  free(res->version);
   free(res->body);
 }
 
@@ -44,49 +47,67 @@ void res_set(res_t *res, char *name, char *value) {
   table_set(&res->headers, strdup(value));
 }
 
-void res_send(res_t *res, char *data) {
+void res_del(res_t *res, char *name){
+  table_del(&res->headers, name);
+}
+
+void res_send(res_t *res, char *data, size_t size) {
   free(res->body);
-  res->body = strdup(data);
 
-  int len = digits(strlen(res->body)) + 1;
-  char size[len];
-
-  snprintf(size, len, "%lu", strlen(res->body));
-  res_set(res, "Content-Length", size);
-}
-
-void res_render_add(res_t *res, char *key, char *value) {
-  table_add(&res->render, strdup(key), true);
-  table_set(&res->render, strdup(value));
-}
-
-bool res_render(res_t *res, char *path) {
-  int sz;
-  res->body = readall(path, &sz);
-  if (NULL == res->body)
-    return false;
-
-  char **cur = table_next(&res->render, NULL);
-  while (cur) {
-    int keysize = strlen(cur[0]) + 6;
-    char pattern[keysize];
-
-    snprintf(pattern, keysize, "{{%s}}", cur[0]);
-    res->body = strrep(res->body, pattern, cur[1]);
-    cur = table_next(&res->render, cur);
+  if(NULL == data){
+    res->body = NULL;
+    res->bodysize = 0;
+    return;
   }
 
-  sz = strlen(res->body);
-  int len = digits(sz) + 1;
+  if(size <= 0)
+    res->bodysize = strlen(data);
 
-  char size[len];
-  snprintf(size, len, "%d", sz);
+  res->body = malloc(res->bodysize);
+  memcpy(res->body, data, res->bodysize);
 
-  res_set(res, "Content-Length", size);
-  return true;
+  int  len = digits(res->bodysize) + 1;
+  char buf[len];
+
+  snprintf(buf, len, "%lu", res->bodysize);
+  res_set(res, "Content-Length", buf);
 }
 
 bool res_sendfile(res_t *res, char *path) {
+  if(!file_canread(path)){
+    if(errno == ENOENT)
+      errno = FileNotExists;
+    else
+      errno = BadReadPerm;
+    return false;
+  }
+
+  free(res->body);
+  res->body = NULL;
+
+  res->bodysize = file_size(path);
+  if(res->bodysize < 0){
+    errno = SizeFail; 
+    res->bodysize = 0;
+    return false;
+  }
+
+  res->body = malloc(res->bodysize);
+
+  if(!file_read(path, res->body, res->bodysize)){
+    errno = CantRead;
+    return false;
+  }
+
+  if (NULL == res->body)
+    return false;
+
+  int  len = digits(res->bodysize) + 1;
+  char size[len];
+
+  snprintf(size, len, "%lu", res->bodysize);
+  res_set(res, "Content-Length", size);
+
   if (endswith(path, ".html"))
     res_set(res, "Content-Type", "text/html; charset=utf-8");
   else if (endswith(path, ".json"))
@@ -98,64 +119,47 @@ bool res_sendfile(res_t *res, char *path) {
   else
     res_set(res, "Content-Type", "text/plain; charset=utf-8");
 
-  int sz;
-  free(res->body);
-  res->body = readall(path, &sz);
-
-  if (NULL == res->body)
-    return false;
-
-  int len = digits(sz) + 1;
-  char size[len];
-  snprintf(size, len, "%d", sz);
-
-  res_set(res, "Content-Length", size);
   return true;
 }
 
-int res_size(res_t *res) {
-  // HTTP/1.1 301
-  int size = 1;
-  if (NULL == res->version)
-    size += strlen("HTTP/1.1");
-  else
-    size += strlen(res->version);
-  size += 3;
-
-  // Name: value
+size_t res_size(res_t *res) {
+  size_t size = 0;
+  size += http_static.version_len + 1; // "HTTP/1.1 "
+  size += 5; // "200\r\n"
+  
   char **cur = table_next(&res->headers, NULL);
   while (cur) {
-    size += strlen(cur[0]) + 2;
-    size += strlen(cur[1]) + 1;
+    size += strlen(cur[0]) + 2; // "User-Agent: "
+    size += strlen(cur[1]) + 2; // "curl\r\n"
     cur = table_next(&res->headers, cur);
   }
 
-  // Newline + Body
-  if (NULL == res->body)
-    size += 2;
-  else
-    size += strlen(res->body) + 2;
+  size += 2; // "\r\n"
+  
+  // body
+  size += res->bodysize;
   return size;
 }
 
 void res_tostr(res_t *res, char *str) {
-  if (NULL == res->version)
-    sprintf(str, "HTTP/1.1 %d\n", res->code);
-  else
-    sprintf(str, "%s %d\n", res->version, res->code);
-
   char **cur = table_next(&res->headers, NULL);
+  size_t index = 0;
+
+  // fix the HTTP code if its invalid
+  if(res->code > 999 || res->code < 100)
+    res->code = 200;
+
+  if (NULL == res->version)
+    index += sprintf(str, "HTTP/1.1 %d\r\n", res->code);
+  else
+    index += sprintf(str, "%s %d\r\n", res->version, res->code);
+
   while (cur) {
-    sprintf(str + strlen(str), "%s: %s\n", cur[0], cur[1]);
+    index += sprintf(str + index, "%s: %s\r\n", cur[0], cur[1]);
     cur = table_next(&res->headers, cur);
   }
 
-  if (NULL == res->body)
-    sprintf(str + strlen(str), "\n");
-  else
-    sprintf(str + strlen(str), "\n%s", res->body);
-}
-
-void res_set_version(res_t *res, char *version) {
-  res->version = strdup(version);
+  index += sprintf(str + index, "\r\n");
+  if (res->bodysize > 0)
+    memcpy(str + index, res->body, res->bodysize);
 }

@@ -2,21 +2,20 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define eq(s1, s2) (strlen(s1) == strlen(s2) && strcmp(s1, s2) == 0)
-#define neq(s1, s2) (strlen(s1) != strlen(s2) || strcmp(s1, s2) != 0)
-#define startswith(str, pre)                                                   \
-  (strlen(pre) <= strlen(str) && strncmp(pre, str, strlen(pre)) == 0)
-#define endswith(str, suf)                                                     \
-  (strlen(suf) <= strlen(str) &&                                               \
-   strncmp(str + strlen(str) - strlen(suf), suf, strlen(suf)) == 0)
+bool eq(char *, char*);
+bool startswith(char *, char*);
+bool endswith(char *, char*);
 
-char *readall(char *, int *);
-char *strrep(char *, char *, char *);
-void urldecode(char *);
-int stolower(char *, char *);
+bool file_read(char *, char *, size_t);
 bool file_canread(char *);
+size_t file_size(char *);
+
+void  urldecode(char *);
+void stolower(char *, char *);
 char *replace(char *, char, char);
 char *join(char *, char *);
-bool contains(char *, char);
-bool validate(char *, char *, char);
-int digits(int);
+bool  contains(char *, char);
+bool  validate(char *, char *, char);
+int   digits(int);
+bool  is_digit(char);
+bool  is_letter(char);

@@ -3,13 +3,15 @@
 
 work_t *pool_work(func_t func, void *arg) {
   work_t *work = malloc(sizeof(work_t));
-  work->next = NULL;
-  work->func = func;
-  work->arg = arg;
+  work->next   = NULL;
+  work->func   = func;
+  work->arg    = arg;
   return work;
 }
 
-void pool_free(work_t *work) { free(work); }
+void pool_free(work_t *work) {
+  free(work);
+}
 
 work_t *pool_get(pool_t *tp) {
   work_t *work;
@@ -61,14 +63,14 @@ void *pool_worker(void *arg) {
 
 pool_t *pool_init(int n) {
   pool_t *tp = calloc(1, sizeof(pool_t));
-  tp->all = n;
+  tp->all    = n;
 
   pthread_mutex_init(&(tp->mutex), NULL);
   pthread_cond_init(&(tp->work_lock), NULL);
   pthread_cond_init(&(tp->thread_lock), NULL);
 
   tp->first = NULL;
-  tp->last = NULL;
+  tp->last  = NULL;
 
   pthread_t handle;
   for (int i = 0; i < n; i++) {
@@ -86,10 +88,10 @@ bool pool_add(pool_t *tp, func_t func, void *arg) {
   pthread_mutex_lock(&(tp->mutex));
   if (tp->first == NULL) {
     tp->first = work;
-    tp->last = tp->first;
+    tp->last  = tp->first;
   } else {
     tp->last->next = work;
-    tp->last = work;
+    tp->last       = work;
   }
 
   pthread_cond_broadcast(&(tp->work_lock));

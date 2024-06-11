@@ -2,10 +2,10 @@
 Language:        Cpp
 # BasedOnStyle:  LLVM
 AccessModifierOffset: -2
-AlignAfterOpenBracket: Align
-AlignArrayOfStructures: None
+AlignAfterOpenBracket: DontAlign
+AlignArrayOfStructures: Left
 AlignConsecutiveAssignments:
-  Enabled:         false
+  Enabled:         true
   AcrossEmptyLines: false
   AcrossComments:  false
   AlignCompound:   false
@@ -17,7 +17,7 @@ AlignConsecutiveBitFields:
   AlignCompound:   false
   PadOperators:    false
 AlignConsecutiveDeclarations:
-  Enabled:         false
+  Enabled:         true 
   AcrossEmptyLines: false
   AcrossComments:  false
   AlignCompound:   false
@@ -38,7 +38,7 @@ AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: All
+AllowShortFunctionsOnASingleLine: None
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLambdasOnASingleLine: All
 AllowShortLoopsOnASingleLine: false
@@ -48,7 +48,7 @@ AlwaysBreakBeforeMultilineStrings: false
 AlwaysBreakTemplateDeclarations: MultiLine
 AttributeMacros:
   - __capability
-BinPackArguments: true
+BinPackArguments: false
 BinPackParameters: true
 BitFieldColonSpacing: Both
 BraceWrapping:
@@ -81,7 +81,7 @@ BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeColon
 BreakInheritanceList: BeforeColon
 BreakStringLiterals: true
-ColumnLimit:     80
+ColumnLimit:     120
 CommentPragmas:  '^ IWYU pragma:'
 CompactNamespaces: false
 ConstructorInitializerIndentWidth: 4
@@ -222,4 +222,5 @@ WhitespaceSensitiveMacros:
   - PP_STRINGIZE
   - STRINGIZE
 ...
+
 
