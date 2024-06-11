@@ -1,6 +1,6 @@
 #pragma once
 
-#define CTORM_VERSION "1.4"
+#define CTORM_VERSION "1.3"
 
 #include <event2/event.h>
 
