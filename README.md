@@ -3,7 +3,7 @@
   _____/ /__________  ____ ___ 
  / ___/ __/ ___/ __ \/ __ `__ \
 / /__/ /_/ /  / /_/ / / / / / /
-\___/\__/_/   \____/_/ /_/ /_/ v1.2
+\___/\__/_/   \____/_/ /_/ /_/ v1.3
                                
 ```
 
@@ -14,30 +14,30 @@ ctorm is a libevent based, multi-threaded HTTP server for `HTTP/1.1` and `HTTP/1
 It has a (fairly) easy API for general web server applications. 
 
 ### Important!!!
-This software is pretty much in alpha state. I don't you should be using ctorm on
+This software is pretty much in alpha state. I don't suggest you use ctorm on
 production, however it can be used to build simple web applications just for fun.
 
 I do plan to continue the development of this project, so please consider contributing
 if you are interested.
 
 ### Features
-- URL queries (parameters)
+- Wildcard routes
+- Middleware support
 - Form body parsing
-- Simple dynamic 'rendering'
-- Sending files
+- URL queries (parameters)
 - Handling 404 (all) routes
-- Regex based routing
+- Sending files and static file serving
 
 ### Benchmarking
 Benchmark results for hello world applications (see [benchmark](benchmark/)):
 
-| Framework        | Time per request | 
-| ---------------- | ---------------- |
-| crow (C++)       | ~3 ms            |
-| fiber (Go)       | ~3 ms            |
-| **ctorm (C)**    | **~4 ms**        |
-| tide (Rust)      | ~10 ms           |
-| express (NodeJS) | ~24 ms           |
+| Framework        | Version       | Time per request | 
+| ---------------- | ------------- | ---------------- |
+| crow (C++)       | v1.2.0        | ~4 ms            |
+| fiber (Go)       | v3.0.0-beta.1 | ~4 ms            |
+| **ctorm (C)**    | **v1.3**      | **~5 ms**        |
+| tide (Rust)      | 0.16.0        | ~12 ms           |
+| express (NodeJS) | 4.19.2        | ~21 ms           |
 
 ### Installation
 You will need the following software in order to build and install ctorm:
@@ -105,7 +105,6 @@ FROM ghcr.io/ngn13/ctorm:latest
 WORKDIR /app
 
 # copy over all the sources
-COPY template  ./template
 COPY src       ./src
 COPY Makefile  ./
 COPY main.c    ./
@@ -118,9 +117,16 @@ CMD ["/app/server"]
 ```
 
 ### Development 
-For development purposes, you can use the example application, and compile the library with debug mode:
+For development, you can compile the library with debug mode:
 ```bash
-make DEBUG=1 && make test
+make DEBUG=1
+```
+then you can use the example applications for testing:
+```bash
+pushd examples
+    make
+popd
+LD_LIBRARY_PATH=./dist ./dist/example_hello
 ```
 
 ---

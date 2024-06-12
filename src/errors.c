@@ -17,11 +17,12 @@ struct app_error_desc_t descs[] = {
     {.code = SizeFail,      .desc = "failed to get the size of the file"},
     {.code = CantRead,      .desc = "failed to read the file"           },
     {.code = FileNotExists, .desc = "file does not exist"               },
+    {.code = BadPath,       .desc = "invalid HTTP path"                 },
 };
 
 char *app_geterror_code(app_error_t code) {
-  for (int i = 0; i < sizeof(descs) / sizeof(struct app_error_desc_t); i++){
-    if(descs[i].code == code)
+  for (int i = 0; i < sizeof(descs) / sizeof(struct app_error_desc_t); i++) {
+    if (descs[i].code == code)
       return descs[i].desc;
   }
   return NULL;

@@ -1,7 +1,7 @@
+#include "../include/log.h"
 #include "../include/ctorm.h"
 #include "../include/req.h"
 #include "../include/res.h"
-#include "../include/log.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -18,8 +18,8 @@ void log_req(double time, req_t *req, res_t *res) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_MAGENTA "%s" COLOR_BOLD COLOR_MAGENTA " [ log ] " COLOR_RESET COLOR_CYAN "(%.0fμs)" COLOR_RESET COLOR_GREEN
-                                  " %s %s" COLOR_CYAN " => " COLOR_RESET "%d",
+  printf(COLOR_MAGENTA "%s" COLOR_BOLD COLOR_MAGENTA " [ log ] " COLOR_RESET COLOR_CYAN
+                       "(%.0fμs)" COLOR_RESET COLOR_GREEN " %s %s" COLOR_CYAN " => " COLOR_RESET "%d",
       tstr,
       time,
       req_method(req),
@@ -80,7 +80,7 @@ void debug(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_CYAN "%s" COLOR_RESET COLOR_CYAN COLOR_BOLD  " [debug] " COLOR_RESET, tstr);
+  printf(COLOR_CYAN "%s" COLOR_RESET COLOR_CYAN COLOR_BOLD " [debug] " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 

@@ -46,9 +46,9 @@ extern http_static_t http_static;
 void                 http_static_load();
 
 // helpers for HTTP methods
-int   http_method_id(char *);
-char *http_method_name(int);
-bool  http_method_has_body(int);
+method_t http_method_id(char *);
+char    *http_method_name(int);
+bool     http_method_has_body(int);
 
 // helpers for HTTP versions
 char *http_version_get(char *);

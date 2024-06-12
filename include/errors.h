@@ -15,6 +15,7 @@ typedef enum app_error_t {
   SizeFail      = 9920,
   BadReadPerm   = 9921,
   FileNotExists = 9922,
+  BadPath       = 9923,
 } app_error_t;
 
 struct app_error_desc_t {

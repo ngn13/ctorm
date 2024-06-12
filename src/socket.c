@@ -23,10 +23,10 @@ void socket_handle(socket_args_t *_args) {
   socket_args_t *args = (socket_args_t *)_args;
   debug("(Socket %d) Created thread", args->socket);
 
-  struct sockaddr* addr  = args->address;
-  evutil_socket_t socket = args->socket;
-  app_t          *app    = args->app;
-  size_t buffer_size;
+  struct sockaddr *addr   = args->address;
+  evutil_socket_t  socket = args->socket;
+  app_t           *app    = args->app;
+  size_t           buffer_size;
 
   req_t req;
   req_init(&req);
@@ -35,12 +35,12 @@ void socket_handle(socket_args_t *_args) {
   res_init(&res);
 
   // set the request address
-  if(addr->sa_family == AF_INET){
+  if (addr->sa_family == AF_INET) {
     req.addr = malloc(INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &((struct sockaddr_in*)addr)->sin_addr, req.addr, INET_ADDRSTRLEN);
-  }else if(addr->sa_family == AF_INET6){
+    inet_ntop(AF_INET, &((struct sockaddr_in *)addr)->sin_addr, req.addr, INET_ADDRSTRLEN);
+  } else if (addr->sa_family == AF_INET6) {
     req.addr = malloc(INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, &((struct sockaddr_in*)addr)->sin_addr, req.addr, INET6_ADDRSTRLEN);
+    inet_ntop(AF_INET6, &((struct sockaddr_in *)addr)->sin_addr, req.addr, INET6_ADDRSTRLEN);
   }
 
   // measure the time that takes
@@ -82,7 +82,7 @@ void socket_handle(socket_args_t *_args) {
   }
 
   res.version = req.version;
-  if(!app->config->server_header)
+  if (!app->config->server_header)
     res_del(&res, "Server");
   app_route(app, &req, &res);
 
@@ -96,9 +96,9 @@ close:
   // finish the measurement and print out
   // the result
   if (RET_OK == ret) {
-    time = (clock() - time) * 1000000;
+    time          = (clock() - time) * 1000000;
     double passed = (((double)time) / CLOCKS_PER_SEC);
-    if(!app->config->disable_logging)
+    if (!app->config->disable_logging)
       log_req(passed, &req, &res);
   }
 
@@ -139,7 +139,7 @@ bool socket_set_opts(app_t *app, int socket) {
 
 void socket_con(struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *address, int socklen, void *ctx) {
   socket_args_t *args = malloc(sizeof(socket_args_t));
-  args->address = address;
+  args->address       = address;
   args->socket        = fd;
   args->app           = ctx;
 

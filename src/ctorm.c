@@ -28,7 +28,6 @@
 
 #include <errno.h>
 #include <event2/event.h>
-#include <regex.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -96,6 +95,13 @@ void app_free(app_t *app) {
   close(1);
   dup2(stdout_cp, 1);
 
+  routemap_t *cur = app->maps, *prev = NULL;
+  while (NULL != cur) {
+    prev = cur;
+    cur  = cur->next;
+    free(prev);
+  }
+
   free(app);
 }
 
@@ -154,27 +160,43 @@ bool app_run(app_t *app, const char *addr) {
   return ret;
 }
 
-void app_static(app_t *app, char *path, char *dir) {
+bool app_static(app_t *app, char *path, char *dir) {
+  if (path[0] != '/') {
+    errno = BadPath;
+    return false;
+  }
+
   app->staticpath = path;
   app->staticdir  = dir;
+  return true;
 }
 
 void app_all(app_t *app, route_t handler) {
   app->allroute = handler;
 }
 
-bool app_add(app_t *app, char *method, bool is_regex, char *path, route_t handler) {
+bool app_add(app_t *app, char *method, bool is_middleware, char *path, route_t handler) {
+  if (path[0] != '/') {
+    errno = BadPath;
+    return false;
+  }
+
   routemap_t *new = malloc(sizeof(routemap_t));
   if (NULL == new) {
     errno = AllocFailed;
     return false;
   }
 
-  new->method   = http_method_id(method);
-  new->is_regex = is_regex;
-  new->handler  = handler;
-  new->path     = path;
-  new->next     = NULL;
+  new->method        = http_method_id(method);
+  new->is_middleware = is_middleware;
+  new->handler       = handler;
+  new->next          = NULL;
+  new->path          = path;
+
+  if (-1 == new->method)
+    new->is_all = true;
+  else
+    new->is_all = false;
 
   if (NULL == app->maps) {
     app->maps = new;
@@ -182,13 +204,15 @@ bool app_add(app_t *app, char *method, bool is_regex, char *path, route_t handle
   }
 
   routemap_t *cur = app->maps;
-  while (true) {
+  while (NULL != cur) {
     if (NULL == cur->next) {
       cur->next = new;
       return true;
     }
-    cur = app->maps->next;
+    cur = cur->next;
   }
+
+  return false;
 }
 
 void app_404(req_t *req, res_t *res) {
@@ -198,87 +222,112 @@ void app_404(req_t *req, res_t *res) {
 }
 
 void app_route(app_t *app, req_t *req, res_t *res) {
-  bool    found = false;
-  regex_t regex;
+  // matches will be stored in a list,
+  // this way we can make sure that we call
+  // middlewares before the actual routes
+  routemap_t **middlewares = malloc(sizeof(routemap_t *));
+  size_t       mindex      = 0;
+
+  routemap_t **routes = malloc(sizeof(routemap_t *));
+  size_t       rindex = 0;
+
+  middlewares[mindex] = NULL;
+  routes[rindex]      = NULL;
 
   routemap_t *cur = app->maps;
   while (NULL != cur) {
-    if (cur->method != req->method) {
-      cur = cur->next;
-      continue;
+    // if the method does not match and the route does not handle
+    // all the methods, continue
+    if (cur->method != req->method && !cur->is_all)
+      goto cont;
+
+    // compare the paths
+    if (!path_matches(cur->path, req->path))
+      goto cont;
+
+    // add it to the middleware list
+    if (cur->is_middleware) {
+      middlewares[mindex++] = cur;
+      middlewares           = realloc(middlewares, sizeof(routemap_t *) * (mindex + 1));
+      middlewares[mindex++] = NULL;
+      goto cont;
     }
 
-    if (cur->is_regex)
-      goto regex;
+    // add it to the routes list
+    routes[rindex++] = cur;
+    routes           = realloc(routes, sizeof(routemap_t *) * (rindex + 1));
+    routes[rindex++] = NULL;
 
-    if (eq(cur->path, req->path)) {
-      cur->handler(req, res);
-      found = true;
-    }
-
+  cont:
     cur = cur->next;
-    continue;
-
-  regex:
-    if (regcomp(&regex, cur->path, 0)) {
-      error("Skipping bad route: %s", cur->path);
-      cur = cur->next;
-      continue;
-    }
-
-    if (regexec(&regex, req->path, 0, NULL, 0) == REG_NOMATCH) {
-      regfree(&regex);
-      cur = cur->next;
-      continue;
-    }
-
-    regfree(&regex);
-    cur->handler(req, res);
-    found = true;
-    cur   = cur->next;
   }
 
-  if (found)
-    goto done;
+  // call the middlewars, stop if a middleware cancels the request
+  for (int i = 0; !req->cancel && middlewares[i] != NULL; i++)
+    middlewares[i]->handler(req, res);
 
+  // if the request is not cancelled, call all the routes
+  if (!req->cancel) {
+    for (int i = 0; routes[i] != NULL; i++)
+      routes[i]->handler(req, res);
+  }
+
+  // cleanup the lists
+  free(middlewares);
+  free(routes);
+
+  // is the request already handled?
+  if (rindex != 0 || mindex != 0)
+    return;
+
+  // if not check if we have a static route configured
   if (NULL == app->staticpath || NULL == app->staticdir || METHOD_GET != req->method)
-    goto done;
+    return app->allroute(req, res);
 
-  char *staticpath, *realpath = strdup(req->path);
-  int   staticpath_len = strlen(app->staticpath);
+  // if so, check if this request can be handled with the static route
+  size_t path_len   = strlen(req->path);
+  size_t static_len = strlen(app->staticpath);
+  char   staticpath[static_len + 2], realpath[path_len + 1];
 
-  if (app->staticpath[staticpath_len - 1] != '/')
-    staticpath = join(app->staticpath, "");
-  else
-    staticpath = strdup(app->staticpath);
+  memcpy(staticpath, app->staticpath, static_len + 1);
+  memcpy(realpath, req->path, path_len + 1);
 
-  if (startswith(realpath, staticpath)) {
-    memmove(realpath, realpath + strlen(staticpath), strlen(realpath));
-    if (realpath[strlen(realpath) - 1] == '/')
-      goto skip;
-
-    char *fp = join(app->staticdir, realpath);
-    if (contains(fp, '\\') || strstr(fp, "..") != NULL) {
-      free(fp);
-      goto skip;
-    }
-
-    if (!file_canread(fp)) {
-      free(fp);
-      goto skip;
-    }
-
-    res_sendfile(res, fp);
-    res->code = 200;
-    found     = true;
-    free(fp);
+  if (staticpath[static_len - 1] != '/') {
+    staticpath[static_len]     = '/';
+    staticpath[static_len + 1] = 0;
+    static_len++;
   }
 
-skip:
-  free(staticpath);
-  free(realpath);
+  if (!startswith(realpath, staticpath))
+    return app->allroute(req, res);
 
-done:
-  if (!found)
-    app->allroute(req, res);
+  memmove(realpath, realpath + static_len, path_len);
+  path_len -= static_len;
+
+  if (path_len < 2)
+    goto end;
+
+  if (realpath[path_len - 1] == '/')
+    goto end;
+
+  char *fp = join(app->staticdir, realpath);
+  if (contains(fp, '\\') || strstr(fp, "..") != NULL) {
+    free(fp);
+    goto end;
+  }
+
+  if (!res_sendfile(res, fp)) {
+    res->code = 404;
+    free(fp);
+    goto end;
+  }
+
+  res->code = 200;
+  free(fp);
+  return;
+
+end:
+  // if the request can't be handled, call the all route
+  // by default its the 404 route
+  return app->allroute(req, res);
 }

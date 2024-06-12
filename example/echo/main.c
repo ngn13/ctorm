@@ -1,4 +1,4 @@
-#include "../../include/macros.h"
+#include "../../include/all.h"
 #include <string.h>
 
 void handle_notfound(req_t *req, res_t *res) {
@@ -7,26 +7,26 @@ void handle_notfound(req_t *req, res_t *res) {
 }
 
 void handle_post(req_t *req, res_t *res) {
-  body_t *body = req_body_parse(req);
+  body_t *body = REQ_FORM();
   if (NULL == body)
     return RES_SEND("bad body");
 
-  char *msg = req_body_get(body, "msg");
+  char *msg = req_form_get(body, "msg");
   if (NULL == msg)
     return RES_SEND("bad body");
 
   info("Message: %s", msg);
 
-  char ret[strlen(msg)+20];
+  char ret[strlen(msg) + 20];
   sprintf(ret, "Message: %s", msg);
   RES_SEND(ret);
 
   RES_SET("Cool", "yes");
-  req_body_free(body);
+  req_form_free(body);
 }
 
 void handle_get(req_t *req, res_t *res) {
-  if(!RES_SENDFILE("./example/echo/html/index.html"))
+  if (!RES_SENDFILE("./example/echo/html/index.html"))
     error("Failed to send index.html: %s", app_geterror());
 }
 

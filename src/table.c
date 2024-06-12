@@ -102,8 +102,8 @@ char **table_next(table_t *t, char **prev) {
   return NULL;
 }
 
-void table_free_node(table_node_t *n){
-  if(n->alloced){
+void table_free_node(table_node_t *n) {
+  if (n->alloced) {
     free(n->key);
     free(n->value);
   }
@@ -123,13 +123,13 @@ void table_free(table_t *t) {
 bool table_del(table_t *t, char *key) {
   table_node_t *cur = t->head, *prev = NULL;
   while (cur) {
-    if (!eq(cur->key, key)){
+    if (!eq(cur->key, key)) {
       prev = cur;
-      cur = cur->next;
+      cur  = cur->next;
       continue;
     }
 
-    if(NULL == prev)
+    if (NULL == prev)
       t->head = cur->next;
     else
       prev->next = cur->next;

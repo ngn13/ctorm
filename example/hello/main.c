@@ -1,4 +1,4 @@
-#include "../../include/macros.h"
+#include "../../include/all.h"
 
 void handle_get(req_t *req, res_t *res) {
   RES_SEND("Hello world!");
@@ -8,6 +8,8 @@ int main() {
   // create the app configuration
   app_config_t config;
   app_config_new(&config);
+
+  // example: disable the server header
   config.server_header = false;
 
   // create the app

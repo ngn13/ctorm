@@ -1,5 +1,4 @@
 #include "../include/util.h"
-#include <sys/stat.h>
 #include <assert.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -8,61 +7,62 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-bool eq(char *s1, char *s2){
-  if(NULL == s1 || NULL == s2)
+bool eq(char *s1, char *s2) {
+  if (NULL == s1 || NULL == s2)
     return false;
 
-  if(strlen(s1) != strlen(s2))
+  if (strlen(s1) != strlen(s2))
     return false;
 
   return strcmp(s1, s2) == 0;
 }
 
-bool startswith(char *str, char *pre){
-  if(NULL == str || NULL == pre)
+bool startswith(char *str, char *pre) {
+  if (NULL == str || NULL == pre)
     return false;
 
   size_t prel = strlen(pre);
-  if(prel > strlen(str))
+  if (prel > strlen(str))
     return false;
 
   return strncmp(pre, str, prel) == 0;
 }
 
-bool endswith(char *str, char *suf){
-  if(NULL == str || NULL == suf)
+bool endswith(char *str, char *suf) {
+  if (NULL == str || NULL == suf)
     return false;
 
   size_t sufl = strlen(suf);
   size_t strl = strlen(str);
 
-  if(sufl > strl)
+  if (sufl > strl)
     return false;
 
-  return strncmp(str+(strl-sufl), suf, sufl) == 0;
+  return strncmp(str + (strl - sufl), suf, sufl) == 0;
 }
 
 bool file_read(char *path, char *buffer, size_t size) {
   int fd = open(path, O_RDONLY);
-  if(fd < 0)
+  if (fd < 0)
     return false;
 
-  if(read(fd, buffer, size)<0)
+  if (read(fd, buffer, size) < 0)
     return false;
 
   close(fd);
   return true;
 }
 
-bool file_canread(char *path){
+bool file_canread(char *path) {
   return access(path, O_RDONLY) == 0;
 }
 
 size_t file_size(char *path) {
   struct stat st;
-  if(stat(path, &st) < 0)
+  if (stat(path, &st) < 0)
     return -1;
 
   return st.st_size;
@@ -147,11 +147,92 @@ void urldecode(char *str) {
   *(step_ptr) = '\0';
 }
 
-char *replace(char *s, char c, char n) {
-  char *copy = strdup(s);
-  for (int i = 0; i < strlen(copy); i++) {
-    if (copy[i] == c)
-      copy[i] = n;
+bool path_matches(char *route, char *path) {
+  if (NULL == route || NULL == path)
+    return false;
+
+  if (route[0] != '/' || path[0] != '/')
+    return false;
+
+  char  *c = NULL, *save = NULL;
+  size_t rsc = 0, psc = 0, sc = 0;
+  size_t rlen = 0, plen = 0;
+  bool   wildcard = false;
+
+  for (c = route; *c != 0; c++) {
+    if (*c == '*')
+      wildcard = true;
+
+    if (*c == '/')
+      rsc++;
+    rlen++;
   }
-  return copy;
+
+  if (!wildcard)
+    return eq(route, path);
+
+  for (c = path; *c != 0; c++) {
+    if (*c == '/')
+      psc++;
+    plen++;
+  }
+
+  char route_cp[rlen + 1], *rsub[rsc];
+  char path_cp[plen + 1], *psub[psc];
+
+  memcpy(route_cp, route, sizeof(route_cp));
+  memcpy(path_cp, path, sizeof(path_cp));
+
+  // remove trailing '/'
+  if (route_cp[rlen - 1] == '/') {
+    route_cp[rlen - 1] = 0;
+    rlen--;
+    rsc--;
+  }
+
+  if (path_cp[plen - 1] == '/') {
+    path_cp[plen - 1] = 0;
+    plen--;
+    psc--;
+  }
+
+  if (rsc != psc)
+    return false;
+  sc = rsc = psc;
+
+  if (sc == 1) {
+    // "/*" matches "/..."
+    if (rlen == 2 && route_cp[1] == '*')
+      return true;
+  }
+
+  rsub[0] = strtok_r(route_cp, "/", &save);
+  if (NULL == rsub[0])
+    return false;
+
+  for (int i = 1; i < sc; i++)
+    rsub[i] = strtok_r(NULL, "/", &save);
+
+  psub[0] = strtok_r(path_cp, "/", &save);
+  if (NULL == psub[0])
+    return false;
+
+  for (int i = 1; i < sc; i++)
+    psub[i] = strtok_r(NULL, "/", &save);
+
+  for (int i = 0; i < sc; i++) {
+    if (NULL == rsub[i] && NULL != psub[i])
+      return false;
+
+    if (NULL != rsub[i] && NULL == psub[i])
+      return false;
+
+    if (rsub[i][0] == '*')
+      continue;
+
+    if (!eq(rsub[i], psub[i]))
+      return false;
+  }
+
+  return true;
 }

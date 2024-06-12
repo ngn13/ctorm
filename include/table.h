@@ -20,4 +20,4 @@ bool   table_update(table_t *, char *, char *);
 char **table_next(table_t *, char **);
 char  *table_get(table_t *, char *);
 void   table_free(table_t *);
-bool table_del(table_t *, char *);
+bool   table_del(table_t *, char *);

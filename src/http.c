@@ -36,7 +36,7 @@ void http_static_load() {
   }
 }
 
-int http_method_id(char *name) {
+method_t http_method_id(char *name) {
   for (int i = 0; i < http_static.method_count; i++)
     if (eq(http_method_map[i].name, name))
       return http_method_map[i].code;

@@ -1,4 +1,5 @@
 express/node_modules
 fiber/fiber
-crow/out
 ctorm/out
+crow/crow_all.h
+crow/out

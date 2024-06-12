@@ -19,18 +19,18 @@ char valid_header[] = "_ :;.,\\/\"'?!(){}[]@<>=-+*#$&`|~^%";
 char valid_path[]   = "-._~:/?#[]@!$&'()*+,;%=";
 
 bool parse_form(table_t *table, char *data) {
-  if(NULL == data || NULL == table)
+  if (NULL == data || NULL == table)
     return false;
 
   size_t size = strlen(data), index = 0;
-  char key[size+1], value[size+1];
-  bool iskey = true;
+  char   key[size + 1], value[size + 1];
+  bool   iskey = true;
 
-  if(size <= 0)
+  if (size <= 0)
     return false;
 
-  bzero(key, size+1);
-  bzero(value, size+1);
+  bzero(key, size + 1);
+  bzero(value, size + 1);
 
   for (char *c = data; *c != 0; c++) {
     if (*c == '=' && iskey) {
@@ -45,30 +45,30 @@ bool parse_form(table_t *table, char *data) {
 
       urldecode(key);
       urldecode(value);
-      
+
       table_add(table, strdup(key), true);
       table_set(table, strdup(value));
 
       continue;
     }
 
-    if(iskey){
-      key[index] = *c;
-      key[index+1] = 0;
-    }else {
-      value[index] = *c;
-      value[index+1] = 0;
+    if (iskey) {
+      key[index]     = *c;
+      key[index + 1] = 0;
+    } else {
+      value[index]     = *c;
+      value[index + 1] = 0;
     }
 
     index++;
   }
 
-  if(iskey)
+  if (iskey)
     return true;
-  
+
   urldecode(key);
   urldecode(value);
-      
+
   table_add(table, strdup(key), true);
   table_set(table, strdup(value));
 
@@ -76,13 +76,21 @@ bool parse_form(table_t *table, char *data) {
 }
 
 parse_ret_t parse_request(req_t *req, int socket) {
+  char        state = STATE_METHOD_0, temp = 0;
+  size_t      size = BUFFER_SIZE, index = 0;
+  ssize_t     read = -1;
+  parse_ret_t ret  = RET_BADREQ;
+
   // we extend the buffer 200 bytes everytime
   // this is to prevent using realloc as much as possible
-  char        state = STATE_METHOD_0, temp = 0;
-  size_t      size = 200, index = 0;
-  ssize_t     read   = -1;
-  char       *buffer = malloc(size);
-  parse_ret_t ret    = RET_BADREQ;
+
+  // also to prevent allocing from the heap, we'll start by
+  // allocating on the stack
+  char  _buffer[size];
+  char *buffer = _buffer;
+
+  // we don't really need to zero the buffer
+  // bzero(buffer, size);
 
   // one byte at a time...
   while ((read = recv(socket, buffer + index, 1, MSG_WAITALL)) > 0) {
@@ -128,6 +136,10 @@ parse_ret_t parse_request(req_t *req, int socket) {
       // if buffer is larger than the maximum path
       // limit, then its a bad request
       if (index > http_static.path_max)
+        goto end;
+
+      // path should always start with "/"
+      if (0 == index && buffer[index] != '/')
         goto end;
 
       // check if char is a valid path char
@@ -182,7 +194,7 @@ parse_ret_t parse_request(req_t *req, int socket) {
 
       // replace the '\r' or '\n' with null terminator
       // we will restore it later
-      temp = buffer[index];
+      temp          = buffer[index];
       buffer[index] = 0;
 
       // get the static pointer for the HTTP version
@@ -386,36 +398,36 @@ parse_ret_t parse_request(req_t *req, int socket) {
       ret = RET_OK;
 
       // can the request method have a body?
-      if(!http_method_has_body(req->method))
+      if (!http_method_has_body(req->method))
         goto end;
 
       // do we have the content length header?
       char *contentlen = req_header(req, "content-length");
-      if(NULL == contentlen)
+      if (NULL == contentlen)
         goto end;
 
-      // if so, then parse the header value 
+      // if so, then parse the header value
       req->bodysize = atol(contentlen);
-      if(size <= 0)
+      if (size <= 0)
         goto end;
 
-      // make sure the body is not too large 
-      if(req->bodysize > http_static.body_max){
+      // make sure the body is not too large
+      if (req->bodysize > http_static.body_max) {
         ret = RET_TOOLARGE;
         goto end;
       }
 
       // allocate and receive body
-      req->body   = malloc(req->bodysize);
+      req->body = malloc(req->bodysize);
       if (recv(socket, req->body, req->bodysize, MSG_WAITALL) > 0)
         goto end;
-     
+
       // connection failed? cleanup and return
       free(req->body);
       req->bodysize = 0;
-      req->body = NULL;
-      ret = RET_CONFAIL;
-    
+      req->body     = NULL;
+      ret           = RET_CONFAIL;
+
       goto end;
       break;
 
@@ -428,12 +440,15 @@ parse_ret_t parse_request(req_t *req, int socket) {
     // move to the next char
     index++;
 
-    // realloc if buffer is full
-    if (index >= size) {
-      size += size;
-      buffer = realloc(buffer, size);
-    }
+    if (index < size)
+      continue;
 
+    // realloc if buffer is full
+    // or malloc we are still on the stack
+    if (size == BUFFER_SIZE)
+      buffer = malloc((size *= 2));
+    else
+      buffer = realloc(buffer, (size *= 2));
     continue;
 
   next:
@@ -452,25 +467,25 @@ end:
   if (RET_OK != ret)
     goto ret;
 
-  char *save = NULL, *rest = NULL, *dup = NULL; 
+  char *save = NULL, *rest = NULL, *dup = NULL;
 
-  if(!contains(req->encpath, '?')){
+  if (!contains(req->encpath, '?')) {
     req->path = req->encpath;
     goto ret;
   }
 
   // read the first part of the path
-  dup = strdup(req->encpath);
+  dup       = strdup(req->encpath);
   req->path = strtok_r(dup, "?", &save);
 
-  if(NULL == req->path){
+  if (NULL == req->path) {
     req->path = req->encpath;
     free(dup);
     goto ret;
   }
 
   rest = strtok_r(NULL, "?", &save);
-  if(NULL == rest){
+  if (NULL == rest) {
     req->path = strdup(req->path);
     free(dup);
     goto ret;
@@ -482,6 +497,7 @@ end:
 
 ret:
   // free the buffer and return the result
-  free(buffer);
+  if (size != BUFFER_SIZE)
+    free(buffer);
   return ret;
 }

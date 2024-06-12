@@ -4,6 +4,7 @@
 #include "../include/table.h"
 #include "../include/util.h"
 
+#include <cjson/cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@ void req_init(req_t *req) {
   table_init(&req->headers);
   table_init(&req->query);
 
+  req->cancel  = false;
   req->version = NULL;
   req->encpath = NULL;
   req->path    = NULL;
@@ -24,11 +26,11 @@ void req_init(req_t *req) {
 void req_free(req_t *req) {
   table_free(&req->headers);
   table_free(&req->query);
-  
+
   free(req->body);
   free(req->addr);
 
-  if(req->encpath == req->path){
+  if (req->encpath == req->path) {
     free(req->encpath);
     return;
   }
@@ -50,42 +52,47 @@ bool req_body(req_t *req, char *buffer) {
   return true;
 }
 
-size_t req_body_size(req_t *req){
-  if(req->bodysize <= 0)
+size_t req_body_size(req_t *req) {
+  if (req->bodysize <= 0)
     return 0;
-  return req->bodysize+1;
+  return req->bodysize + 1;
 }
 
-table_t *req_body_parse(req_t *req) {
+table_t *req_form_parse(req_t *req) {
   size_t size = req_body_size(req);
-  if(size == 0)
+  if (size == 0)
     return NULL;
 
   char *contentt = req_header(req, "content-type");
   if (!startswith(contentt, "application/x-www-form-urlencoded"))
     return NULL;
-  
-  char data[size];
-  req_body(req, data);
 
-  table_t *table = malloc(sizeof(table_t));
-  table_init(table);
-  
-  if(!parse_form(table, data)){
-    table_free(table);
-    free(table);
+  char data[size];
+  if (!req_body(req, data))
+    return NULL;
+
+  table_t *form = malloc(sizeof(table_t));
+  table_init(form);
+
+  if (!parse_form(form, data)) {
+    table_free(form);
+    free(form);
     return NULL;
   }
 
-  return table;
+  return form;
 }
 
-char *req_body_get(table_t *body, char *key) {
-  return table_get(body, key);
+char *req_form_get(table_t *form, char *key) {
+  if (NULL == form)
+    return NULL;
+  return table_get(form, key);
 }
 
-void req_body_free(table_t *body) {
-  table_free(body);
+void req_form_free(table_t *form) {
+  if (NULL == form)
+    return;
+  table_free(form);
 }
 
 char *req_method(req_t *req) {
@@ -119,23 +126,23 @@ size_t req_size(req_t *req) {
 }
 
 void req_tostr(req_t *req, char *str) {
-  char *method = req_method(req);
-  char **cur = table_next(&req->headers, NULL);
-  size_t index = 0;
-  
-  index += sprintf(str+index, "%s %s %s\n", method, req->encpath, req->version);
+  char  *method = req_method(req);
+  char **cur    = table_next(&req->headers, NULL);
+  size_t index  = 0;
+
+  index += sprintf(str + index, "%s %s %s\n", method, req->encpath, req->version);
 
   while (cur) {
     index += sprintf(str + index, "%s: %s\n", cur[0], cur[1]);
     cur = table_next(&req->headers, cur);
   }
 
-  sprintf(str+index, "\n");
+  sprintf(str + index, "\n");
 }
 
 char *req_header(req_t *req, char *name) {
   size_t len = strlen(name);
-  char low[len+1];
+  char   low[len + 1];
   stolower(name, low);
 
   char **cur = table_next(&req->headers, NULL);
@@ -152,4 +159,25 @@ char *req_header(req_t *req, char *name) {
   }
 
   return NULL;
+}
+
+cJSON *req_json_parse(req_t *req) {
+  size_t size = req_body_size(req);
+  if (size == 0)
+    return NULL;
+
+  char *contentt = req_header(req, "content-type");
+  if (!startswith(contentt, "application/json"))
+    return NULL;
+
+  char data[size];
+  if (!req_body(req, data))
+    return NULL;
+
+  return cJSON_Parse(data);
+}
+
+void req_json_free(cJSON *json) {
+  if (NULL != json)
+    cJSON_Delete(json);
 }

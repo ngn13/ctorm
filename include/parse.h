@@ -1,6 +1,7 @@
 #include "ctorm.h"
 #include "req.h"
-#define BUF_MAX 8192
+
+#define BUFFER_SIZE 100
 
 typedef enum parse_ret {
   RET_CONFAIL  = 0,
@@ -20,5 +21,5 @@ typedef enum parse_state {
   STATE_BODY_7    = 7,
 } parse_state_t;
 
-bool parse_form(table_t *, char *);
+bool        parse_form(table_t *, char *);
 parse_ret_t parse_request(req_t *, int);

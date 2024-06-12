@@ -21,9 +21,10 @@ typedef void (*route_t)(req_t *, res_t *);
 // #############################
 typedef struct routemap_t {
   struct routemap_t *next;
-  bool               is_regex;
+  bool               is_middleware;
+  bool               is_all;
   char              *path;
-  int                method;
+  method_t           method;
   route_t            handler;
 } routemap_t;
 
@@ -56,23 +57,9 @@ typedef struct app_t {
 
 app_t *app_new(app_config_t *config);         // creates a new application, use app_free() when you are done
 bool   app_run(app_t *app, const char *addr); // start the app on the specified address
-bool   app_add(app_t *app, char *method, bool is_regex, char *path, route_t handler); // add a new route
+bool   app_add(app_t *app, char *method, bool is_middleware, char *path, route_t handler); // add a new route
+bool   app_static(app_t *app, char *path, char *dir); // serve the static content in the dir on specifed the path
 void   app_all(app_t *app, route_t handler);          // handler for all the unhandled routes
-void   app_static(app_t *app, char *path, char *dir); // serve the static content in the dir on specifed the path
 void   app_route(app_t *app, req_t *request, res_t *response); // internal route handler
 void   app_404(req_t *request, res_t *response);               // internal 404 route handler, default for app_all()
 void   app_free(app_t *app); // frees and closes the resources of the created application
-
-#define GET(path, func) app_add(app, "GET", false, path, func)
-#define PUT(path, func) app_add(app, "PUT", false, path, func)
-#define HEAD(path, func) app_add(app, "HEAD", false, path, func)
-#define POST(path, func) app_add(app, "POST", false, path, func)
-#define DELETE(path, func) app_add(app, "DELETE", false, path, func)
-#define OPTIONS(path, func) app_add(app, "OPTIONS", false, path, func)
-
-#define GETR(path, func) app_add(app, "GET", true, path, func)
-#define PUTR(path, func) app_add(app, "PUT", true, path, func)
-#define HEADR(path, func) app_add(app, "HEAD", true, path, func)
-#define POSTR(path, func) app_add(app, "POST", true, path, func)
-#define DELETER(path, func) app_add(app, "DELETE", true, path, func)
-#define OPTIONSR(path, func) app_add(app, "OPTIONS", true, path, func)
