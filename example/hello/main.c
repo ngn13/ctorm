@@ -16,10 +16,10 @@ int main() {
   app_t *app = app_new(&config);
 
   // setup the routes
-  GET("/", handle_get);
+  GET(app, "/", handle_get);
 
   // run the app
-  if (!APP_RUN("0.0.0.0:8080"))
+  if (!app_run(app, "0.0.0.0:8080"))
     error("app failed: %s\n", app_geterror());
 
   // clean up

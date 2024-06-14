@@ -58,7 +58,7 @@ size_t req_body_size(req_t *req) {
   return req->bodysize + 1;
 }
 
-table_t *req_form_parse(req_t *req) {
+form_t *req_form_parse(req_t *req) {
   size_t size = req_body_size(req);
   if (size == 0)
     return NULL;
@@ -83,13 +83,13 @@ table_t *req_form_parse(req_t *req) {
   return form;
 }
 
-char *req_form_get(table_t *form, char *key) {
+char *req_form_get(form_t *form, char *key) {
   if (NULL == form)
     return NULL;
   return table_get(form, key);
 }
 
-void req_form_free(table_t *form) {
+void req_form_free(form_t *form) {
   if (NULL == form)
     return;
   table_free(form);

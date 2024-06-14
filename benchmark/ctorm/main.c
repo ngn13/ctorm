@@ -19,10 +19,10 @@ int main(){
   app_t *app = app_new(&config);
 
   // setup the hello_world route
-  GET("/", hello_world);
+  GET(app, "/", hello_world);
 
   // start the app
-  APP_RUN("127.0.0.1:8080");
+  app_run(app, "127.0.0.1:8080");
 
   // cleanup when done
   app_free(app);

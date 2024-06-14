@@ -45,8 +45,15 @@ void app_signal(int sig) {
   signal_app->running = false;
 }
 
-app_t *app_new(app_config_t *config) {
-  app_t *app = malloc(sizeof(app_t));
+app_t *app_new(app_config_t *_config) {
+  app_t        *app    = malloc(sizeof(app_t));
+  app_config_t *config = _config;
+
+  if (NULL == config) {
+    config                 = malloc(sizeof(app_config_t));
+    app->is_default_config = true;
+    app_config_new(config);
+  }
 
   if (config->tcp_timeout < 0) {
     errno = BadTcpTimeout;
@@ -87,6 +94,9 @@ fail:
 }
 
 void app_free(app_t *app) {
+  if (NULL == app)
+    return;
+
   event_base_free(app->base);
   pool_stop(app->pool);
 
@@ -102,10 +112,15 @@ void app_free(app_t *app) {
     free(prev);
   }
 
+  if (app->is_default_config)
+    free(app->config);
   free(app);
 }
 
 void app_config_new(app_config_t *config) {
+  if (NULL == config)
+    return;
+
   config->disable_logging = false;
   config->handle_signal   = true;
   config->server_header   = true;
@@ -114,6 +129,16 @@ void app_config_new(app_config_t *config) {
 }
 
 bool app_run(app_t *app, const char *addr) {
+  if (NULL == app) {
+    errno = InvalidAppPointer;
+    return false;
+  }
+
+  if (NULL == addr) {
+    errno = BadAddress;
+    return false;
+  }
+
   char  *save, *ip = NULL, *ports = NULL;
   size_t addrsize = strlen(addr) + 1;
   char   addrcpy[addrsize];
@@ -161,6 +186,11 @@ bool app_run(app_t *app, const char *addr) {
 }
 
 bool app_static(app_t *app, char *path, char *dir) {
+  if (NULL == app) {
+    errno = InvalidAppPointer;
+    return false;
+  }
+
   if (path[0] != '/') {
     errno = BadPath;
     return false;
@@ -176,6 +206,11 @@ void app_all(app_t *app, route_t handler) {
 }
 
 bool app_add(app_t *app, char *method, bool is_middleware, char *path, route_t handler) {
+  if (NULL == app) {
+    errno = InvalidAppPointer;
+    return false;
+  }
+
   if (path[0] != '/') {
     errno = BadPath;
     return false;
@@ -262,7 +297,11 @@ void app_route(app_t *app, req_t *req, res_t *res) {
     cur = cur->next;
   }
 
-  // call the middlewars, stop if a middleware cancels the request
+  // don't call the middleware if there's no route handler
+  if(mindex > 0 || rindex == 0)
+    mindex = 0;
+
+  // call the middlewares, stop if a middleware cancels the request
   for (int i = 0; !req->cancel && middlewares[i] != NULL; i++)
     middlewares[i]->handler(req, res);
 

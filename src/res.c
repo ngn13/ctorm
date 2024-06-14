@@ -12,7 +12,6 @@
 
 void res_init(res_t *res) {
   table_init(&res->headers);
-  table_init(&res->render);
 
   res->version  = NULL;
   res->bodysize = 0;
@@ -21,10 +20,10 @@ void res_init(res_t *res) {
 
   table_add(&res->headers, "Server", false);
   table_set(&res->headers, "ctorm");
-  
+
   table_add(&res->headers, "Connection", false);
   table_set(&res->headers, "close");
-  
+
   table_add(&res->headers, "Content-Length", false);
   table_set(&res->headers, "0");
 
@@ -42,11 +41,15 @@ void res_init(res_t *res) {
 
 void res_free(res_t *res) {
   table_free(&res->headers);
-  table_free(&res->render);
   free(res->body);
 }
 
 void res_set(res_t *res, char *name, char *value) {
+  if (NULL == name || NULL == value) {
+    errno = BadHeaderPointer;
+    return;
+  }
+
   char *valuecp = strdup(value);
   if (table_update(&res->headers, name, valuecp))
     return;
@@ -56,6 +59,11 @@ void res_set(res_t *res, char *name, char *value) {
 }
 
 void res_del(res_t *res, char *name) {
+  if (NULL == name) {
+    errno = BadHeaderPointer;
+    return;
+  }
+
   table_del(&res->headers, name);
 }
 
@@ -67,15 +75,19 @@ void res_update_size(res_t *res) {
   res_set(res, "Content-Length", buf);
 }
 
-void res_send(res_t *res, char *data, size_t size) {
+void res_clear(res_t *res) {
   free(res->body);
+  res->body     = NULL;
   res->bodysize = 0;
+}
 
+void res_send(res_t *res, char *data, size_t size) {
   if (NULL == data) {
-    res->body = NULL;
+    errno = BadDataPointer;
     return;
   }
 
+  res_clear(res);
   if (size <= 0)
     res->bodysize = strlen(data);
 
@@ -85,6 +97,11 @@ void res_send(res_t *res, char *data, size_t size) {
 }
 
 bool res_sendfile(res_t *res, char *path) {
+  if (NULL == path) {
+    errno = BadPathPointer;
+    return false;
+  }
+
   if (!file_canread(path)) {
     if (errno == ENOENT)
       errno = FileNotExists;
@@ -93,8 +110,7 @@ bool res_sendfile(res_t *res, char *path) {
     return false;
   }
 
-  free(res->body);
-  res->body = NULL;
+  res_clear(res);
 
   res->bodysize = file_size(path);
   if (res->bodysize < 0) {
@@ -109,9 +125,6 @@ bool res_sendfile(res_t *res, char *path) {
     errno = CantRead;
     return false;
   }
-
-  if (NULL == res->body)
-    return false;
 
   if (endswith(path, ".html"))
     res_set(res, "Content-Type", "text/html; charset=utf-8");
@@ -171,19 +184,23 @@ void res_tostr(res_t *res, char *str) {
 }
 
 bool res_fmt(res_t *res, const char *fmt, ...) {
+  if (NULL == fmt) {
+    errno = BadFmtPointer;
+    return false;
+  }
+
   va_list args, argscp;
   bool    ret = false;
 
   va_start(args, fmt);
   va_copy(argscp, args);
 
-  free(res->body);
-  res->bodysize = 0;
+  res_clear(res);
 
   res->bodysize = vsnprintf(NULL, 0, fmt, args);
   res->body     = malloc(res->bodysize + 1);
 
-  ret = vsnprintf(res->body, res->bodysize, fmt, argscp) > 0;
+  ret = vsnprintf(res->body, res->bodysize + 1, fmt, argscp) > 0;
 
   res_set(res, "Content-Type", "text/plain; charset=utf-8");
   res_update_size(res);
@@ -195,6 +212,11 @@ bool res_fmt(res_t *res, const char *fmt, ...) {
 }
 
 bool res_add(res_t *res, const char *fmt, ...) {
+  if (NULL == fmt) {
+    errno = BadFmtPointer;
+    return false;
+  }
+
   va_list args, argscp;
   bool    ret   = false;
   int     vsize = 0;
@@ -204,14 +226,15 @@ bool res_add(res_t *res, const char *fmt, ...) {
 
   if (NULL == res->body || res->bodysize <= 0) {
     res_set(res, "Content-Type", "text/plain; charset=utf-8");
-    res->bodysize = vsnprintf(NULL, 0, fmt, args);
-    res->body     = malloc(res->bodysize + 1);
+    vsize     = vsnprintf(NULL, 0, fmt, args);
+    res->body = malloc(res->bodysize + vsize + 1);
   } else {
-    res->bodysize += vsize = vsnprintf(NULL, 0, fmt, args);
-    res->body              = realloc(res->body, res->bodysize + 1);
+    vsize     = vsnprintf(NULL, 0, fmt, args);
+    res->body = realloc(res->body, res->bodysize + vsize);
   }
 
-  ret = vsnprintf(res->body + vsize, res->bodysize - vsize, fmt, argscp) > 0;
+  ret = vsnprintf(res->body + res->bodysize, (res->bodysize + 1) + vsize, fmt, argscp) > 0;
+  res->bodysize += vsize;
   res_update_size(res);
 
   va_end(args);
@@ -221,11 +244,12 @@ bool res_add(res_t *res, const char *fmt, ...) {
 }
 
 bool res_json(res_t *res, cJSON *json) {
-  if (NULL == json)
+  if (NULL == json) {
+    errno = BadJsonPointer;
     return false;
+  }
 
-  free(res->body);
-  res->bodysize = 0;
+  res_clear(res);
 
   res->body     = cJSON_Print(json);
   res->bodysize = strlen(res->body);
@@ -241,6 +265,11 @@ bool res_json(res_t *res, cJSON *json) {
 }
 
 void res_redirect(res_t *res, char *url) {
+  if (NULL == url) {
+    errno = BadUrlPointer;
+    return;
+  }
+
   res->code = 301;
   res_set(res, "Location", url);
 }

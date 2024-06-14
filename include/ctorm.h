@@ -46,13 +46,15 @@ void app_config_new(app_config_t *config);
 // ###################
 typedef struct app_t {
   struct event_base *base;       // libevent event base
-  app_config_t      *config;     // app configuration
   routemap_t        *maps;       // route map
   char              *staticpath; // static directory serving path
   char              *staticdir;  // static directory
   route_t            allroute;   // all handler route (see app_all())
   bool               running;    // is the app running?
   pool_t            *pool;       // thread pool for the app
+
+  app_config_t *config;            // app configuration
+  bool          is_default_config; // using the default configuration?
 } app_t;
 
 app_t *app_new(app_config_t *config);         // creates a new application, use app_free() when you are done

@@ -3,7 +3,7 @@
   _____/ /__________  ____ ___ 
  / ___/ __/ ___/ __ \/ __ `__ \
 / /__/ /_/ /  / /_/ / / / / / /
-\___/\__/_/   \____/_/ /_/ /_/ v1.3
+\___/\__/_/   \____/_/ /_/ /_/ 1.3
                                
 ```
 
@@ -25,6 +25,7 @@ if you are interested.
 - Middleware support
 - Form body parsing
 - URL queries (parameters)
+- JSON support with [cJSON](https://github.com/DaveGamble/cJSON)
 - Handling 404 (all) routes
 - Sending files and static file serving
 
@@ -35,7 +36,7 @@ Benchmark results for hello world applications (see [benchmark](benchmark/)):
 | ---------------- | ------------- | ---------------- |
 | crow (C++)       | v1.2.0        | ~4 ms            |
 | fiber (Go)       | v3.0.0-beta.1 | ~4 ms            |
-| **ctorm (C)**    | **v1.3**      | **~5 ms**        |
+| **ctorm (C)**    | **1.3**       | **~5 ms**        |
 | tide (Rust)      | 0.16.0        | ~12 ms           |
 | express (NodeJS) | 4.19.2        | ~21 ms           |
 
@@ -43,18 +44,17 @@ Benchmark results for hello world applications (see [benchmark](benchmark/)):
 You will need the following software in order to build and install ctorm:
 - GCC and other general build tools (`build-essential`)
 - libevent and it's headers (`libevent`, `libevent-dev`)
+- cJSON and it's headers (`cjson`, `libcjson-dev`)
 - tar (to extract the release archive)
 
 First [download the latest release](https://github.com/ngn13/ctorm/tags) archive,
-**do not compile from the latest commit**:
+**do not compile from the latest commit unless you are doing development**:
 ```bash
-export VERSION="<latest version>"
-wget https://github.com/ngn13/ctorm/archive/refs/tags/$VERSION.tar.gz
-tar xf $VERSION.tar.gz
-cd ctorm-$VERSION
+wget https://github.com/ngn13/ctorm/archive/refs/tags/1.3.tar.gz
+tar xf 1.3.tar.gz && cd ctorm-1.3
 ```
 
-Then use the `make` command for the build and install:
+Then use the `make` command to build and install:
 ```bash
 make && sudo make install
 ```
@@ -62,26 +62,27 @@ make && sudo make install
 ### Getting started
 #### Hello world application 
 ```c
-#include <ctorm/macros.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <ctorm/all.h>
 
-// this function handles GET request that go to '/'
-void hello_world(req_t* req, res_t* res){
-  // just send the string 'hello world!'
-  RES_SEND("hello world!");
+void hello_world(req_t *req, res_t *res) {
+  // send the "Hello world!" message
+  RES_SEND("Hello world!");
 }
 
-// main function (entrypoint)
-int main(){
-  // init the application
-  app_t *app = app_new();
+int main() {
+  // create the app with default configuration
+  app_t *app = app_new(NULL);
 
-  // setup a GET route for '/'
-  GET("/", hello_world);
-  
-  // start the application on port 8080 
-  APP_RUN("127.0.0.1:8080");
+  // setup the routes
+  GET(app, "/", hello_world);
+
+  // run the app
+  if (!app_run(app, "0.0.0.0:8080"))
+    error("app failed: %s\n", app_geterror());
+
+  // clean up
+  app_free(app);
+  return 0;
 }
 ```
 
@@ -92,9 +93,9 @@ int main(){
 - [Response](docs/res.md)
 - [Rendering](docs/render.md)
 
-#### Example application 
-Repository also contains an example application in the `example` folder, you can build 
-this app with `make test`.
+#### Example applications
+Repository also contains few example applications in the `example` folder, you can
+build these by running `make example`.
 
 #### Deploying your application
 You can use the docker image (built with actions) to easily deploy your application, here is 

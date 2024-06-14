@@ -9,7 +9,6 @@ typedef struct res_t {
   char          *body;
   size_t         bodysize;
   table_t        headers;
-  table_t        render;
 } res_t;
 
 void   res_init(res_t *);
@@ -23,4 +22,5 @@ void   res_del(res_t *, char *);
 bool   res_fmt(res_t *, const char *, ...);
 bool   res_add(res_t *, const char *, ...);
 bool   res_json(res_t *, cJSON *);
-void res_redirect(res_t *, char *);
+void   res_redirect(res_t *, char *);
+void   res_clear(res_t *);

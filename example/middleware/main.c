@@ -11,7 +11,7 @@ typedef struct user {
 
 user_t *users = NULL;
 
-void index_redirect(req_t *req, res_t *res){
+void index_redirect(req_t *req, res_t *res) {
   RES_REDIRECT("/users");
 }
 
@@ -128,13 +128,13 @@ int main() {
 
   app_t *app = app_new(&config);
 
-  MIDDLEWARE_ALL("/user/*", user_auth);
-  GET("/", index_redirect);
-  GET("/users", user_list);
-  DELETE("/user/delete", user_delete);
-  POST("/user/add", user_add);
+  MIDDLEWARE_ALL(app, "/user/*", user_auth);
+  DELETE(app, "/user/delete", user_delete);
+  POST(app, "/user/add", user_add);
+  GET(app, "/", index_redirect);
+  GET(app, "/users", user_list);
 
-  if (!APP_RUN("0.0.0.0:8080"))
+  if (!app_run(app, "0.0.0.0:8080"))
     error("app failed: %s\n", app_geterror());
 
   app_free(app);

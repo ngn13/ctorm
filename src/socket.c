@@ -177,8 +177,8 @@ bool socket_start(app_t *app, char *addr, int port) {
     return ret;
   }
 
-  evconnlistener_get_fd(listener);
   evconnlistener_set_error_cb(listener, socket_err);
   event_base_dispatch(app->base);
+  evconnlistener_free(listener);
   return true;
 }

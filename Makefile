@@ -28,4 +28,7 @@ uninstall:
 format:
 	clang-format -i -style=file src/*.c include/*.h example/*/*.c
 
-.PHONY: test install uninstall format 
+example:
+	$(MAKE) -C $@
+
+.PHONY: test install uninstall format example
