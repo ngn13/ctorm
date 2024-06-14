@@ -9,6 +9,8 @@
 
 # ctorm | simple web framework for C
 ![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml)
+![](https://img.shields.io/github/v/tag/ngn13/ctorm?label=version)
+![](https://img.shields.io/github/license/ngn13/ctorm)
 
 ctorm is a libevent based, multi-threaded HTTP server for `HTTP/1.1` and `HTTP/1.0`.
 It has a (fairly) easy API for general web server applications. 
@@ -128,6 +130,3 @@ pushd examples
 popd
 LD_LIBRARY_PATH=./dist ./dist/example_hello
 ```
-
----
-<img src="https://files.ngn.tf/gpl3.png" width="200px">
