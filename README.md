@@ -125,8 +125,6 @@ make DEBUG=1
 ```
 then you can use the example applications for testing:
 ```bash
-pushd examples
-    make
-popd
+make example
 LD_LIBRARY_PATH=./dist ./dist/example_hello
 ```
