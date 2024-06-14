@@ -298,7 +298,7 @@ void app_route(app_t *app, req_t *req, res_t *res) {
   }
 
   // don't call the middleware if there's no route handler
-  if(mindex > 0 || rindex == 0)
+  if (mindex > 0 || rindex == 0)
     mindex = 0;
 
   // call the middlewares, stop if a middleware cancels the request
