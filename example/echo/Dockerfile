@@ -1,15 +1,13 @@
 FROM ghcr.io/ngn13/ctorm:latest
 
-WORKDIR /example
-COPY template  ./template
+WORKDIR /example/echo
 COPY static    ./static
-COPY 404.html  ./
+COPY html      ./html
 COPY main.c    ./
 
-# example code uses the local headers,
-# replace it with the global ones
-RUN sed -i 's/#include "..\/include\/ctorm.h"/#include <ctorm\/ctorm.h>/' main.c  
-RUN gcc -o /app main.c -lctorm
+# examples uses the local headers, replace it with the global ones
+RUN sed -i 's/#include "..\/..\/include\/all.h"/#include <ctorm\/all.h>/' main.c
+RUN gcc -O3 -o /app main.c -lctorm
 
 WORKDIR /
 CMD ["/app"]

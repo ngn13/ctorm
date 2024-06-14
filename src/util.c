@@ -77,7 +77,7 @@ int digits(int n) {
 }
 
 char *join(char *p1, char *p2) {
-  char *fp = malloc(strlen(p1) + strlen(p2) + 1);
+  char *fp = malloc(strlen(p1) + strlen(p2) + 2);
   sprintf(fp, "%s/%s", p1, p2);
   return fp;
 }

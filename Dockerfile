@@ -1,7 +1,7 @@
 FROM ubuntu as build
 
 RUN apt update
-RUN apt install -y gcc make libevent-dev dumb-init 
+RUN apt install -y gcc make libcjson-dev libevent-dev dumb-init
 
 WORKDIR       /pkg
 COPY src      ./src

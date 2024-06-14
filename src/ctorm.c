@@ -340,11 +340,11 @@ void app_route(app_t *app, req_t *req, res_t *res) {
   if (!startswith(realpath, staticpath))
     return app->allroute(req, res);
 
-  memmove(realpath, realpath + static_len, path_len);
   path_len -= static_len;
-
-  if (path_len < 2)
+  if (path_len < 1)
     goto end;
+
+  memcpy(realpath, realpath + static_len, path_len+1);
 
   if (realpath[path_len - 1] == '/')
     goto end;
