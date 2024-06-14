@@ -91,7 +91,6 @@ int main() {
 - [Logging](docs/log.md)
 - [Request](docs/req.md)
 - [Response](docs/res.md)
-- [Rendering](docs/render.md)
 
 #### Example applications
 Repository also contains few example applications in the `example` folder, you can
