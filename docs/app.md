@@ -73,11 +73,11 @@ however they have different macros:
 ```c
 MIDDLEWARE_ALL(app, "/auth/*", auth_check);
 MIDDLEWARE_GET(app, "/", get_index_mid);
-MIDDLEWARE_PUT(app, "/", put_index_mid)
-MIDDLEWARE_HEAD(app, "/", head_index_mid)
-MIDDLEWARE_POST(app, "/", post_index_mid)
-MIDDLEWARE_DELETE(app, "/", delete_index_mid)
-MIDDLEWARE_OPTIONS(app, "/", options_index_mid)
+MIDDLEWARE_PUT(app, "/", put_index_mid);
+MIDDLEWARE_HEAD(app, "/", head_index_mid);
+MIDDLEWARE_POST(app, "/", post_index_mid);
+MIDDLEWARE_DELETE(app, "/", delete_index_mid);
+MIDDLEWARE_OPTIONS(app, "/", options_index_mid);
 ```
 
 ### Set static directory
