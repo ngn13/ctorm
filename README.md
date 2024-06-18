@@ -1,10 +1,10 @@
 ```
-        __                     
-  _____/ /__________  ____ ___ 
+        __
+  _____/ /__________  ____ ___
  / ___/ __/ ___/ __ \/ __ `__ \
 / /__/ /_/ /  / /_/ / / / / / /
 \___/\__/_/   \____/_/ /_/ /_/ 1.3
-                               
+
 ```
 
 # ctorm | simple web framework for C
@@ -13,7 +13,7 @@
 ![](https://img.shields.io/github/license/ngn13/ctorm)
 
 ctorm is a libevent based, multi-threaded HTTP server for `HTTP/1.1` and `HTTP/1.0`.
-It has a (fairly) easy API for general web server applications. 
+It has a (fairly) easy API for general web server applications.
 
 ### Important!!!
 This software is pretty much in alpha state. I don't suggest you use ctorm on
@@ -34,7 +34,7 @@ if you are interested.
 ### Benchmarking
 Benchmark results for hello world applications (see [benchmark](benchmark/)):
 
-| Framework        | Version       | Time per request | 
+| Framework        | Version       | Time per request |
 | ---------------- | ------------- | ---------------- |
 | crow (C++)       | v1.2.0        | ~4 ms            |
 | fiber (Go)       | v3.0.0-beta.1 | ~4 ms            |
@@ -62,7 +62,7 @@ make && sudo make install
 ```
 
 ### Getting started
-#### Hello world application 
+#### Hello world application
 ```c
 #include <ctorm/all.h>
 
@@ -88,7 +88,7 @@ int main() {
 }
 ```
 
-#### Other functions 
+#### Other functions
 - [App](docs/app.md)
 - [Logging](docs/log.md)
 - [Request](docs/req.md)
@@ -99,10 +99,10 @@ Repository also contains few example applications in the `example` folder, you c
 build these by running `make example`.
 
 #### Deploying your application
-You can use the docker image (built with actions) to easily deploy your application, here is 
+You can use the docker image (built with actions) to easily deploy your application, here is
 an example:
 ```Dockerfile
-FROM ghcr.io/ngn13/ctorm:latest 
+FROM ghcr.io/ngn13/ctorm:latest
 
 WORKDIR /app
 
@@ -112,13 +112,13 @@ COPY Makefile  ./
 COPY main.c    ./
 
 # run the make script
-RUN make 
+RUN make
 
 # set the startup command
 CMD ["/app/server"]
 ```
 
-### Development 
+### Development
 For development, you can compile the library with debug mode:
 ```bash
 make DEBUG=1

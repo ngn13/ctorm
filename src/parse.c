@@ -408,7 +408,7 @@ parse_ret_t parse_request(req_t *req, int socket) {
 
       // if so, then parse the header value
       req->bodysize = atol(contentlen);
-      if (size <= 0)
+      if (req->bodysize <= 0)
         goto end;
 
       // make sure the body is not too large
