@@ -89,9 +89,9 @@ void stolower(char *src, char *dst) {
   dst[i] = 0;
 }
 
-bool contains(char *str, char c) {
-  for (int i = 0; i < strlen(str); i++)
-    if (str[i] == c)
+bool contains(char *str, char s) {
+  for (char *c = str; *c != 0; c++)
+    if (*c == s)
       return true;
   return false;
 }
