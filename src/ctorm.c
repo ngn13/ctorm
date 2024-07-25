@@ -28,6 +28,7 @@
 
 #include <errno.h>
 #include <event2/event.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -49,11 +50,17 @@ app_t *app_new(app_config_t *_config) {
   app_t        *app    = malloc(sizeof(app_t));
   app_config_t *config = _config;
 
+  bzero(app, sizeof(app_t));
+
   if (NULL == config) {
     config                 = malloc(sizeof(app_config_t));
     app->is_default_config = true;
     app_config_new(config);
   }
+
+  app->config   = config;
+  app->allroute = app_404;
+  app->running  = false;
 
   if (config->tcp_timeout < 0) {
     errno = BadTcpTimeout;
@@ -76,20 +83,17 @@ app_t *app_new(app_config_t *_config) {
     goto fail;
   }
 
+  if (config->lock_request && pthread_mutex_init(&app->request_mutex, NULL) != 0) {
+    errno = MutexFail;
+    goto fail;
+  }
+
   http_static_load();
-
-  app->config     = config;
-  app->allroute   = app_404;
-  app->staticdir  = NULL;
-  app->staticpath = NULL;
-  app->maps       = NULL;
-  app->running    = false;
-
   setbuf(stdout, NULL);
   return app;
 
 fail:
-  free(app);
+  app_free(app);
   return NULL;
 }
 
@@ -97,8 +101,11 @@ void app_free(app_t *app) {
   if (NULL == app)
     return;
 
-  event_base_free(app->base);
-  pool_stop(app->pool);
+  if (NULL != app->base)
+    event_base_free(app->base);
+
+  if (NULL != app->pool)
+    pool_stop(app->pool);
 
   // reset setbuf
   int stdout_cp = dup(1);
@@ -112,8 +119,12 @@ void app_free(app_t *app) {
     free(prev);
   }
 
+  if (app->config->lock_request)
+    pthread_mutex_destroy(&app->request_mutex);
+
   if (app->is_default_config)
     free(app->config);
+
   free(app);
 }
 
@@ -124,6 +135,7 @@ void app_config_new(app_config_t *config) {
   config->disable_logging = false;
   config->handle_signal   = true;
   config->server_header   = true;
+  config->lock_request    = false;
   config->tcp_timeout     = 10;
   config->pool_size       = 30;
 }

@@ -135,7 +135,7 @@ int main() {
   GET(app, "/users", user_list);
 
   if (!app_run(app, "0.0.0.0:8080"))
-    error("app failed: %s\n", app_geterror());
+    error("app failed: %s", app_geterror());
 
   app_free(app);
 }

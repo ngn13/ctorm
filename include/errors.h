@@ -23,6 +23,7 @@ typedef enum app_error_t {
   BadPathPointer    = 9928,
   BadDataPointer    = 9929,
   BadHeaderPointer  = 9930,
+  MutexFail         = 9931,
 } app_error_t;
 
 struct app_error_desc_t {

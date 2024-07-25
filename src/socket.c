@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,7 +85,14 @@ void socket_handle(socket_args_t *_args) {
   res.version = req.version;
   if (!app->config->server_header)
     res_del(&res, "Server");
+
+  if (app->config->lock_request)
+    pthread_mutex_lock(&app->request_mutex);
+
   app_route(app, &req, &res);
+
+  if (app->config->lock_request)
+    pthread_mutex_unlock(&app->request_mutex);
 
 close:
   buffer_size = res_size(&res);

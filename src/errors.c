@@ -25,6 +25,7 @@ struct app_error_desc_t descs[] = {
     {.code = BadPathPointer,    .desc = "invalid path pointer"                   },
     {.code = BadDataPointer,    .desc = "invalid data pointer"                   },
     {.code = BadHeaderPointer,  .desc = "invalid header name/value pointer"      },
+    {.code = MutexFail,         .desc = "failed to initialize thread mutex"      },
 };
 
 char *app_geterror_code(app_error_t code) {
