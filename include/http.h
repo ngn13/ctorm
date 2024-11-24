@@ -3,7 +3,7 @@
 #include <stddef.h>
 
 // HTTP method enum
-typedef enum method_t {
+typedef enum {
   METHOD_GET     = 0,
   METHOD_HEAD    = 1,
   METHOD_POST    = 2,
@@ -13,7 +13,7 @@ typedef enum method_t {
 } method_t;
 
 // HTTP method map
-typedef struct method_map_t {
+typedef struct {
   method_t code;
   char    *name;
   bool     body;
@@ -24,13 +24,17 @@ extern method_map_t http_method_map[];
 // supported HTTP versions
 extern char *http_versions[];
 
-// static values that are only calculated once for optimization
-// this calculation is made in http_static_load(), which is
-// called by app_new()
+/*
 
-// most of these values are max sizes, which are used to allocate
-// static buffers on stack for optimization
-typedef struct http_static {
+ * static values that are only calculated once for optimization
+ * this calculation is made in http_static_load(), which is
+ * called by app_new()
+
+ * most of these values are max sizes, which are used to allocate
+ * static buffers on stack for optimization
+
+*/
+typedef struct {
   size_t method_count; // stores the count of HTTP methods
   size_t method_max;   // stores the longest HTTP method's length
 

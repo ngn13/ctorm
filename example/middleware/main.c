@@ -16,7 +16,8 @@ void index_redirect(req_t *req, res_t *res) {
 }
 
 void user_auth(req_t *req, res_t *res) {
-  char *auth = REQ_HEADER("Authorization");
+  char *auth = REQ_GET("Authorization");
+
   if (NULL != auth && strcmp(auth, "secretpassword") == 0)
     return;
 

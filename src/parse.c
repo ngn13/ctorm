@@ -46,9 +46,7 @@ bool parse_form(table_t *table, char *data) {
       urldecode(key);
       urldecode(value);
 
-      table_add(table, strdup(key), true);
-      table_set(table, strdup(value));
-
+      table_add(table, strdup(key), strdup(value), true);
       continue;
     }
 
@@ -69,8 +67,7 @@ bool parse_form(table_t *table, char *data) {
   urldecode(key);
   urldecode(value);
 
-  table_add(table, strdup(key), true);
-  table_set(table, strdup(value));
+  table_add(table, strdup(key), strdup(value), true);
 
   return true;
 }
@@ -81,13 +78,17 @@ parse_ret_t parse_request(req_t *req, int socket) {
   ssize_t     read = -1;
   parse_ret_t ret  = RET_BADREQ;
 
-  // we extend the buffer 200 bytes everytime
-  // this is to prevent using realloc as much as possible
+  /*
 
-  // also to prevent allocing from the heap, we'll start by
-  // allocating on the stack
+   * we extend the buffer 200 bytes everytime
+   * this is to prevent using realloc as much as possible
+
+   * also to prevent allocing from the heap, we'll start by
+   * allocating on the stack
+
+  */
   char  _buffer[size];
-  char *buffer = _buffer;
+  char *buffer = _buffer, *header = NULL;
 
   // we don't really need to zero the buffer
   // bzero(buffer, size);
@@ -97,8 +98,12 @@ parse_ret_t parse_request(req_t *req, int socket) {
 
     switch (state) {
     case STATE_METHOD_0:
-      // if method is larger than the max method length
-      // the its an invalid request
+      /*
+
+       * if method is larger than the max method length
+       * the its an invalid request
+
+      */
       if (index > http_static.method_max)
         goto end;
 
@@ -106,23 +111,19 @@ parse_ret_t parse_request(req_t *req, int socket) {
       if (!is_letter(buffer[index]) && !is_digit(buffer[index]) && buffer[index] != ' ')
         goto end;
 
-      // if the current char is ' '
-      // we just finished reading the HTTP method
+      // if the current char is ' ', we just finished reading the HTTP method
       if (buffer[index] != ' ')
         break;
 
-      // if the first char is ' ' then its a bad
-      // invalid request
+      // if the first char is ' ' then its a bad invalid request
       if (0 == index)
         goto end;
 
-      // we need the ID, so change the space with
-      // null terminator
+      // we need the ID, so change the space with null terminator
       buffer[index] = 0;
       req->method   = http_method_id(buffer);
 
-      // if the method is invalid then its a bad
-      // request, we should return
+      // if the method is invalid then its a bad request, we should return
       if (-1 == req->method)
         goto end;
 
@@ -133,8 +134,12 @@ parse_ret_t parse_request(req_t *req, int socket) {
       break;
 
     case STATE_PATH_1:
-      // if buffer is larger than the maximum path
-      // limit, then its a bad request
+      /*
+
+       * if buffer is larger than the maximum path limit
+       * then its a bad request
+
+      */
       if (index > http_static.path_max)
         goto end;
 
@@ -151,13 +156,11 @@ parse_ret_t parse_request(req_t *req, int socket) {
       if (buffer[index] != ' ')
         break;
 
-      // if the first char is ' ' then its a bad
-      // invalid request
+      // if the first char is ' ' then its a bad invalid request
       if (0 == index)
         goto end;
 
-      // if so, replace the ' ' with null
-      // terminator for string operation
+      // if so, replace the ' ' with null terminator for string operation
       buffer[index] = 0;
 
       // allocate enough space for the path, +1 for null terminator
@@ -173,8 +176,12 @@ parse_ret_t parse_request(req_t *req, int socket) {
       break;
 
     case STATE_VERSION_2:
-      // if buffer is larger than the HTTP version
-      // length, then its a bad request
+      /*
+
+       * if buffer is larger than the HTTP version length,
+       * then its a bad request
+
+      */
       if (index > http_static.version_len)
         goto end;
 
@@ -187,13 +194,11 @@ parse_ret_t parse_request(req_t *req, int socket) {
       if (buffer[index] != '\r' && buffer[index] != '\n')
         break;
 
-      // if its the first char, then the length is 0
-      // and its a bad request
+      // if its the first char, then the length is 0 and its a bad request
       if (0 == index)
         goto end;
 
-      // replace the '\r' or '\n' with null terminator
-      // we will restore it later
+      // replace the '\r' or '\n' with null terminator we will restore it later
       temp          = buffer[index];
       buffer[index] = 0;
 
@@ -204,8 +209,7 @@ parse_ret_t parse_request(req_t *req, int socket) {
 
       debug("Version: %s", req->version);
 
-      // move on to next state, without resetting
-      // the buffer, see the next section
+      // move on to next state, without resetting the buffer, see the next section
       buffer[index] = temp;
       state++;
       break;
@@ -238,20 +242,27 @@ parse_ret_t parse_request(req_t *req, int socket) {
 
       // if its the first option, just move on
 
-      // no out-of-bounds here, we checked the index
-      // in the previous section
+      // no out-of-bounds here, we checked the index in the previous section
       if ('\n' == buffer[index] && '\r' == buffer[index - 1])
         goto next;
 
-      // if its the second option, we just read the request
-      // and zero headers, so we dont have a body, we are done
+      /*
+
+       * if its the second option, we just read the request
+       * and zero headers, so we dont have a body, we are done
+
+      */
       if ('\n' == buffer[index] && '\n' == buffer[index - 1]) {
         ret = RET_OK;
         goto end;
       }
 
-      // if its the third option, clear the buffer and
-      // restore the first char of the header
+      /*
+
+       * if its the third option, clear the buffer and
+       * restore the first char of the header
+
+      */
       temp = buffer[index];
 
       bzero(buffer, size);
@@ -262,8 +273,12 @@ parse_ret_t parse_request(req_t *req, int socket) {
       break;
 
     case STATE_NAME_4:
-      // if instead of the header we got a newline, skip
-      // the value state and move on to the body
+      /*
+
+       * if instead of the header we got a newline,
+       * skip the value state and move on to the body
+
+      */
       if (index == 0 && ('\r' == buffer[index] || '\n' == buffer[index])) {
         buffer[index] = 0;
         state         = STATE_BODY_7;
@@ -272,31 +287,37 @@ parse_ret_t parse_request(req_t *req, int socket) {
         break;
       }
 
-      // if the buffer is larger then the maximum header
-      // name length, then the request is too large
+      /*
+
+       * if the buffer is larger then the maximum header
+       * name length, then the request is too large
+
+      */
       if (index > http_static.header_max) {
         ret = RET_TOOLARGE;
         goto end;
       }
 
-      // if the header name contains an invalid char, then
-      // return bad request
+      // if the header name contains an invalid char, then return bad request
       if (!contains(valid_header, buffer[index]) && !is_digit(buffer[index]) && !is_letter(buffer[index]))
         goto end;
 
-      // if the the char is ' ', then we probably just read
-      // the header name
+      // if the the char is ' ', then we probably just read the header name
       if (buffer[index] != ' ')
         break;
 
-      // if we are at the start or the previous char is not ':'
-      // then its a bad header name, so return bad request
+      /*
+
+       * if we are at the start or the previous char is not ':'
+       * then its a bad header name, so return bad request
+
+      */
       if (0 == index || buffer[index - 1] != ':')
         goto end;
 
       // otherwise add the header to the request and move on
       buffer[index - 1] = 0;
-      req_add_header(req, buffer);
+      header            = strdup(buffer);
 
       debug("Header: %s", buffer);
 
@@ -304,40 +325,42 @@ parse_ret_t parse_request(req_t *req, int socket) {
       break;
 
     case STATE_VALUE_5:
-      // if the buffer is larger then the maximum header
-      // value length, then the request is too large
+      /*
+
+       * if the buffer is larger then the maximum header
+       * value length, then the request is too large
+
+      */
       if (index > http_static.header_max) {
         ret = RET_TOOLARGE;
         goto end;
       }
 
-      // if the header value contains an invalid char, then
-      // return bad request
+      // if the header value contains an invalid char, then return bad request
       if (!contains(valid_header, buffer[index]) && !is_digit(buffer[index]) && !is_letter(buffer[index]) &&
           buffer[index] != '\r' && buffer[index] != '\n')
         goto end;
 
-      // if the the char is '\r' or '\n' we are done reading
-      // the header value
+      // if the the char is '\r' or '\n' we are done reading the header value
       if (buffer[index] != '\r' && buffer[index] != '\n')
         break;
 
-      // if we are at the start, then its a bad request
-      // yes, empty header value is not allowed
+      // if we are at the start, then its a bad request, yes, empty header value is not allowed
       if (0 == index)
         goto end;
 
-      // otherwise set the header value and move on
-      // this time we will need to restore the char
+      // otherwise set the header value and move on this time we will need to restore the char
       char prev     = buffer[index];
       buffer[index] = 0;
 
-      req_add_header_value(req, buffer);
       debug("Value: %s", buffer);
+      req_set(req, header, strdup(buffer), false);
 
+      // header buffer is now used by the header table, we don't need to free it
+      header        = NULL;
       buffer[index] = prev;
 
-      // why not goto next? well see the next sectipn
+      // why not goto next? well see the next section
       state++;
       break;
 
@@ -368,8 +391,7 @@ parse_ret_t parse_request(req_t *req, int socket) {
        *
        */
 
-      // if its the first option, go back to reading the
-      // header name
+      // if its the first option, go back to reading the header name
       if (buffer[index] == '\n' && buffer[index - 1] == '\r') {
         state = STATE_NAME_4;
         goto reset;
@@ -378,13 +400,16 @@ parse_ret_t parse_request(req_t *req, int socket) {
 
       // if its the second option move on to the body
 
-      // we can't go out of bounds, index was checked
-      // before this section
+      // we can't go out of bounds, index was checked before this section
       if (buffer[index] == '\n' && buffer[index - 1] == '\n')
         goto next;
 
-      // if its the third option, go back to reading the
-      // header, but first clear the body and restore the char
+      /*
+
+       * if its the third option, go back to reading the
+       * header, but first clear the body and restore the char
+
+      */
       temp = buffer[index];
 
       bzero(buffer, size);
@@ -402,7 +427,7 @@ parse_ret_t parse_request(req_t *req, int socket) {
         goto end;
 
       // do we have the content length header?
-      char *contentlen = req_header(req, "content-length");
+      char *contentlen = req_get(req, "content-length");
       if (NULL == contentlen)
         goto end;
 
@@ -443,17 +468,17 @@ parse_ret_t parse_request(req_t *req, int socket) {
     if (index < size)
       continue;
 
-    // realloc if buffer is full
-    // or malloc we are still on the stack
-    if (size == BUFFER_SIZE)
-      buffer = malloc((size *= 2));
-    else
+    // realloc if buffer is full or malloc we are still on the stack
+    if (size == BUFFER_SIZE) {
+      char *alloc = malloc((size *= 2));
+      memcpy(alloc, buffer, size);
+      buffer = alloc;
+    } else
       buffer = realloc(buffer, (size *= 2));
     continue;
 
   next:
-    // clear buffer, reset index, and move
-    // on to the next state
+    // clear buffer, reset index, and move on to the next state
     state++;
   reset:
     bzero(buffer, size);
@@ -499,5 +524,7 @@ ret:
   // free the buffer and return the result
   if (size != BUFFER_SIZE)
     free(buffer);
+
+  free(header); // free the current unused allocated header
   return ret;
 }

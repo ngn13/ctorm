@@ -10,16 +10,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-bool eq(char *s1, char *s2) {
-  if (NULL == s1 || NULL == s2)
-    return false;
-
-  if (strlen(s1) != strlen(s2))
-    return false;
-
-  return strcmp(s1, s2) == 0;
-}
-
 bool startswith(char *str, char *pre) {
   if (NULL == str || NULL == pre)
     return false;

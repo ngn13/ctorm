@@ -1,5 +1,7 @@
-#include "../include/log.h"
 #include "../include/ctorm.h"
+#include "../include/options.h"
+
+#include "../include/log.h"
 #include "../include/req.h"
 #include "../include/res.h"
 
@@ -18,13 +20,13 @@ void log_req(double time, req_t *req, res_t *res) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_MAGENTA "%s" COLOR_BOLD COLOR_MAGENTA " [ log ] " COLOR_RESET COLOR_CYAN
-                       "(%.0fμs)" COLOR_RESET COLOR_GREEN " %s %s" COLOR_CYAN " => " COLOR_RESET "%d",
+  printf(COLOR_MAGENTA "%s" COLOR_BOLD COLOR_MAGENTA " LOG   " COLOR_RESET COLOR_YELLO "%.0fμs" COLOR_RESET COLOR_CYAN
+                       " %d " COLOR_GREEN "%s %s" COLOR_RESET,
       tstr,
       time,
+      res->code,
       req_method(req),
-      req->path,
-      res->code);
+      req->path);
   printf("\n");
 }
 
@@ -35,7 +37,7 @@ void info(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_BLUE "%s" COLOR_RESET COLOR_BLUE COLOR_BOLD " [info ] " COLOR_RESET, tstr);
+  printf(COLOR_BLUE "%s" COLOR_RESET COLOR_BLUE COLOR_BOLD " INFO  " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
@@ -49,7 +51,7 @@ void error(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_RED "%s" COLOR_RESET COLOR_RED COLOR_BOLD " [error] " COLOR_RESET, tstr);
+  printf(COLOR_RED "%s" COLOR_RESET COLOR_RED COLOR_BOLD " ERROR " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
@@ -63,15 +65,15 @@ void warn(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_YELLO "%s" COLOR_RESET COLOR_YELLO COLOR_BOLD " [warn ] " COLOR_RESET, tstr);
+  printf(COLOR_YELLO "%s" COLOR_RESET COLOR_YELLO COLOR_BOLD " WARN  " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
   va_end(args);
 }
 
-void debug(const char *msg, ...) {
-  if (DEBUG == 0)
+void _debug(const char *msg, ...) {
+  if (CTORM_DEBUG == 0)
     return;
 
   va_list args;
@@ -80,7 +82,7 @@ void debug(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_CYAN "%s" COLOR_RESET COLOR_CYAN COLOR_BOLD " [debug] " COLOR_RESET, tstr);
+  printf(COLOR_CYAN "%s" COLOR_RESET COLOR_CYAN COLOR_BOLD " DEBUG " COLOR_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 

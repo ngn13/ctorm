@@ -1,141 +1,140 @@
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "../include/errors.h"
 #include "../include/table.h"
 #include "../include/util.h"
+#include "../include/log.h"
 
-void table_init(table_t *t) {
-  t->head = NULL;
-  t->tail = NULL;
+#include <stdint.h>
+#include <stdlib.h>
+
+#include <stdio.h>
+#include <errno.h>
+
+uint64_t __table_basic_hasher(const char *data) {
+  uint64_t sum = 0;
+
+  for (; *data != 0; data++)
+    sum += *data;
+
+  return sum;
 }
 
-bool table_add(table_t *t, char *key, bool alloced) {
-  table_node_t *new = malloc(sizeof(table_node_t));
-  if (NULL == new) {
+void table_init(table_t *t, table_cmp_t *comparer, table_hash_t *hasher) {
+  bzero(t, sizeof(table_t));
+  t->comparer = comparer == NULL ? strcmp : comparer;
+  t->hasher   = hasher == NULL ? __table_basic_hasher : hasher;
+}
+
+#define table_hash(d)     (t->hasher(d) % TABLE_SIZE)
+#define table_list(k)     (&(t->lists[table_hash(k)]))
+#define table_cmp(k1, k2) (t->comparer(k1, k2) == 0)
+
+bool table_add(table_t *t, char *key, char *value, bool alloced) {
+  table_node_t *new = NULL, *cur = NULL, **head = NULL;
+
+  if (NULL == (new = malloc(sizeof(table_node_t)))) {
     errno = AllocFailed;
     return false;
   }
 
   new->alloced = alloced;
+  new->value   = value;
   new->key     = key;
   new->next    = NULL;
-  new->value   = NULL;
 
-  if (NULL == t->head) {
-    t->head = new;
-    t->tail = new;
+  if (NULL == (cur = *(head = table_list(key)))) {
+    *head = new;
     return true;
   }
 
-  t->tail->next = new;
-  t->tail       = new;
+  while (NULL != cur->next)
+    cur = cur->next;
+
+  cur->next = new;
+
   return true;
 }
 
-bool table_set(table_t *t, char *value) {
-  if (NULL == t->tail)
+table_node_t *table_get(table_t *t, char *key) {
+  table_node_t **head = NULL, *cur = NULL;
+  head = table_list(key);
+
+  for (cur = *head; NULL != cur; cur = cur->next) {
+    if (table_cmp(key, cur->key))
+      return cur;
+  }
+
+  return NULL;
+}
+
+bool table_next(table_t *t, table_entry_t *cur) {
+  if (NULL == cur || NULL == t)
     return false;
 
-  t->tail->value = value;
+next_node:
+  if (cur->_indx >= TABLE_SIZE) {
+    return false;
+  }
+
+  if (NULL == cur->_node)
+    cur->_node = t->lists[cur->_indx];
+  else
+    cur->_node = cur->_node->next;
+
+  if (NULL == cur->_node) {
+    cur->_indx++;
+    goto next_node;
+  }
+
+  cur->key   = cur->_node->key;
+  cur->value = cur->_node->value;
+
   return true;
 }
 
-char *table_get(table_t *t, char *key) {
-  table_node_t *cur = t->head;
-  while (cur) {
-    if (eq(cur->key, key))
-      return cur->value;
-    cur = cur->next;
-  }
-  return NULL;
-}
-
-bool table_update(table_t *t, char *key, char *value) {
-  table_node_t *cur = t->head;
-  while (cur) {
-    if (!eq(cur->key, key)) {
-      cur = cur->next;
-      continue;
-    }
-
-    if (cur->alloced)
-      free(cur->value);
-
-    cur->value = value;
-    return true;
-  }
-
-  return false;
-}
-
-char **table_next(table_t *t, char **prev) {
-  if (NULL == t->head)
-    return NULL;
-
-  char **ret = malloc(sizeof(char *) * 2);
-  if (NULL == prev) {
-    ret[0] = t->head->key;
-    ret[1] = t->head->value;
-    return ret;
-  }
-
-  table_node_t *cur = t->head;
-  while (cur) {
-    if (!eq(cur->key, prev[0])) {
-      cur = cur->next;
-      continue;
-    }
-
-    if (NULL == cur->next) {
-      free(prev);
-      return NULL;
-    }
-
-    prev[0] = cur->next->key;
-    prev[1] = cur->next->value;
-    return prev;
-  }
-
-  free(prev);
-  return NULL;
-}
-
-void table_free_node(table_node_t *n) {
+void __table_single_node_free(table_node_t *n) {
   if (n->alloced) {
     free(n->key);
     free(n->value);
   }
+
   free(n);
 }
 
-void table_free(table_t *t) {
-  table_node_t *cur = t->head, *prev;
+void __table_node_free(table_node_t *node) {
+  table_node_t *pre = NULL;
 
-  while (cur) {
-    prev = cur;
-    cur  = cur->next;
-    table_free_node(prev);
+  while (node != NULL) {
+    pre  = node;
+    node = node->next;
+
+    __table_single_node_free(pre);
   }
 }
 
-bool table_del(table_t *t, char *key) {
-  table_node_t *cur = t->head, *prev = NULL;
-  while (cur) {
-    if (!eq(cur->key, key)) {
-      prev = cur;
-      cur  = cur->next;
-      continue;
-    }
+void table_free(table_t *t) {
+  for (uint8_t i = 0; i < TABLE_SIZE; i++)
+    __table_node_free(t->lists[i]);
+}
 
-    if (NULL == prev)
-      t->head = cur->next;
-    else
-      prev->next = cur->next;
+void table_del(table_t *t, char *key) {
+  table_node_t **head = NULL, *cur = NULL, *pre = NULL;
+  head = table_list(key);
 
-    table_free_node(cur);
-    return true;
+  if (NULL == (cur = *head))
+    return;
+
+  while (cur != NULL) {
+    if (table_cmp(key, cur->key))
+      break;
+
+    pre = cur;
+    cur = cur->next;
   }
-  return false;
+
+  if (NULL == pre)
+    *head = cur->next;
+  else
+    pre->next = cur->next;
+
+  __table_single_node_free(cur);
 }

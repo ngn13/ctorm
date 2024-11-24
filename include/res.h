@@ -1,14 +1,16 @@
 #pragma once
-#include "http.h"
-#include "table.h"
+
 #include <cjson/cJSON.h>
+
+#include "headers.h"
+#include "http.h"
 
 typedef struct res_t {
   unsigned short code;
   char          *version;
   char          *body;
   size_t         bodysize;
-  table_t        headers;
+  headers_t      headers;
 } res_t;
 
 void   res_init(res_t *);

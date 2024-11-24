@@ -1,6 +1,7 @@
 #pragma once
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef void (*func_t)(void *arg);
 typedef struct work_t {
@@ -23,6 +24,6 @@ typedef struct pool_t {
   bool    stop;
 } pool_t;
 
-pool_t *pool_init(int);
+pool_t *pool_init(uint64_t);
 bool    pool_add(pool_t *, func_t, void *);
 void    pool_stop(pool_t *);

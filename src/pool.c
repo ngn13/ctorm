@@ -1,4 +1,6 @@
 #include "../include/pool.h"
+
+#include <stdint.h>
 #include <stdlib.h>
 
 work_t *pool_work(func_t func, void *arg) {
@@ -61,9 +63,11 @@ void *pool_worker(void *arg) {
   return NULL;
 }
 
-pool_t *pool_init(int n) {
-  pool_t *tp = calloc(1, sizeof(pool_t));
-  tp->all    = n;
+pool_t *pool_init(uint64_t n) {
+  pool_t   *tp = calloc(1, sizeof(pool_t));
+  pthread_t handle;
+
+  tp->all = n;
 
   pthread_mutex_init(&(tp->mutex), NULL);
   pthread_cond_init(&(tp->work_lock), NULL);
@@ -72,8 +76,7 @@ pool_t *pool_init(int n) {
   tp->first = NULL;
   tp->last  = NULL;
 
-  pthread_t handle;
-  for (int i = 0; i < n; i++) {
+  for (; n > 0; n--) {
     pthread_create(&handle, NULL, pool_worker, tp);
     pthread_detach(handle);
   }

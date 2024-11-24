@@ -1,8 +1,6 @@
 #pragma once
 
-#define CTORM_VERSION "1.4"
-
-#include <event2/event.h>
+#define CTORM_VERSION "1.5"
 
 #include "errors.h"
 #include "http.h"
@@ -32,12 +30,12 @@ typedef struct routemap_t {
 // ## app configuration ##
 // #######################
 typedef struct app_config_t {
+  int      max_connections; // max parallel connection count
   bool     disable_logging; // disables request logging and the banner
   bool     handle_signal;   // disables SIGINT handler (which stops app_run())
   bool     server_header;   // disable sending the "Server: ctorm" header in the response
-  bool     lock_request;    // locks threads until the request handler returns
-  long int tcp_timeout;     // sets the TCP socket timeout for sending and receiving
-  int      pool_size;       // app threadpool size
+  __time_t tcp_timeout;     // sets the TCP socket timeout for sending and receiving
+  uint64_t pool_size;       // app threadpool size
 } app_config_t;
 
 void app_config_new(app_config_t *config);
@@ -46,14 +44,13 @@ void app_config_new(app_config_t *config);
 // ## app structure ##
 // ###################
 typedef struct app_t {
-  struct event_base *base;          // libevent event base
-  routemap_t        *maps;          // route map
-  char              *staticpath;    // static directory serving path
-  char              *staticdir;     // static directory
-  route_t            allroute;      // all handler route (see app_all())
-  bool               running;       // is the app running?
-  pool_t            *pool;          // thread pool for the app
-  pthread_mutex_t    request_mutex; // mutex used to lock request threads
+  routemap_t *middleware_maps; // middleware map
+  routemap_t *route_maps;      // route map
+  char       *staticpath;      // static directory serving path
+  char       *staticdir;       // static directory
+  route_t     allroute;        // all handler route (see app_all())
+  bool        running;         // is the app running?
+  pool_t     *pool;            // thread pool for the app
 
   app_config_t *config;            // app configuration
   bool          is_default_config; // using the default configuration?

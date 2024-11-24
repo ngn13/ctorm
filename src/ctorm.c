@@ -18,23 +18,26 @@
 
 */
 
-#include "../include/ctorm.h"
 #include "../include/errors.h"
-#include "../include/log.h"
-#include "../include/pool.h"
-#include "../include/req.h"
-#include "../include/res.h"
 #include "../include/socket.h"
 
-#include <errno.h>
-#include <event2/event.h>
+#include "../include/ctorm.h"
+#include "../include/pool.h"
+
+#include "../include/log.h"
+#include "../include/req.h"
+#include "../include/res.h"
+
 #include <pthread.h>
-#include <signal.h>
 #include <stdbool.h>
-#include <stdio.h>
+
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include <errno.h>
+#include <stdio.h>
 
 app_t *signal_app;
 
@@ -42,7 +45,6 @@ void app_signal(int sig) {
   if (NULL == signal_app)
     return;
 
-  event_base_loopbreak(signal_app->base);
   signal_app->running = false;
 }
 
@@ -68,23 +70,18 @@ app_t *app_new(app_config_t *_config) {
   } else if (config->tcp_timeout == 0)
     warn("Setting the TCP timeout to 0 may allow attackers to DoS your application");
 
+  if (config->max_connections <= 0) {
+    errno = BadMaxConnCount;
+    goto fail;
+  }
+
   if (config->pool_size <= 0) {
     errno = BadPoolSize;
     goto fail;
   }
 
-  if (NULL == (app->base = event_base_new())) {
-    errno = EventFailed;
-    goto fail;
-  }
-
   if (NULL == (app->pool = pool_init(config->pool_size))) {
     errno = PoolFailed;
-    goto fail;
-  }
-
-  if (config->lock_request && pthread_mutex_init(&app->request_mutex, NULL) != 0) {
-    errno = MutexFail;
     goto fail;
   }
 
@@ -101,26 +98,28 @@ void app_free(app_t *app) {
   if (NULL == app)
     return;
 
-  if (NULL != app->base)
-    event_base_free(app->base);
-
   if (NULL != app->pool)
     pool_stop(app->pool);
 
   // reset setbuf
-  int stdout_cp = dup(1);
+  routemap_t *cur = NULL, *prev = NULL;
+  int         stdout_cp = dup(1);
   close(1);
   dup2(stdout_cp, 1);
 
-  routemap_t *cur = app->maps, *prev = NULL;
-  while (NULL != cur) {
+  cur = app->middleware_maps;
+  while (cur != NULL) {
     prev = cur;
     cur  = cur->next;
     free(prev);
   }
 
-  if (app->config->lock_request)
-    pthread_mutex_destroy(&app->request_mutex);
+  cur = app->route_maps;
+  while (cur != NULL) {
+    prev = cur;
+    cur  = cur->next;
+    free(prev);
+  }
 
   if (app->is_default_config)
     free(app->config);
@@ -132,10 +131,10 @@ void app_config_new(app_config_t *config) {
   if (NULL == config)
     return;
 
+  config->max_connections = 1000;
   config->disable_logging = false;
   config->handle_signal   = true;
   config->server_header   = true;
-  config->lock_request    = false;
   config->tcp_timeout     = 10;
   config->pool_size       = 30;
 }
@@ -159,20 +158,19 @@ bool app_run(app_t *app, const char *addr) {
 
   memcpy(addrcpy, addr, addrsize);
 
-  ip = strtok_r(addrcpy, ":", &save);
-  if (NULL == ip) {
+  if (NULL == (ip = strtok_r(addrcpy, ":", &save))) {
     errno = BadAddress;
     return ret;
   }
 
-  ports = strtok_r(NULL, ":", &save);
-  if (NULL == ports) {
+  if (NULL == (ports = strtok_r(NULL, ":", &save))) {
     errno = BadAddress;
     return ret;
   }
 
   port = atoi(ports);
-  if (port > 65535 || port <= 0) {
+
+  if (port > UINT16_MAX || port <= 0) {
     errno = BadPort;
     return ret;
   }
@@ -182,14 +180,16 @@ bool app_run(app_t *app, const char *addr) {
   app->running = true;
   signal_app   = app;
 
-  if (app->config->handle_signal)
-    signal(SIGINT, app_signal);
+  if (app->config->handle_signal) {
+    struct sigaction sa;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_handler = app_signal;
+    sa.sa_flags   = 0;
+    sigaction(SIGINT, &sa, NULL);
+  }
 
   if (socket_start(app, ip, port))
     ret = true;
-
-  if (app->config->handle_signal)
-    signal(SIGINT, SIG_DFL);
 
   app->running = false;
   signal_app   = NULL;
@@ -228,8 +228,9 @@ bool app_add(app_t *app, char *method, bool is_middleware, char *path, route_t h
     return false;
   }
 
-  routemap_t *new = malloc(sizeof(routemap_t));
-  if (NULL == new) {
+  routemap_t *new = NULL, *cur = NULL, **maps = is_middleware ? &app->middleware_maps : &app->route_maps;
+
+  if ((new = malloc(sizeof(routemap_t))) == NULL) {
     errno = AllocFailed;
     return false;
   }
@@ -245,21 +246,16 @@ bool app_add(app_t *app, char *method, bool is_middleware, char *path, route_t h
   else
     new->is_all = false;
 
-  if (NULL == app->maps) {
-    app->maps = new;
+  if (NULL == (cur = *maps)) {
+    *maps = new;
     return true;
   }
 
-  routemap_t *cur = app->maps;
-  while (NULL != cur) {
-    if (NULL == cur->next) {
-      cur->next = new;
-      return true;
-    }
+  while (NULL != cur->next)
     cur = cur->next;
-  }
 
-  return false;
+  cur->next = new;
+  return true;
 }
 
 void app_404(req_t *req, res_t *res) {
@@ -269,66 +265,37 @@ void app_404(req_t *req, res_t *res) {
 }
 
 void app_route(app_t *app, req_t *req, res_t *res) {
-  // matches will be stored in a list,
-  // this way we can make sure that we call
-  // middlewares before the actual routes
-  routemap_t **middlewares = malloc(sizeof(routemap_t *));
-  size_t       mindex      = 0;
-
-  routemap_t **routes = malloc(sizeof(routemap_t *));
-  size_t       rindex = 0;
-
-  middlewares[mindex] = NULL;
-  routes[rindex]      = NULL;
-
-  routemap_t *cur = app->maps;
-  while (NULL != cur) {
-    // if the method does not match and the route does not handle
-    // all the methods, continue
-    if (cur->method != req->method && !cur->is_all)
-      goto cont;
-
-    // compare the paths
-    if (!path_matches(cur->path, req->path))
-      goto cont;
-
-    // add it to the middleware list
-    if (cur->is_middleware) {
-      middlewares[mindex++] = cur;
-      middlewares           = realloc(middlewares, sizeof(routemap_t *) * (mindex + 1));
-      middlewares[mindex++] = NULL;
-      goto cont;
-    }
-
-    // add it to the routes list
-    routes[rindex++] = cur;
-    routes           = realloc(routes, sizeof(routemap_t *) * (rindex + 1));
-    routes[rindex++] = NULL;
-
-  cont:
-    cur = cur->next;
-  }
-
-  // don't call the middleware if there's no route handler
-  if (mindex > 0 || rindex == 0)
-    mindex = 0;
+  routemap_t *cur           = NULL;
+  bool        found_handler = false;
 
   // call the middlewares, stop if a middleware cancels the request
-  for (int i = 0; !req->cancel && middlewares[i] != NULL; i++)
-    middlewares[i]->handler(req, res);
+  for (cur = app->middleware_maps; !req->cancel && cur != NULL; cur = cur->next) {
+    if (cur->method != req->method && !cur->is_all)
+      continue;
+
+    if (!path_matches(cur->path, req->path))
+      continue;
+
+    cur->handler(req, res);
+    found_handler = true;
+  }
 
   // if the request is not cancelled, call all the routes
   if (!req->cancel) {
-    for (int i = 0; routes[i] != NULL; i++)
-      routes[i]->handler(req, res);
+    for (cur = app->route_maps; !req->cancel && cur != NULL; cur = cur->next) {
+      if (cur->method != req->method && !cur->is_all)
+        continue;
+
+      if (!path_matches(cur->path, req->path))
+        continue;
+
+      cur->handler(req, res);
+      found_handler = true;
+    }
   }
 
-  // cleanup the lists
-  free(middlewares);
-  free(routes);
-
   // is the request already handled?
-  if (rindex != 0 || mindex != 0)
+  if (found_handler)
     return;
 
   // if not check if we have a static route configured
@@ -378,7 +345,11 @@ void app_route(app_t *app, req_t *req, res_t *res) {
   return;
 
 end:
-  // if the request can't be handled, call the all route
-  // by default its the 404 route
+  /*
+
+   * if the request can't be handled, call the all route
+   * by default its the 404 route
+
+  */
   return app->allroute(req, res);
 }

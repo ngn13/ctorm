@@ -1,11 +1,13 @@
 #include "../include/errors.h"
-#include <errno.h>
+
 #include <stdlib.h>
+#include <string.h>
+
+#include <errno.h>
 
 struct app_error_desc_t descs[] = {
     {.code = BadTcpTimeout,     .desc = "invalid TCP timeout"                    },
     {.code = BadPoolSize,       .desc = "invalid pool size"                      },
-    {.code = EventFailed,       .desc = "failed to create event base"            },
     {.code = PoolFailed,        .desc = "failed to create threadpool"            },
     {.code = ListenFailed,      .desc = "failed to listen on the interface"      },
     {.code = BadAddress,        .desc = "bad address for the interface"          },
@@ -25,7 +27,7 @@ struct app_error_desc_t descs[] = {
     {.code = BadPathPointer,    .desc = "invalid path pointer"                   },
     {.code = BadDataPointer,    .desc = "invalid data pointer"                   },
     {.code = BadHeaderPointer,  .desc = "invalid header name/value pointer"      },
-    {.code = MutexFail,         .desc = "failed to initialize thread mutex"      },
+    {.code = BadMaxConnCount,   .desc = "invalid max connection count"           },
 };
 
 char *app_geterror_code(app_error_t code) {
@@ -33,7 +35,7 @@ char *app_geterror_code(app_error_t code) {
     if (descs[i].code == code)
       return descs[i].desc;
   }
-  return NULL;
+  return strerror(code);
 }
 
 char *app_geterror() {

@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-bool eq(char *, char *);
+#define eq(s1, s2) (strcmp(s1, s2) == 0)
 bool startswith(char *, char *);
 bool endswith(char *, char *);
 

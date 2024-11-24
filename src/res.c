@@ -1,31 +1,28 @@
-#include "../include/res.h"
 #include "../include/errors.h"
+#include "../include/log.h"
 #include "../include/util.h"
+#include "../include/res.h"
 
-#include <cjson/cJSON.h>
-#include <errno.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <errno.h>
+#include <stdio.h>
+
 #include <time.h>
 
 void res_init(res_t *res) {
-  table_init(&res->headers);
+  headers_init(&res->headers);
 
   res->version  = NULL;
   res->bodysize = 0;
   res->body     = NULL;
   res->code     = 200;
 
-  table_add(&res->headers, "Server", false);
-  table_set(&res->headers, "ctorm");
-
-  table_add(&res->headers, "Connection", false);
-  table_set(&res->headers, "close");
-
-  table_add(&res->headers, "Content-Length", false);
-  table_set(&res->headers, "0");
+  headers_add(&res->headers, "Server", "ctorm", false);
+  headers_add(&res->headers, "Connection", "close", false);
+  headers_add(&res->headers, "Content-Length", "0", false);
 
   struct tm *gmt;
   time_t     raw;
@@ -40,22 +37,15 @@ void res_init(res_t *res) {
 }
 
 void res_free(res_t *res) {
-  table_free(&res->headers);
+  headers_free(&res->headers);
   free(res->body);
 }
 
 void res_set(res_t *res, char *name, char *value) {
-  if (NULL == name || NULL == value) {
+  if (NULL == name || NULL == value)
     errno = BadHeaderPointer;
-    return;
-  }
-
-  char *valuecp = strdup(value);
-  if (table_update(&res->headers, name, valuecp))
-    return;
-
-  table_add(&res->headers, strdup(name), true);
-  table_set(&res->headers, valuecp);
+  else
+    headers_set(&res->headers, name, value, true);
 }
 
 void res_del(res_t *res, char *name) {
@@ -64,7 +54,7 @@ void res_del(res_t *res, char *name) {
     return;
   }
 
-  table_del(&res->headers, name);
+  headers_del(&res->headers, name);
 }
 
 void res_update_size(res_t *res) {
@@ -142,15 +132,17 @@ bool res_sendfile(res_t *res, char *path) {
 }
 
 size_t res_size(res_t *res) {
-  size_t size = 0;
+  size_t   size = 0;
+  header_t cur;
+
   size += http_static.version_len + 1; // "HTTP/1.1 "
   size += 5;                           // "200\r\n"
 
-  char **cur = table_next(&res->headers, NULL);
-  while (cur) {
-    size += strlen(cur[0]) + 2; // "User-Agent: "
-    size += strlen(cur[1]) + 2; // "curl\r\n"
-    cur = table_next(&res->headers, cur);
+  headers_start(&cur);
+
+  while (headers_next(&res->headers, &cur)) {
+    size += strlen(cur.key) + 2;   // "User-Agent: "
+    size += strlen(cur.value) + 2; // "curl\r\n"
   }
 
   size += 2; // "\r\n"
@@ -161,8 +153,8 @@ size_t res_size(res_t *res) {
 }
 
 void res_tostr(res_t *res, char *str) {
-  char **cur   = table_next(&res->headers, NULL);
-  size_t index = 0;
+  size_t   index = 0;
+  header_t cur;
 
   // fix the HTTP code if its invalid
   if (res->code > 999 || res->code < 100)
@@ -173,12 +165,13 @@ void res_tostr(res_t *res, char *str) {
   else
     index += sprintf(str, "%s %d\r\n", res->version, res->code);
 
-  while (cur) {
-    index += sprintf(str + index, "%s: %s\r\n", cur[0], cur[1]);
-    cur = table_next(&res->headers, cur);
-  }
+  headers_start(&cur);
+
+  while (headers_next(&res->headers, &cur))
+    index += sprintf(str + index, "%s: %s\r\n", cur.key, cur.value);
 
   index += sprintf(str + index, "\r\n");
+
   if (res->bodysize > 0)
     memcpy(str + index, res->body, res->bodysize);
 }

@@ -7,16 +7,17 @@ void handle_notfound(req_t *req, res_t *res) {
 }
 
 void handle_post(req_t *req, res_t *res) {
-  form_t *form = REQ_FORM();
-  if (NULL == form) {
+  char  *msg = NULL;
+  form_t form;
+
+  if (!REQ_FORM(&form)) {
     res->code = 400;
     return RES_SEND("bad body");
   }
 
-  char *msg = req_form_get(form, "msg");
-  if (NULL == msg) {
+  if (NULL == (msg = form_get(&form, "msg"))) {
     res->code = 400;
-    req_form_free(form);
+    req_form_free(&form);
     return RES_SEND("bad body");
   }
 
@@ -25,7 +26,7 @@ void handle_post(req_t *req, res_t *res) {
 
   RES_SET("Cool", "yes");
 
-  req_form_free(form);
+  req_form_free(&form);
 }
 
 void handle_get(req_t *req, res_t *res) {
