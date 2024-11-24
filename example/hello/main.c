@@ -20,7 +20,7 @@ int main() {
 
   // run the app
   if (!app_run(app, "0.0.0.0:8080"))
-    error("app failed: %s", app_geterror());
+    error("Failed to start the app: %s", app_geterror());
 
   // clean up
   app_free(app);

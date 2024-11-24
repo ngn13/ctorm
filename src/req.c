@@ -1,9 +1,7 @@
+#include "../include/options.h"
 #include "../include/parse.h"
 #include "../include/table.h"
-
 #include "../include/util.h"
-
-#include "../include/log.h"
 #include "../include/req.h"
 
 #include <errno.h>
@@ -92,6 +90,7 @@ void req_form_free(form_t *form) {
 }
 
 cJSON *req_json_parse(req_t *req) {
+#if CTORM_JSON_SUPPORT
   size_t size = req_body_size(req);
   if (size == 0)
     return NULL;
@@ -105,11 +104,20 @@ cJSON *req_json_parse(req_t *req) {
     return NULL;
 
   return cJSON_Parse(data);
+#else
+  errno = NoJSONSupport;
+  return NULL;
+#endif
 }
 
 void req_json_free(cJSON *json) {
+#if CTORM_JSON_SUPPORT
   if (NULL != json)
     cJSON_Delete(json);
+#else
+  errno = NoJSONSupport;
+  return;
+#endif
 }
 
 char *req_method(req_t *req) {

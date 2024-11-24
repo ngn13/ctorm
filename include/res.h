@@ -1,6 +1,10 @@
 #pragma once
 
+#if __has_include(<cjson/cJSON.h>)
 #include <cjson/cJSON.h>
+#else
+typedef void cJSON;
+#endif
 
 #include "headers.h"
 #include "http.h"

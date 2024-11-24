@@ -28,6 +28,7 @@ struct app_error_desc_t descs[] = {
     {.code = BadDataPointer,    .desc = "invalid data pointer"                   },
     {.code = BadHeaderPointer,  .desc = "invalid header name/value pointer"      },
     {.code = BadMaxConnCount,   .desc = "invalid max connection count"           },
+    {.code = NoJSONSupport,     .desc = "library not compiled with JSON support" },
 };
 
 char *app_geterror_code(app_error_t code) {

@@ -23,6 +23,7 @@ typedef enum app_error_t {
   BadDataPointer    = 9927,
   BadHeaderPointer  = 9928,
   BadMaxConnCount   = 9929,
+  NoJSONSupport     = 9930,
 } app_error_t;
 
 struct app_error_desc_t {

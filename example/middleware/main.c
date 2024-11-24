@@ -49,7 +49,11 @@ void user_list(req_t *req, res_t *res) {
     cur = cur->next;
   }
 
-  RES_JSON(json);
+  if (!RES_JSON(json)) {
+    error("Failed to send the JSON data: %s", app_geterror());
+    res->code = 500;
+    RES_SEND("Failed to send the JSON");
+  }
 }
 
 void user_delete(req_t *req, res_t *res) {
@@ -136,7 +140,7 @@ int main() {
   GET(app, "/users", user_list);
 
   if (!app_run(app, "0.0.0.0:8080"))
-    error("app failed: %s", app_geterror());
+    error("Failed to start the app: %s", app_geterror());
 
   app_free(app);
 }

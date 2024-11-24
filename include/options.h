@@ -11,3 +11,7 @@
 #ifndef CTORM_DEBUG
 #define CTORM_DEBUG 0
 #endif
+
+#ifndef CTORM_JSON_SUPPORT
+#define CTORM_JSON_SUPPORT 1
+#endif

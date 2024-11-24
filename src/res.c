@@ -1,5 +1,5 @@
+#include "../include/options.h"
 #include "../include/errors.h"
-#include "../include/log.h"
 #include "../include/util.h"
 #include "../include/res.h"
 
@@ -237,6 +237,7 @@ bool res_add(res_t *res, const char *fmt, ...) {
 }
 
 bool res_json(res_t *res, cJSON *json) {
+#if CTORM_JSON_SUPPORT
   if (NULL == json) {
     errno = BadJsonPointer;
     return false;
@@ -255,6 +256,10 @@ bool res_json(res_t *res, cJSON *json) {
 
   cJSON_Delete(json);
   return true;
+#else
+  errno = NoJSONSupport;
+  return false;
+#endif
 }
 
 void res_redirect(res_t *res, char *url) {

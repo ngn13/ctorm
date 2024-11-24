@@ -1,7 +1,11 @@
 #pragma once
 
 #include <arpa/inet.h>
+#if __has_include(<cjson/cJSON.h>)
 #include <cjson/cJSON.h>
+#else
+typedef void cJSON;
+#endif
 
 #include "http.h"
 #include "table.h"
