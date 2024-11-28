@@ -21,6 +21,8 @@
 #pragma once
 
 #include "ctorm.h"
+#include "errors.h"
+#include "log.h"
 
 #define ALL(app, path, func)     app_add(app, "", false, path, func)
 #define GET(app, path, func)     app_add(app, "GET", false, path, func)
@@ -43,8 +45,8 @@
 #define REQ_BODY(data)   req_body(req, data)
 #define REQ_GET(header)  req_get(req, header)
 #define REQ_QUERY(query) req_query(req, query)
-#define REQ_FORM(f)      req_form_parse(req, f)
-#define REQ_JSON()       req_json_parse(req)
+#define REQ_FORM()       req_form(req)
+#define REQ_JSON()       req_json(req)
 
 #define RES_SEND(text)         res_send(res, text, 0)
 #define RES_SENDFILE(path)     res_sendfile(res, path)

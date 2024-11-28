@@ -15,9 +15,9 @@
 ctorm is a multi-threaded HTTP server for `HTTP/1.1` and `HTTP/1.0`.
 It has an easy API for general web server applications.
 
-### Important!!!
-This software is pretty much in alpha state. I don't suggest you use ctorm on
-production, however it can be used to build simple web applications just for fun.
+> [!WARNING]
+> This software is pretty much in alpha state. I don't suggest you use ctorm on
+> production, however it can be used to build simple web applications just for fun.
 
 I do plan to continue the development of this project, so please consider contributing
 if you are interested.
@@ -31,21 +31,10 @@ if you are interested.
 - Handling 404 (all) routes
 - Sending files and static file serving
 
-### Benchmarking
-Benchmark results for hello world applications (see [benchmark](benchmark/)):
-
-| Framework        | Version       | Time per request |
-| ---------------- | ------------- | ---------------- |
-| crow (C++)       | v1.2.0        | ~4 ms            |
-| fiber (Go)       | v3.0.0-beta.1 | ~4 ms            |
-| **ctorm (C)**    | **1.5**       | **~4.5 ms**      |
-| tide (Rust)      | 0.16.0        | ~12 ms           |
-| express (NodeJS) | 4.19.2        | ~21 ms           |
-
 ### Installation
 You will need the following software in order to build and install ctorm:
 - GCC and other general build tools (`build-essential`)
-- cJSON and it's headers (`cjson`, `libcjson-dev`)
+- If you want JSON support, cJSON and it's headers (`cjson`, `libcjson-dev`)
 - tar (to extract the release archive)
 
 First [download the latest release](https://github.com/ngn13/ctorm/tags) archive,

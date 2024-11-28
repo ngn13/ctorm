@@ -23,6 +23,7 @@
 
 #include "../include/ctorm.h"
 #include "../include/pool.h"
+#include "../include/util.h"
 
 #include "../include/log.h"
 #include "../include/req.h"
@@ -85,6 +86,11 @@ app_t *app_new(app_config_t *_config) {
     goto fail;
   }
 
+  if (config->lock_request && pthread_mutex_init(&app->request_mutex, NULL) != 0) {
+    errno = MutexFail;
+    goto fail;
+  }
+
   http_static_load();
   setbuf(stdout, NULL);
   return app;
@@ -114,6 +120,9 @@ void app_free(app_t *app) {
     free(prev);
   }
 
+  if (app->config->lock_request)
+    pthread_mutex_destroy(&app->request_mutex);
+
   cur = app->route_maps;
   while (cur != NULL) {
     prev = cur;
@@ -125,18 +134,6 @@ void app_free(app_t *app) {
     free(app->config);
 
   free(app);
-}
-
-void app_config_new(app_config_t *config) {
-  if (NULL == config)
-    return;
-
-  config->max_connections = 1000;
-  config->disable_logging = false;
-  config->handle_signal   = true;
-  config->server_header   = true;
-  config->tcp_timeout     = 10;
-  config->pool_size       = 30;
 }
 
 bool app_run(app_t *app, const char *addr) {
@@ -277,7 +274,6 @@ void app_route(app_t *app, req_t *req, res_t *res) {
       continue;
 
     cur->handler(req, res);
-    found_handler = true;
   }
 
   // if the request is not cancelled, call all the routes

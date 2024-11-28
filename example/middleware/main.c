@@ -57,13 +57,14 @@ void user_list(req_t *req, res_t *res) {
 }
 
 void user_delete(req_t *req, res_t *res) {
-  char *name = REQ_QUERY("name");
+  char   *name = REQ_QUERY("name");
+  user_t *cur = users, *prev = NULL;
+
   if (NULL == name) {
     res->code = 400;
     return RES_SEND("Please specify a name");
   }
 
-  user_t *cur = users, *prev = NULL;
   while (NULL != cur) {
     if (strcmp(cur->name, name) != 0) {
       prev = cur;
@@ -90,6 +91,7 @@ void user_add(req_t *req, res_t *res) {
 
   if (NULL == json) {
     res->code = 400;
+    error("Failed to get the JSON body: %s", app_geterror());
     return RES_SEND("Please specify user data");
   }
 
@@ -98,6 +100,7 @@ void user_add(req_t *req, res_t *res) {
 
   if (NULL == name || NULL == age) {
     res->code = 400;
+    error("Failed to get the name or age");
     return RES_SEND("Please specify user data");
   }
 

@@ -1,16 +1,19 @@
 #pragma once
 #include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 
 // HTTP method enum
-typedef enum {
+enum {
   METHOD_GET     = 0,
   METHOD_HEAD    = 1,
   METHOD_POST    = 2,
   METHOD_PUT     = 3,
   METHOD_DELETE  = 4,
   METHOD_OPTIONS = 5,
-} method_t;
+};
+
+typedef int8_t method_t;
 
 // HTTP method map
 typedef struct {
@@ -22,7 +25,7 @@ typedef struct {
 extern method_map_t http_method_map[];
 
 // supported HTTP versions
-extern char *http_versions[];
+extern const char *http_versions[];
 
 /*
 
@@ -35,24 +38,28 @@ extern char *http_versions[];
 
 */
 typedef struct {
-  size_t method_count; // stores the count of HTTP methods
-  size_t method_max;   // stores the longest HTTP method's length
+  uint8_t method_count; // stores the count of HTTP methods
+  uint8_t method_max;   // stores the longest HTTP method's length
 
-  size_t version_count; // stores the count of HTTP versions
-  size_t version_len;   // stores the HTTP version length
+  uint8_t version_count; // stores the count of HTTP versions
+  uint8_t version_len;   // stores the HTTP version length
 
-  size_t header_max; // stores the max header size
-  size_t path_max;   // stroes the max path size
-  size_t body_max;   // stores the max size for HTTP body
+  uint64_t header_max; // stores the max header size
+  uint64_t path_max;   // stroes the max path size
+  uint64_t body_max;   // stores the max size for HTTP body
+
+  uint16_t res_code_min; // stores the minimum HTTP response code value
+  uint16_t res_code_max; // stores the maximum HTTP response code value
 } http_static_t;
 
 extern http_static_t http_static;
 void                 http_static_load();
 
-// helpers for HTTP methods
 method_t http_method_id(char *);
 char    *http_method_name(int);
 bool     http_method_has_body(int);
 
-// helpers for HTTP versions
-char *http_version_get(char *);
+#define http_is_valid_header_char(c) (is_digit(c) || is_letter(c) || contains("_ :;.,\\/\"'?!(){}[]@<>=-+*#$&`|~^%", c))
+#define http_is_valid_path_char(c)   (is_digit(c) || is_letter(c) || contains("-._~:/?#[]@!$&'()*+,;%=", c))
+
+const char *http_version_get(char *);

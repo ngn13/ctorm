@@ -1,28 +1,62 @@
 #include "../include/options.h"
+#include "../include/headers.h"
+
 #include "../include/errors.h"
 #include "../include/util.h"
 #include "../include/res.h"
+#include "../include/log.h"
+
+#include <sys/socket.h>
 
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <errno.h>
 #include <stdio.h>
 
+#include <fcntl.h>
 #include <time.h>
 
-void res_init(res_t *res) {
+#define res_debug(f, ...)                                                                                              \
+  debug("(" FG_BOLD "Socket " FG_CYAN "%d" FG_RESET FG_BOLD " Response " FG_CYAN "0x%p" FG_RESET ") " f,               \
+      res->con->socket,                                                                                                \
+      res,                                                                                                             \
+      ##__VA_ARGS__)
+#define rsend(b, s, f)  connection_send(res->con, b, s, f)
+#define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
+
+/*void __rprintf(res_t *res, char *fmt, ...) {
+  int size = 0;
+  va_list args, args_cp;
+
+  va_start(args, fmt);
+  va_copy(args_cp, args);
+
+  size = vsnprintf(NULL, 0, fmt, args) + 1;
+  char buf[size];
+  vsnprintf(buf, size, fmt, args_cp);
+
+  rsend(buf, size-1, 0);
+  va_end(args);
+}
+
+#define rprintf(f, ...) __rprintf(res, f, ##__VA_ARGS__)*/
+
+void res_init(res_t *res, connection_t *con) {
   headers_init(&res->headers);
 
-  res->version  = NULL;
-  res->bodysize = 0;
-  res->body     = NULL;
-  res->code     = 200;
+  res->con       = con;
+  res->version   = NULL;
+  res->bodysize  = 0;
+  res->body      = NULL;
+  res->bodyfd    = -1;
+  res->code      = 200;
+  res->completed = false;
 
-  headers_add(&res->headers, "Server", "ctorm", false);
-  headers_add(&res->headers, "Connection", "close", false);
-  headers_add(&res->headers, "Content-Length", "0", false);
+  headers_set(res->headers, "Server", "ctorm", false);
+  headers_set(res->headers, "Connection", "close", false);
 
   struct tm *gmt;
   time_t     raw;
@@ -37,15 +71,15 @@ void res_init(res_t *res) {
 }
 
 void res_free(res_t *res) {
-  headers_free(&res->headers);
-  free(res->body);
+  headers_free(res->headers);
+  res_clear(res);
 }
 
 void res_set(res_t *res, char *name, char *value) {
   if (NULL == name || NULL == value)
     errno = BadHeaderPointer;
   else
-    headers_set(&res->headers, name, value, true);
+    headers_set(res->headers, strdup(name), strdup(value), true);
 }
 
 void res_del(res_t *res, char *name) {
@@ -54,36 +88,33 @@ void res_del(res_t *res, char *name) {
     return;
   }
 
-  headers_del(&res->headers, name);
-}
-
-void res_update_size(res_t *res) {
-  int  len = digits(res->bodysize) + 1;
-  char buf[len];
-
-  snprintf(buf, len, "%lu", res->bodysize);
-  res_set(res, "Content-Length", buf);
+  headers_del(res->headers, name);
 }
 
 void res_clear(res_t *res) {
   free(res->body);
+
+  if (res->bodyfd > 0)
+    close(res->bodyfd);
+
   res->body     = NULL;
+  res->bodyfd   = -1;
   res->bodysize = 0;
 }
 
-void res_send(res_t *res, char *data, size_t size) {
+void res_send(res_t *res, char *data, uint64_t size) {
   if (NULL == data) {
     errno = BadDataPointer;
     return;
   }
 
   res_clear(res);
+
   if (size <= 0)
     res->bodysize = strlen(data);
 
   res->body = malloc(res->bodysize);
   memcpy(res->body, data, res->bodysize);
-  res_update_size(res);
 }
 
 bool res_sendfile(res_t *res, char *path) {
@@ -102,19 +133,13 @@ bool res_sendfile(res_t *res, char *path) {
 
   res_clear(res);
 
-  res->bodysize = file_size(path);
-  if (res->bodysize < 0) {
-    errno         = SizeFail;
-    res->bodysize = 0;
+  if (!file_size(path, &res->bodysize)) {
+    errno = SizeFail;
     return false;
   }
 
-  res->body = malloc(res->bodysize);
-
-  if (!file_read(path, res->body, res->bodysize)) {
-    errno = CantRead;
+  if ((res->bodyfd = open(path, O_RDONLY)) < 0)
     return false;
-  }
 
   if (endswith(path, ".html"))
     res_set(res, "Content-Type", "text/html; charset=utf-8");
@@ -127,53 +152,7 @@ bool res_sendfile(res_t *res, char *path) {
   else
     res_set(res, "Content-Type", "text/plain; charset=utf-8");
 
-  res_update_size(res);
   return true;
-}
-
-size_t res_size(res_t *res) {
-  size_t   size = 0;
-  header_t cur;
-
-  size += http_static.version_len + 1; // "HTTP/1.1 "
-  size += 5;                           // "200\r\n"
-
-  headers_start(&cur);
-
-  while (headers_next(&res->headers, &cur)) {
-    size += strlen(cur.key) + 2;   // "User-Agent: "
-    size += strlen(cur.value) + 2; // "curl\r\n"
-  }
-
-  size += 2; // "\r\n"
-
-  // body
-  size += res->bodysize;
-  return size;
-}
-
-void res_tostr(res_t *res, char *str) {
-  size_t   index = 0;
-  header_t cur;
-
-  // fix the HTTP code if its invalid
-  if (res->code > 999 || res->code < 100)
-    res->code = 200;
-
-  if (NULL == res->version)
-    index += sprintf(str, "HTTP/1.1 %d\r\n", res->code);
-  else
-    index += sprintf(str, "%s %d\r\n", res->version, res->code);
-
-  headers_start(&cur);
-
-  while (headers_next(&res->headers, &cur))
-    index += sprintf(str + index, "%s: %s\r\n", cur.key, cur.value);
-
-  index += sprintf(str + index, "\r\n");
-
-  if (res->bodysize > 0)
-    memcpy(str + index, res->body, res->bodysize);
 }
 
 bool res_fmt(res_t *res, const char *fmt, ...) {
@@ -196,7 +175,6 @@ bool res_fmt(res_t *res, const char *fmt, ...) {
   ret = vsnprintf(res->body, res->bodysize + 1, fmt, argscp) > 0;
 
   res_set(res, "Content-Type", "text/plain; charset=utf-8");
-  res_update_size(res);
 
   va_end(args);
   va_end(argscp);
@@ -228,7 +206,6 @@ bool res_add(res_t *res, const char *fmt, ...) {
 
   ret = vsnprintf(res->body + res->bodysize, (res->bodysize + 1) + vsize, fmt, argscp) > 0;
   res->bodysize += vsize;
-  res_update_size(res);
 
   va_end(args);
   va_end(argscp);
@@ -237,7 +214,6 @@ bool res_add(res_t *res, const char *fmt, ...) {
 }
 
 bool res_json(res_t *res, cJSON *json) {
-#if CTORM_JSON_SUPPORT
   if (NULL == json) {
     errno = BadJsonPointer;
     return false;
@@ -245,21 +221,11 @@ bool res_json(res_t *res, cJSON *json) {
 
   res_clear(res);
 
-  res->body     = cJSON_Print(json);
-  res->bodysize = strlen(res->body);
-
-  if (NULL == res->body || res->bodysize <= 0)
+  if ((res->body = enc_json_dump(json, &res->bodysize)) == NULL)
     return false;
 
   res_set(res, "Content-Type", "application/json; charset=utf-8");
-  res_update_size(res);
-
-  cJSON_Delete(json);
   return true;
-#else
-  errno = NoJSONSupport;
-  return false;
-#endif
 }
 
 void res_redirect(res_t *res, char *url) {
@@ -270,4 +236,48 @@ void res_redirect(res_t *res, char *url) {
 
   res->code = 301;
   res_set(res, "Location", url);
+}
+
+bool res_end(res_t *res) {
+  if (res->completed) {
+    errno = ResponseAlreadySent;
+    return false;
+  }
+
+  header_pos_t pos;
+
+  // fix the HTTP code if its invalid
+  if (res->code > http_static.res_code_max || res->code < http_static.res_code_min) {
+    errno = BadResponseCode;
+    return false;
+  }
+
+  // send the HTTP response
+  if (NULL == res->version)
+    rprintf("HTTP/1.1 %u\r\n", res->code);
+  else
+    rprintf("%s %u\r\n", res->version, res->code);
+
+  // send response headers
+  headers_start(&pos);
+
+  while (headers_next(res->headers, &pos))
+    rprintf("%s: %s\r\n", pos.key, pos.value);
+  rprintf("Content-Length: %lu\r\n", res->bodysize);
+  rprintf("\r\n");
+
+  // send the body
+  if (res->bodyfd > 0) {
+    size_t read_size = 0;
+    char   read_buf[50];
+
+    while ((read_size = read(res->bodyfd, read_buf, sizeof(read_buf))) > 0)
+      rsend(read_buf, read_size, 0);
+  }
+
+  else if (res->bodysize > 0)
+    rsend(res->body, res->bodysize, 0);
+
+  res->completed = true;
+  return true;
 }

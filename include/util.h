@@ -1,14 +1,19 @@
 #pragma once
 #include <stdbool.h>
+
 #include <string.h>
+#include <stdint.h>
 
 #define eq(s1, s2) (strcmp(s1, s2) == 0)
+#define truncate_buf(buf, size, indx, ch)                                                                              \
+  if (size >= indx && buf[size - indx] == ch)                                                                          \
+  buf[size - indx] = 0
+
 bool startswith(char *, char *);
 bool endswith(char *, char *);
 
-bool   file_read(char *, char *, size_t);
-bool   file_canread(char *);
-size_t file_size(char *);
+#define file_canread(p) (access(p, O_RDONLY) == 0)
+bool file_size(char *, uint64_t *);
 
 void  urldecode(char *);
 void  stolower(char *, char *);

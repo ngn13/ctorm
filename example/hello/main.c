@@ -12,6 +12,9 @@ int main() {
   // example: disable the server header
   config.server_header = false;
 
+  // another example: disable request logging
+  config.disable_logging = true;
+
   // create the app
   app_t *app = app_new(&config);
 

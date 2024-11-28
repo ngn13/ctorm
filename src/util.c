@@ -34,28 +34,14 @@ bool endswith(char *str, char *suf) {
   return strncmp(str + (strl - sufl), suf, sufl) == 0;
 }
 
-bool file_read(char *path, char *buffer, size_t size) {
-  int fd = open(path, O_RDONLY);
-  if (fd < 0)
-    return false;
-
-  if (read(fd, buffer, size) < 0)
-    return false;
-
-  close(fd);
-  return true;
-}
-
-bool file_canread(char *path) {
-  return access(path, O_RDONLY) == 0;
-}
-
-size_t file_size(char *path) {
+bool file_size(char *path, uint64_t *size) {
   struct stat st;
-  if (stat(path, &st) < 0)
-    return -1;
 
-  return st.st_size;
+  if (stat(path, &st) < 0)
+    return false;
+
+  *size = st.st_size;
+  return true;
 }
 
 int digits(int n) {

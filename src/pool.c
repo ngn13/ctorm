@@ -1,13 +1,16 @@
 #include "../include/pool.h"
 
+#include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 work_t *pool_work(func_t func, void *arg) {
   work_t *work = malloc(sizeof(work_t));
-  work->next   = NULL;
-  work->func   = func;
-  work->arg    = arg;
+
+  work->next = NULL;
+  work->func = func;
+  work->arg  = arg;
+
   return work;
 }
 
@@ -17,14 +20,12 @@ void pool_free(work_t *work) {
 
 work_t *pool_get(pool_t *tp) {
   work_t *work;
-  work = tp->first;
-  if (NULL == work)
+
+  if (NULL == (work = tp->first))
     return NULL;
 
-  tp->first = work->next;
-  if (NULL == tp->first) {
+  if (NULL == (tp->first = work->next))
     tp->last = NULL;
-  }
 
   return work;
 }
@@ -66,6 +67,12 @@ void *pool_worker(void *arg) {
 pool_t *pool_init(uint64_t n) {
   pool_t   *tp = calloc(1, sizeof(pool_t));
   pthread_t handle;
+  sigset_t  set;
+
+  // ignore SIGPIPE (sockets may raise it)
+  sigemptyset(&set);
+  sigaddset(&set, SIGPIPE);
+  pthread_sigmask(SIG_BLOCK, &set, NULL);
 
   tp->all = n;
 
@@ -80,19 +87,24 @@ pool_t *pool_init(uint64_t n) {
     pthread_create(&handle, NULL, pool_worker, tp);
     pthread_detach(handle);
   }
+
   return tp;
 }
 
 bool pool_add(pool_t *tp, func_t func, void *arg) {
   work_t *work = pool_work(func, arg);
+
   if (work == NULL)
     return false;
 
   pthread_mutex_lock(&(tp->mutex));
+
   if (tp->first == NULL) {
     tp->first = work;
     tp->last  = tp->first;
-  } else {
+  }
+
+  else {
     tp->last->next = work;
     tp->last       = work;
   }
@@ -104,12 +116,12 @@ bool pool_add(pool_t *tp, func_t func, void *arg) {
 
 void pool_stop(pool_t *tp) {
   pthread_mutex_lock(&(tp->mutex));
+  work_t *cur = tp->first, *next = NULL;
 
-  work_t *f = tp->first;
-  while (f != NULL) {
-    work_t *n = f->next;
-    pool_free(n);
-    f = n;
+  while (cur != NULL) {
+    next = cur->next;
+    pool_free(cur);
+    cur = next;
   }
 
   tp->stop = true;

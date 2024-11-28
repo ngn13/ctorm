@@ -7,17 +7,19 @@ void handle_notfound(req_t *req, res_t *res) {
 }
 
 void handle_post(req_t *req, res_t *res) {
-  char  *msg = NULL;
-  form_t form;
+  urlenc_t *form = NULL;
+  char     *msg  = NULL;
 
-  if (!REQ_FORM(&form)) {
+  if ((form = REQ_FORM()) == NULL) {
     res->code = 400;
+    error("Failed to parse the form data: %s", app_geterror());
     return RES_SEND("bad body");
   }
 
-  if (NULL == (msg = form_get(&form, "msg"))) {
+  if (NULL == (msg = enc_url_get(form, "msg"))) {
     res->code = 400;
-    req_form_free(&form);
+    enc_url_free(form);
+    error("Form data does not contain the message");
     return RES_SEND("bad body");
   }
 
@@ -26,7 +28,7 @@ void handle_post(req_t *req, res_t *res) {
 
   RES_SET("Cool", "yes");
 
-  req_form_free(&form);
+  enc_url_free(form);
 }
 
 void handle_get(req_t *req, res_t *res) {

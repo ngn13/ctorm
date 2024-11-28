@@ -20,8 +20,8 @@ void log_req(double time, req_t *req, res_t *res) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_MAGENTA "%s" COLOR_BOLD COLOR_MAGENTA " LOG   " COLOR_RESET COLOR_YELLO "%.0fμs" COLOR_RESET COLOR_CYAN
-                       " %d " COLOR_GREEN "%s %s" COLOR_RESET,
+  printf(FG_MAGENTA "%s" FG_BOLD FG_MAGENTA " LOG   " FG_RESET FG_YELLO "%.0fμs" FG_RESET FG_CYAN " %d " FG_GREEN
+                    "%s %s" FG_RESET,
       tstr,
       time,
       res->code,
@@ -37,7 +37,7 @@ void info(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_BLUE "%s" COLOR_RESET COLOR_BLUE COLOR_BOLD " INFO  " COLOR_RESET, tstr);
+  printf(FG_BLUE "%s" FG_RESET FG_BLUE FG_BOLD " INFO  " FG_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
@@ -51,7 +51,7 @@ void error(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_RED "%s" COLOR_RESET COLOR_RED COLOR_BOLD " ERROR " COLOR_RESET, tstr);
+  printf(FG_RED "%s" FG_RESET FG_RED FG_BOLD " ERROR " FG_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
@@ -65,7 +65,7 @@ void warn(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_YELLO "%s" COLOR_RESET COLOR_YELLO COLOR_BOLD " WARN  " COLOR_RESET, tstr);
+  printf(FG_YELLO "%s" FG_RESET FG_YELLO FG_BOLD " WARN  " FG_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
@@ -82,7 +82,7 @@ void _debug(const char *msg, ...) {
   char tstr[25];
   get_time(tstr);
 
-  printf(COLOR_CYAN "%s" COLOR_RESET COLOR_CYAN COLOR_BOLD " DEBUG " COLOR_RESET, tstr);
+  printf(FG_CYAN "%s" FG_RESET FG_CYAN FG_BOLD " DEBUG " FG_RESET, tstr);
   vprintf(msg, args);
   printf("\n");
 
