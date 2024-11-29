@@ -23,6 +23,6 @@ jobs:
 
       - name: 'build inventory image'
         run: |
-          docker build . --tag ghcr.io/ngn13/ctorm:latest ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
+          docker build . --tag ghcr.io/ngn13/ctorm:latest --tag ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
           docker push ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
           docker push ghcr.io/ngn13/ctorm:latest
