@@ -1,7 +1,7 @@
 FROM ubuntu as build
 
 RUN apt update
-RUN apt install -y gcc make libcjson-dev libevent-dev dumb-init
+RUN apt install -y gcc make libcjson-dev dumb-init
 
 WORKDIR       /pkg
 COPY src      ./src
@@ -12,5 +12,6 @@ RUN make
 RUN make install
 
 WORKDIR /
-RUN rm -r /pkg
+RUN rm -fr /pkg
+
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]

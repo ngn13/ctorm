@@ -1,4 +1,4 @@
-name: Publish Docker Images 
+name: Publish Docker Images
 on:
   push:
     tags:
@@ -7,23 +7,22 @@ on:
 jobs:
   push-image:
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       packages: write
-
     steps:
-      - name: 'Checkout GitHub Action'
+      - name: 'checkout the source code'
         uses: actions/checkout@main
 
-      - name: 'Login to GitHub Container Registry'
+      - name: 'login to container registry'
         uses: docker/login-action@v1
         with:
           registry: ghcr.io
           username: ${{github.actor}}
           password: ${{secrets.GITHUB_TOKEN}}
 
-      - name: 'Build Inventory Image'
+      - name: 'build inventory image'
         run: |
-          docker build . --tag ghcr.io/ngn13/ctorm:latest
+          docker build . --tag ghcr.io/ngn13/ctorm:latest ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
+          docker push ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
           docker push ghcr.io/ngn13/ctorm:latest

@@ -1,20 +1,35 @@
 PREFIX = /usr
 CC = gcc
 
-DEBUG  = 0
-SRCS   = $(wildcard src/*.c)
+# sources
+SRCS   = $(shell find src/ -type f -name '*.c')
 OBJS   = $(patsubst src/%.c,dist/%.o,$(SRCS))
-HDRS   = $(wildcard include/*.h) 
+HDRS   = $(wildcard include/*.h)
+
+# compiler flags
 CFLAGS = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
-LIBS   = -lpthread -levent -lcjson
+LIBS   = -lpthread
 
-dist/libctorm.so: $(OBJS) 
-	mkdir -p dist
-	$(CC) -shared -o $@ $^ $(LIBS) $(CFLAGS) 
+# options
+CTORM_DEBUG = 0
+CTORM_JSON_SUPPORT = 1
 
-dist/%.o: src/%.c 
-	mkdir -p dist
-	$(CC) -c -Wall -fPIC -o $@ $^ $(LIBS) $(CFLAGS) -DDEBUG=${DEBUG}
+ifeq ($(CTORM_JSON_SUPPORT), 1)
+	LIBS += -lcjson
+endif
+
+all: dist dist/libctorm.so
+
+dist:
+	mkdir -pv dist/encoding
+
+dist/libctorm.so: $(OBJS)
+	$(CC) -shared -o $@ $^ $(LIBS) $(CFLAGS)
+
+dist/%.o: src/%.c
+	$(CC) -c -Wall -fPIC -o $@ $^ $(LIBS) $(CFLAGS) \
+		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)    \
+		-DCTORM_DEBUG=$(CTORM_DEBUG)
 
 install:
 	install -m755 dist/libctorm.so $(DESTDIR)$(PREFIX)/lib/libctorm.so
@@ -26,9 +41,12 @@ uninstall:
 	rm -r $(DESTDIR)/usr/include/ctorm
 
 format:
-	clang-format -i -style=file src/*.c include/*.h example/*/*.c
+	clang-format -i -style=file $(SRCS) $(HDRS) example/*/*.c
+
+clean:
+	rm -rf dist
 
 example:
 	$(MAKE) -C $@
 
-.PHONY: test install uninstall format example
+.PHONY: test install uninstall format clean example

@@ -1,135 +1,45 @@
+#include "../include/connection.h"
 #include "../include/socket.h"
 #include "../include/errors.h"
-#include "../include/log.h"
-#include "../include/parse.h"
 #include "../include/pool.h"
+
+#include "../include/log.h"
 #include "../include/req.h"
 #include "../include/res.h"
 
 #include <arpa/inet.h>
-#include <errno.h>
-#include <event2/listener.h>
-#include <fcntl.h>
-#include <limits.h>
 #include <netinet/tcp.h>
-#include <pthread.h>
-#include <stdio.h>
+#include <sys/socket.h>
+
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <time.h>
 #include <unistd.h>
 
-void socket_handle(socket_args_t *_args) {
-  socket_args_t *args = (socket_args_t *)_args;
-  debug("(Socket %d) Created thread", args->socket);
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
 
-  struct sockaddr *addr   = args->address;
-  evutil_socket_t  socket = args->socket;
-  app_t           *app    = args->app;
-  size_t           buffer_size;
-
-  req_t req;
-  req_init(&req);
-
-  res_t res;
-  res_init(&res);
-
-  // set the request address
-  if (addr->sa_family == AF_INET) {
-    req.addr = malloc(INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &((struct sockaddr_in *)addr)->sin_addr, req.addr, INET_ADDRSTRLEN);
-  } else if (addr->sa_family == AF_INET6) {
-    req.addr = malloc(INET6_ADDRSTRLEN);
-    inet_ntop(AF_INET6, &((struct sockaddr_in *)addr)->sin_addr, req.addr, INET6_ADDRSTRLEN);
-  }
-
-  // measure the time that takes
-  // to complete the request
-  clock_t     time = clock();
-  parse_ret_t ret  = parse_request(&req, socket);
-
-  switch (ret) {
-  case RET_BADREQ:
-    debug("(Socket %d) Received a bad request", args->socket);
-    res.code = 400;
-    goto close;
-
-  case RET_TOOLARGE:
-    debug("(Socket %d) Received a request that is too large", args->socket);
-    res.code = 413;
-    goto close;
-
-  case RET_CONFAIL:
-    debug("(Socket %d) Connection failed", args->socket);
-
-    res_free(&res);
-    req_free(&req);
-
-    close(socket);
-    free(args);
-    return;
-
-  default:
-    debug("(Socket %d) Received a valid request", args->socket);
-    break;
-  }
-
-  if (DEBUG) {
-    buffer_size = req_size(&req);
-    char buffer[buffer_size];
-    req_tostr(&req, buffer);
-    debug("(Socket %d)\n%s", socket, buffer);
-  }
-
-  res.version = req.version;
-  if (!app->config->server_header)
-    res_del(&res, "Server");
-
-  if (app->config->lock_request)
-    pthread_mutex_lock(&app->request_mutex);
-
-  app_route(app, &req, &res);
-
-  if (app->config->lock_request)
-    pthread_mutex_unlock(&app->request_mutex);
-
-close:
-  buffer_size = res_size(&res);
-  char buffer[buffer_size];
-
-  res_tostr(&res, buffer);
-  send(socket, buffer, buffer_size, 0);
-
-  // finish the measurement and print out
-  // the result
-  if (RET_OK == ret) {
-    time          = (clock() - time) * 1000000;
-    double passed = (((double)time) / CLOCKS_PER_SEC);
-    if (!app->config->disable_logging)
-      log_req(passed, &req, &res);
-  }
-
-  req_free(&req);
-  res_free(&res);
-
-  free(args);
-  close(socket);
-}
-
-bool socket_set_opts(app_t *app, int socket) {
+bool socket_set_opts(app_t *app, int sockfd) {
   struct timeval timeout;
   bzero(&timeout, sizeof(timeout));
   int flag = 1;
 
-  // TCP delayed acknowledgment, buffers and combines multiple ACKs to reduce overhead
-  // it may delay the ACK response by up to 500ms, and we don't want that because slow bad fast good
-  if (setsockopt(socket, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag)) < 0)
+  /*
+
+   * TCP delayed acknowledgment, buffers and combines multiple ACKs to reduce overhead
+   * it may delay the ACK response by up to 500ms, and we don't want that because slow bad fast good
+
+  */
+  if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag)) < 0)
     return false;
 
-  // nagle's algorithm buffers and combines outgoing packets to solve the "small-packet problem",
-  // we want to send all the packets as fast as possible so we can disable buffering with TCP_NODELAY
-  if (setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0)
+  /*
+
+   * nagle's algorithm buffers and combines outgoing packets to solve the "small-packet problem",
+   * we want to send all the packets as fast as possible so we can disable buffering with TCP_NODELAY
+
+  */
+  if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0)
     return false;
 
   // set the socket timeout
@@ -137,56 +47,103 @@ bool socket_set_opts(app_t *app, int socket) {
     timeout.tv_sec  = app->config->tcp_timeout;
     timeout.tv_usec = 0;
 
-    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
   }
 
   // make the socket blocking
-  fcntl(socket, F_SETFL, fcntl(socket, F_GETFL, 0) & (~O_NONBLOCK));
+  fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) & (~O_NONBLOCK));
   return true;
 }
 
-void socket_con(struct evconnlistener *listener, evutil_socket_t fd, struct sockaddr *address, int socklen, void *ctx) {
-  socket_args_t *args = malloc(sizeof(socket_args_t));
-  args->address       = address;
-  args->socket        = fd;
-  args->app           = ctx;
+bool socket_start(app_t *app, char *addr, uint16_t port) {
+  int              sockfd = -1, flag = 1;
+  struct addrinfo *ainfo = NULL, *cur = NULL;
+  socklen_t        addr_len = 0;
+  bool             ret      = false;
+  connection_t    *con      = NULL;
 
-  if (!socket_set_opts(args->app, args->socket))
-    error("Failed to setsockopt for %d: %s", socket, strerror(errno));
-  pool_add(args->app->pool, (void *)socket_handle, (void *)args);
-}
+  if (0 == port)
+    goto end;
 
-void socket_err(struct evconnlistener *listener, void *ctx) {
-  struct event_base *base = evconnlistener_get_base(listener);
-  int                err  = EVUTIL_SOCKET_ERROR();
-  error("Listener error: %s", evutil_socket_error_to_string(err));
-  event_base_loopexit(base, NULL);
-}
+  if (getaddrinfo(addr, NULL, NULL, &ainfo) != 0 || NULL == ainfo)
+    goto end;
 
-bool socket_start(app_t *app, char *addr, int port) {
-  struct sockaddr_in address;
-  bool               ret = false;
+  for (cur = ainfo; cur != NULL; cur = cur->ai_next) {
+    switch (cur->ai_family) {
+    case AF_INET:
+      ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(port);
+      goto found_addr;
 
-  bzero(&address, sizeof(address));
-  inet_pton(AF_INET, addr, &(address.sin_addr));
-  address.sin_family = AF_INET;
-  address.sin_port   = htons(port);
-
-  struct evconnlistener *listener = evconnlistener_new_bind(app->base,
-      socket_con,
-      app,
-      LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE | LEV_OPT_THREADSAFE,
-      -1,
-      (struct sockaddr *)&address,
-      sizeof(address));
-
-  if (NULL == listener) {
-    errno = ListenFailed;
-    return ret;
+    case AF_INET6:
+      ((struct sockaddr_in6 *)cur->ai_addr)->sin6_port = htons(port);
+      goto found_addr;
+    }
   }
 
-  evconnlistener_set_error_cb(listener, socket_err);
-  event_base_dispatch(app->base);
-  evconnlistener_free(listener);
-  return true;
+  debug("Failed to resolve the address");
+  goto end;
+
+found_addr:
+  if ((sockfd = socket(cur->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+    debug("Failed to create socket: %s", strerror(errno));
+    goto end;
+  }
+
+  // prevent EADDRINUSE
+  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
+    debug("Failed to set the REUSEADDR: %s", strerror(errno));
+    goto end;
+  }
+
+  if (bind(sockfd, cur->ai_addr, cur->ai_addrlen) != 0) {
+    debug("Failed to bind the socket: %s", strerror(errno));
+    goto end;
+  }
+
+  if (listen(sockfd, app->config->max_connections) != 0) {
+    debug("Failed to listen socket: %s", strerror(errno));
+    goto end;
+  }
+
+  // start the server
+  info("Starting the application on %s:%u", addr, port);
+
+  // new connection handler loop
+  do {
+    if (NULL == con)
+      goto con_new;
+
+    debug("Accepted a new connection (con: %p, socket %d)", con, con->socket);
+
+    if (!socket_set_opts(app, con->socket)) {
+      error("Failed to setsockopt for connection (con: %p, socket %d): %s", con, con->socket, strerror(errno));
+      break;
+    }
+
+    con->app = app;
+
+    debug("Creating a thread for connection (con: %p, socket %d)", con, con->socket);
+    pool_add(app->pool, (void *)connection_handle, (void *)con);
+
+  con_new:
+    if ((con = connection_new()) == NULL) {
+      debug("Failed to create a new connection: %s", app_geterror());
+      goto end;
+    }
+  } while (app->running && (con->socket = accept(sockfd, &con->addr, &addr_len)) > 0);
+
+  ret = true;
+end:
+  if (NULL != ainfo)
+    freeaddrinfo(ainfo);
+
+  if (sockfd > 0)
+    close(sockfd);
+
+  if (NULL != con) {
+    debug("Freeing unused connection (%p)", con);
+    connection_free(con);
+  }
+
+  return ret;
 }

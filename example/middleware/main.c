@@ -16,7 +16,8 @@ void index_redirect(req_t *req, res_t *res) {
 }
 
 void user_auth(req_t *req, res_t *res) {
-  char *auth = REQ_HEADER("Authorization");
+  char *auth = REQ_GET("Authorization");
+
   if (NULL != auth && strcmp(auth, "secretpassword") == 0)
     return;
 
@@ -48,17 +49,22 @@ void user_list(req_t *req, res_t *res) {
     cur = cur->next;
   }
 
-  RES_JSON(json);
+  if (!RES_JSON(json)) {
+    error("Failed to send the JSON data: %s", app_geterror());
+    res->code = 500;
+    RES_SEND("Failed to send the JSON");
+  }
 }
 
 void user_delete(req_t *req, res_t *res) {
-  char *name = REQ_QUERY("name");
+  char   *name = REQ_QUERY("name");
+  user_t *cur = users, *prev = NULL;
+
   if (NULL == name) {
     res->code = 400;
     return RES_SEND("Please specify a name");
   }
 
-  user_t *cur = users, *prev = NULL;
   while (NULL != cur) {
     if (strcmp(cur->name, name) != 0) {
       prev = cur;
@@ -85,6 +91,7 @@ void user_add(req_t *req, res_t *res) {
 
   if (NULL == json) {
     res->code = 400;
+    error("Failed to get the JSON body: %s", app_geterror());
     return RES_SEND("Please specify user data");
   }
 
@@ -93,6 +100,7 @@ void user_add(req_t *req, res_t *res) {
 
   if (NULL == name || NULL == age) {
     res->code = 400;
+    error("Failed to get the name or age");
     return RES_SEND("Please specify user data");
   }
 
@@ -135,7 +143,7 @@ int main() {
   GET(app, "/users", user_list);
 
   if (!app_run(app, "0.0.0.0:8080"))
-    error("app failed: %s", app_geterror());
+    error("Failed to start the app: %s", app_geterror());
 
   app_free(app);
 }

@@ -14,7 +14,7 @@ method_map_t http_method_map[] = {
     {.code = METHOD_OPTIONS, .name = "OPTIONS", .body = false},
 };
 
-char *http_versions[] = {"HTTP/1.1", "HTTP/1.0"};
+const char *http_versions[] = {"HTTP/1.1", "HTTP/1.0"};
 
 http_static_t http_static;
 
@@ -28,6 +28,9 @@ void http_static_load() {
   http_static.header_max = getpagesize();
   http_static.body_max   = getpagesize();
   http_static.path_max   = 2000;
+
+  http_static.res_code_min = 100; // 100 Continue
+  http_static.res_code_max = 511; // 511 Network Authentication Required
 
   for (int i = 1; i < http_static.method_count; i++) {
     size_t cur_len = strlen(http_method_map[i].name);
@@ -57,7 +60,7 @@ bool http_method_has_body(int code) {
   return false;
 }
 
-char *http_version_get(char *version) {
+const char *http_version_get(char *version) {
   for (int i = 0; i < http_static.version_count; i++)
     if (eq(http_versions[i], version))
       return http_versions[i];

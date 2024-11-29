@@ -1,0 +1,41 @@
+name: Run Test Scripts
+on: push
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'checkout the source code'
+        uses: actions/checkout@v3
+
+      - name: 'install dependencies'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make libcjson-dev
+
+      - name: 'build the library'
+        run: make
+
+      - name: 'install the library'
+        run: sudo make install
+
+      - name: 'build the examples'
+        run: make example
+
+      - name: 'run example #1'
+        run: |
+          ./dist/example_hello &
+          ./scripts/hello_test.sh
+          killall -9 example_hello
+
+      - name: 'run example #2'
+        run: |
+          ./dist/example_echo &
+          ./scripts/echo_test.sh
+          killall -9 example_echo
+
+      - name: 'run example #3'
+        run: |
+          ./dist/example_middleware &
+          ./scripts/middleware_test.sh
+          killall -9 example_middleware

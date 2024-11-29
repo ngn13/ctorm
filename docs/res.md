@@ -10,7 +10,11 @@
 
 ### Setting the response code
 The default response code is `200 OK`. You can change this
-by directly accessing the `code` section of the response object:
+using the `RES_CODE()` macro:
+```c
+RES_CODE(403);
+```
+Or you can directly modify the response code:
 ```c
 res->code = 403;
 ```

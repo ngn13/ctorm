@@ -12,6 +12,9 @@ int main() {
   // example: disable the server header
   config.server_header = false;
 
+  // another example: disable request logging
+  config.disable_logging = true;
+
   // create the app
   app_t *app = app_new(&config);
 
@@ -20,7 +23,7 @@ int main() {
 
   // run the app
   if (!app_run(app, "0.0.0.0:8080"))
-    error("app failed: %s", app_geterror());
+    error("Failed to start the app: %s", app_geterror());
 
   // clean up
   app_free(app);
