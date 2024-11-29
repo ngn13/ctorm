@@ -8,9 +8,9 @@
 
 #define BUF_SIZE 20
 
-urlenc_t *__enc_url_add(urlenc_t *url, char *key, char *val) {
-  urlenc_t *new = malloc(sizeof(urlenc_t));
-  bzero(new, sizeof(urlenc_t));
+enc_url_t *__enc_url_add(enc_url_t *url, char *key, char *val) {
+  enc_url_t *new = malloc(sizeof(enc_url_t));
+  bzero(new, sizeof(enc_url_t));
 
   new->pre   = url;
   new->key   = key;
@@ -19,7 +19,7 @@ urlenc_t *__enc_url_add(urlenc_t *url, char *key, char *val) {
   return new;
 }
 
-urlenc_t *enc_url_parse(char *data, uint64_t len) {
+enc_url_t *enc_url_parse(char *data, uint64_t len) {
   if (NULL == data)
     return NULL;
 
@@ -27,10 +27,10 @@ urlenc_t *enc_url_parse(char *data, uint64_t len) {
     for (char *c = data; *c != 0; c++)
       len++;
 
-  uint64_t  key_size = 0, val_size = 0, indx = 0;
-  char     *key_buf = NULL, *val_buf = NULL;
-  urlenc_t *url    = NULL;
-  bool      is_key = true;
+  uint64_t   key_size = 0, val_size = 0, indx = 0;
+  char      *key_buf = NULL, *val_buf = NULL;
+  enc_url_t *url    = NULL;
+  bool       is_key = true;
 
   key_size = val_size = len > BUF_SIZE * 2 ? BUF_SIZE : len;
 
@@ -86,7 +86,7 @@ urlenc_t *enc_url_parse(char *data, uint64_t len) {
   return url;
 }
 
-char *enc_url_get(urlenc_t *url, char *key) {
+char *enc_url_get(enc_url_t *url, char *key) {
   while (NULL != url) {
     if (strcmp(url->key, key) == 0)
       return url->value;
@@ -96,8 +96,8 @@ char *enc_url_get(urlenc_t *url, char *key) {
   return NULL;
 }
 
-void enc_url_free(urlenc_t *url) {
-  urlenc_t *pre = NULL;
+void enc_url_free(enc_url_t *url) {
+  enc_url_t *pre = NULL;
 
   while (NULL != url) {
     pre = url->pre;

@@ -17,10 +17,10 @@ typedef struct req_t {
   char       *path;    // url decoded path (does not include queries)
   const char *version; // HTTP version number (for example "HTTP/1.1")
 
-  headers_t headers;          // HTTP headers
-  bool      received_headers; // did we receive all the HTTP headers
-  urlenc_t *queries;          // HTTP queries (for example "?key=1")
-  int64_t   bodysize;         // size of the HTTP body
+  headers_t  headers;          // HTTP headers
+  bool       received_headers; // did we receive all the HTTP headers
+  enc_url_t *queries;          // HTTP queries (for example "?key=1")
+  int64_t    bodysize;         // size of the HTTP body
 } req_t;
 
 void req_init(req_t *, connection_t *); // setup a request
@@ -39,5 +39,5 @@ uint64_t req_body_size(req_t *);              // get the body size
 char *req_ip(req_t *, char *);       // get the requester IPv4/IPv6 address as string
 #define req_addr(r) ((r)->con->addr) // get the requester address as sockaddr
 
-urlenc_t *req_form(req_t *); // parse URL encoded form body
-cJSON    *req_json(req_t *); // parse JSON encoded form body
+enc_url_t *req_form(req_t *); // parse URL encoded form body
+cJSON     *req_json(req_t *); // parse JSON encoded form body

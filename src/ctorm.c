@@ -147,7 +147,7 @@ bool app_run(app_t *app, const char *addr) {
     return false;
   }
 
-  char  *save, *ip = NULL, *ports = NULL;
+  char  *save, *ip = NULL, *_port = NULL;
   size_t addrsize = strlen(addr) + 1;
   char   addrcpy[addrsize];
   bool   ret  = false;
@@ -160,19 +160,17 @@ bool app_run(app_t *app, const char *addr) {
     return ret;
   }
 
-  if (NULL == (ports = strtok_r(NULL, ":", &save))) {
+  if (NULL == (_port = strtok_r(NULL, ":", &save))) {
     errno = BadAddress;
     return ret;
   }
 
-  port = atoi(ports);
+  port = atoi(_port);
 
   if (port > UINT16_MAX || port <= 0) {
     errno = BadPort;
     return ret;
   }
-
-  info("Starting the application on %s:%d", ip, port);
 
   app->running = true;
   signal_app   = app;

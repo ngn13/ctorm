@@ -7,8 +7,8 @@ void handle_notfound(req_t *req, res_t *res) {
 }
 
 void handle_post(req_t *req, res_t *res) {
-  urlenc_t *form = NULL;
-  char     *msg  = NULL;
+  enc_url_t *form = NULL;
+  char      *msg  = NULL;
 
   if ((form = REQ_FORM()) == NULL) {
     res->code = 400;

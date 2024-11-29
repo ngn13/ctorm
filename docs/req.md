@@ -1,5 +1,5 @@
-# Request functions 
-> [!IMPORTANT]  
+# Request functions
+> [!IMPORTANT]
 > You should **NOT** `free()` any data returned by this functions
 > **UNLESS** it's explicitly told to do so.
 
@@ -35,61 +35,50 @@ If you are using the request object inside a middleware handler,
 you can cancel the request, making so will prevent it from reaching
 the other middlewares and the other routes:
 ```c
+REQ_CANCEL();
+```
+Or you can cancel it manually:
+```c
 req->cancel = true;
 ```
 
 ### Working with request body
-HTTP request body is non-null terminated (not printable), raw
-data section of the `req_t` structure, you can directly access
-it with the help of the `bodysize` section, however **you should
-not directly modify it**.
-
-Before using the request body, you should also make sure that the
-request actually contains a body:
+To access the HTTP request body, you can read it into a buffer
+you provide:
 ```c
-if(req->bodysize == 0 || req->body == NULL){
+// get the body size
+uint64_t size = REQ_BODY_SIZE();
+// uint64_t size = req_body_size(req);
+
+// check if body size is valid
+if(size == 0){
     error("request does not contain a body");
     return;
 }
 
-// the following will (potentially) read arbitrary data
-// because "req->body" is not null terminated
-// info("body: %s", req->body);
+// allocate buffer for the body data
+char *body = malloc(size);
 
-char body_copy[req->bodysize];
-memcpy(body_copy, req->body, req->bodysie);
-```
-
-To get the null terminated body (printable), you can use the `REQ_BODY`
-macro or the `req_body` function:
-```c
-size_t bodysize = REQ_BODY_SIZE();
-if(bodysize == 0){
-    error("request does not contain a body");
-    return;
-}
-
-char body[bodysize];
-REQ_BODY(body);
-
-info("body: %s", body);
+// read "size" bytes of body into the "buffer"
+REQ_BODY(body, size);
+// req_body(req, body, size);
 ```
 
 ctrom also contains few helper functions to work with certain
 body formats:
 ```c
 // parse the form encoded body
-form_t *form = REQ_FORM();
-//form_t *form = req_form(req);
-char *username = req_form_get(form, "username"); // do not free or directly modify
-req_form_free(form); // "username" now points to an invalid address 
+enc_url_t *form = REQ_FORM();
+// enc_url_t *form = req_form(req);
+char *username = enc_url_get(form, "username"); // do not free or directly modify
+enc_url_free(form); // "username" now points to an invalid address
 
 // parse the JSON encoded body
 cJSON *json = REQ_JSON();
-//cJSON *json = req_json(req);
-cJSON *useritem = cJSON_GetObjectItem(json, "username");
-char *username = cJSON_GetStringValue(useritem); // do not free or directly modify
-req_json_free(json); // "username" and "useritem" now points to an invalid address
+// cJSON *json = req_json(req);
+cJSON *un_item = cJSON_GetObjectItem(json, "username");
+char *un = cJSON_GetStringValue(un_item); // do not free or directly modify
+enc_json_free(json); // "un" and "un_item" now points to an invalid address
 ```
 
 ### Request queries
@@ -97,6 +86,8 @@ To get URL decoded request queries, you can use the `REQ_QUERY` macro or the
 `req_query` function:
 ```c
 char *username = REQ_QUERY("username"); // do not free or directly modify
+// char *username = req_query(req, "username");
+
 if(NULL == username){
     error("username query is not specified");
     return;
@@ -112,7 +103,9 @@ To get HTTP headers, you can use the `REQ_HEADER` macro or the
 Also, if the client sent multiple headers with the same name, this macro/function
 will return the first one in the header list.
 ```c
-char* agent = REQ_HEADER("User-Agent");
+char* agent = REQ_GET("User-Agent");
+// char *agent = req_get(req, "User-Agent");
+
 if(NULL == agent){
     error("user-agent header is not set");
     return;

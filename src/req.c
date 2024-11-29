@@ -207,10 +207,10 @@ char *req_query(req_t *req, char *name) {
   return enc_url_get(req->queries, name);
 }
 
-urlenc_t *req_form(req_t *req) {
-  char     *contentt = req_get(req, "content-type");
-  urlenc_t *form     = NULL;
-  uint64_t  size     = 0;
+enc_url_t *req_form(req_t *req) {
+  char      *contentt = req_get(req, "content-type");
+  enc_url_t *form     = NULL;
+  uint64_t   size     = 0;
 
   if (!startswith(contentt, "application/x-www-form-urlencoded")) {
     errno = InvalidContentType;

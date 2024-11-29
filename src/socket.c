@@ -7,6 +7,7 @@
 #include "../include/req.h"
 #include "../include/res.h"
 
+#include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
 
@@ -56,21 +57,18 @@ bool socket_set_opts(app_t *app, int sockfd) {
 
 bool socket_start(app_t *app, char *addr, uint16_t port) {
   int              sockfd = -1, flag = 1;
-  struct addrinfo *info = NULL, *cur = NULL;
-  struct sockaddr  saddr;
-  socklen_t        saddr_len = sizeof(saddr);
-  bool             ret       = false;
-  connection_t    *con       = NULL;
-
-  bzero(&saddr, sizeof(saddr));
+  struct addrinfo *ainfo = NULL, *cur = NULL;
+  socklen_t        addr_len = 0;
+  bool             ret      = false;
+  connection_t    *con      = NULL;
 
   if (0 == port)
     goto end;
 
-  if (getaddrinfo(addr, NULL, NULL, &info) != 0 || NULL == info)
+  if (getaddrinfo(addr, NULL, NULL, &ainfo) != 0 || NULL == ainfo)
     goto end;
 
-  for (cur = info; cur != NULL; cur = cur->ai_next) {
+  for (cur = ainfo; cur != NULL; cur = cur->ai_next) {
     switch (cur->ai_family) {
     case AF_INET:
       ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(port);
@@ -86,9 +84,7 @@ bool socket_start(app_t *app, char *addr, uint16_t port) {
   goto end;
 
 found_addr:
-  memcpy(&saddr, cur->ai_addr, sizeof(saddr));
-
-  if ((sockfd = socket(saddr.sa_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+  if ((sockfd = socket(cur->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     debug("Failed to create socket: %s", strerror(errno));
     goto end;
   }
@@ -99,7 +95,7 @@ found_addr:
     goto end;
   }
 
-  if (bind(sockfd, &saddr, sizeof(saddr)) != 0) {
+  if (bind(sockfd, cur->ai_addr, cur->ai_addrlen) != 0) {
     debug("Failed to bind the socket: %s", strerror(errno));
     goto end;
   }
@@ -108,6 +104,9 @@ found_addr:
     debug("Failed to listen socket: %s", strerror(errno));
     goto end;
   }
+
+  // start the server
+  info("Starting the application on %s:%u", addr, port);
 
   // new connection handler loop
   do {
@@ -131,12 +130,12 @@ found_addr:
       debug("Failed to create a new connection: %s", app_geterror());
       goto end;
     }
-  } while (app->running && (con->socket = accept(sockfd, &con->addr, &saddr_len)) > 0);
+  } while (app->running && (con->socket = accept(sockfd, &con->addr, &addr_len)) > 0);
 
   ret = true;
 end:
-  if (NULL != info)
-    freeaddrinfo(info);
+  if (NULL != ainfo)
+    freeaddrinfo(ainfo);
 
   if (sockfd > 0)
     close(sockfd);

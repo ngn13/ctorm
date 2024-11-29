@@ -9,6 +9,7 @@
 
 # ctorm | simple web framework for C
 ![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml)
+![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml?label=tests)
 ![](https://img.shields.io/github/v/tag/ngn13/ctorm?label=version)
 ![](https://img.shields.io/github/license/ngn13/ctorm)
 
