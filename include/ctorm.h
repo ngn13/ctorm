@@ -47,6 +47,6 @@ bool   app_run(app_t *app, const char *addr); // start the app on the specified 
 bool   app_add(app_t *app, char *method, bool is_middleware, char *path, route_t handler); // add a new route
 bool   app_static(app_t *app, char *path, char *dir); // serve the static content in the dir on specifed the path
 void   app_all(app_t *app, route_t handler);          // handler for all the unhandled routes
-void   app_route(app_t *app, req_t *request, res_t *response); // internal route handler
-void   app_404(req_t *request, res_t *response);               // internal 404 route handler, default for app_all()
-void   app_free(app_t *app); // frees and closes the resources of the created application
+void   app_route(app_t *app, req_t *req, res_t *res); // internal route handler
+void   app_404(req_t *req, res_t *res);               // internal 404 route handler, default for app_all()
+void   app_free(app_t *app);                          // frees and closes the resources of the created application
