@@ -37,5 +37,5 @@ jobs:
       - name: 'run example #3'
         run: |
           ./dist/example_middleware &
-          ./scripts/echo_middleware.sh
+          ./scripts/middleware_test.sh
           killall -9 example_middleware
