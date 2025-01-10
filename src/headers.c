@@ -1,9 +1,8 @@
-#include "../include/headers.h"
-#include "../include/errors.h"
+#include "headers.h"
+#include "errors.h"
 
 #include <string.h>
 #include <stdlib.h>
-
 #include <errno.h>
 
 #define __tolower(c) (c | 32)
@@ -28,7 +27,7 @@ uint64_t headers_hasher(const char *data) {
   return sum;
 }
 
-#define headers_hash(k) (headers_hasher(k) % TABLE_SIZE)
+#define headers_hash(k) (headers_hasher(k) % HEADER_TABLE_SIZE)
 #define headers_list(k) (&(h[headers_hash(k)]))
 
 void __headers_free_single(struct header *h) {
@@ -52,7 +51,7 @@ void __headers_free_list(struct header *cur) {
 }
 
 void headers_free(headers_t h) {
-  for (uint8_t i = 0; i < TABLE_SIZE; i++)
+  for (uint8_t i = 0; i < HEADER_TABLE_SIZE; i++)
     __headers_free_list(h[i]);
 }
 
@@ -61,7 +60,7 @@ bool headers_next(headers_t h, header_pos_t *pos) {
     return false;
 
 next_node:
-  if (pos->_indx >= TABLE_SIZE) {
+  if (pos->_indx >= HEADER_TABLE_SIZE) {
     return false;
   }
 

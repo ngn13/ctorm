@@ -18,16 +18,14 @@
 
 */
 
-#include "../include/errors.h"
-#include "../include/socket.h"
+#include "errors.h"
+#include "socket.h"
 
-#include "../include/ctorm.h"
-#include "../include/pool.h"
-#include "../include/util.h"
+#include "pool.h"
+#include "util.h"
 
-#include "../include/log.h"
-#include "../include/req.h"
-#include "../include/res.h"
+#include "app.h"
+#include "log.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -40,36 +38,44 @@
 #include <errno.h>
 #include <stdio.h>
 
-app_t *signal_app;
+ctorm_app_t *signal_app;
 
-void app_signal(int sig) {
+void __ctorm_signal_handler(int sig) {
   if (NULL == signal_app)
     return;
 
   signal_app->running = false;
 }
 
-app_t *app_new(app_config_t *_config) {
-  app_t        *app    = malloc(sizeof(app_t));
-  app_config_t *config = _config;
+void __ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
+  ctorm_res_set(res, "content-type", "text");
+  ctorm_res_send(res, "not found", 0);
+  res->code = 404;
+}
 
-  bzero(app, sizeof(app_t));
+ctorm_app_t *ctorm_app_new(ctorm_config_t *_config) {
+  ctorm_app_t    *app    = malloc(sizeof(ctorm_app_t));
+  ctorm_config_t *config = _config;
+
+  bzero(app, sizeof(ctorm_app_t));
 
   if (NULL == config) {
-    config                 = malloc(sizeof(app_config_t));
+    config                 = malloc(sizeof(ctorm_config_t));
     app->is_default_config = true;
-    app_config_new(config);
+    ctorm_config_new(config);
   }
 
   app->config   = config;
-  app->allroute = app_404;
+  app->allroute = __ctorm_default_handler;
   app->running  = false;
 
   if (config->tcp_timeout < 0) {
     errno = BadTcpTimeout;
     goto fail;
-  } else if (config->tcp_timeout == 0)
-    warn("Setting the TCP timeout to 0 may allow attackers to DoS your application");
+  }
+
+  else if (config->tcp_timeout == 0)
+    warn("setting the TCP timeout to 0 may allow attackers to DoS your application");
 
   if (config->max_connections <= 0) {
     errno = BadMaxConnCount;
@@ -96,11 +102,11 @@ app_t *app_new(app_config_t *_config) {
   return app;
 
 fail:
-  app_free(app);
+  ctorm_app_free(app);
   return NULL;
 }
 
-void app_free(app_t *app) {
+void ctorm_app_free(ctorm_app_t *app) {
   if (NULL == app)
     return;
 
@@ -108,8 +114,8 @@ void app_free(app_t *app) {
     pool_stop(app->pool);
 
   // reset setbuf
-  routemap_t *cur = NULL, *prev = NULL;
-  int         stdout_cp = dup(1);
+  ctorm_routemap_t *cur = NULL, *prev = NULL;
+  int               stdout_cp = dup(1);
   close(1);
   dup2(stdout_cp, 1);
 
@@ -136,7 +142,7 @@ void app_free(app_t *app) {
   free(app);
 }
 
-bool app_run(app_t *app, const char *addr) {
+bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
   if (NULL == app) {
     errno = InvalidAppPointer;
     return false;
@@ -178,7 +184,7 @@ bool app_run(app_t *app, const char *addr) {
   if (app->config->handle_signal) {
     struct sigaction sa;
     sigemptyset(&sa.sa_mask);
-    sa.sa_handler = app_signal;
+    sa.sa_handler = __ctorm_signal_handler;
     sa.sa_flags   = 0;
     sigaction(SIGINT, &sa, NULL);
   }
@@ -192,7 +198,7 @@ bool app_run(app_t *app, const char *addr) {
   return ret;
 }
 
-bool app_static(app_t *app, char *path, char *dir) {
+bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
   if (NULL == app) {
     errno = InvalidAppPointer;
     return false;
@@ -208,24 +214,20 @@ bool app_static(app_t *app, char *path, char *dir) {
   return true;
 }
 
-void app_all(app_t *app, route_t handler) {
-  app->allroute = handler;
-}
-
-bool app_add(app_t *app, char *method, bool is_middleware, char *path, route_t handler) {
+bool ctorm_app_add(ctorm_app_t *app, char *method, bool is_middleware, char *path, ctorm_route_t handler) {
   if (NULL == app) {
     errno = InvalidAppPointer;
     return false;
   }
 
-  if (path[0] != '/') {
+  if (*path != '/') {
     errno = BadPath;
     return false;
   }
 
-  routemap_t *new = NULL, *cur = NULL, **maps = is_middleware ? &app->middleware_maps : &app->route_maps;
+  ctorm_routemap_t *new = NULL, *cur = NULL, **maps = is_middleware ? &app->middleware_maps : &app->route_maps;
 
-  if ((new = malloc(sizeof(routemap_t))) == NULL) {
+  if ((new = malloc(sizeof(ctorm_routemap_t))) == NULL) {
     errno = AllocFailed;
     return false;
   }
@@ -253,15 +255,13 @@ bool app_add(app_t *app, char *method, bool is_middleware, char *path, route_t h
   return true;
 }
 
-void app_404(req_t *req, res_t *res) {
-  res_set(res, "Content-Type", "text");
-  res_send(res, "Not Found", 0);
-  res->code = 404;
+void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler) {
+  app->allroute = handler;
 }
 
-void app_route(app_t *app, req_t *req, res_t *res) {
-  routemap_t *cur           = NULL;
-  bool        found_handler = false;
+void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
+  ctorm_routemap_t *cur           = NULL;
+  bool              found_handler = false;
 
   // call the middlewares, stop if a middleware cancels the request
   for (cur = app->middleware_maps; !req->cancel && cur != NULL; cur = cur->next) {
@@ -328,7 +328,7 @@ void app_route(app_t *app, req_t *req, res_t *res) {
     goto end;
   }
 
-  if (!res_sendfile(res, fp)) {
+  if (!ctorm_res_sendfile(res, fp)) {
     res->code = 404;
     free(fp);
     goto end;

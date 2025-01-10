@@ -1,4 +1,4 @@
-#include "../include/pool.h"
+#include "pool.h"
 
 #include <signal.h>
 #include <stdint.h>

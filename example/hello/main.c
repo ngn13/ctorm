@@ -1,13 +1,13 @@
-#include "../../include/all.h"
+#include <ctorm.h>
 
-void handle_get(req_t *req, res_t *res) {
-  RES_SEND("Hello world!");
+void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
+  RES_SEND("hello world!");
 }
 
 int main() {
   // create the app configuration
-  app_config_t config;
-  app_config_new(&config);
+  ctorm_config_t config;
+  ctorm_config_new(&config);
 
   // example: disable the server header
   config.server_header = false;
@@ -16,15 +16,15 @@ int main() {
   config.disable_logging = true;
 
   // create the app
-  app_t *app = app_new(&config);
+  ctorm_app_t *app = ctorm_app_new(&config);
 
   // setup the routes
-  GET(app, "/", handle_get);
+  GET(app, "/", GET_index);
 
   // run the app
-  if (!app_run(app, "0.0.0.0:8080"))
-    error("Failed to start the app: %s", app_geterror());
+  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+    ctorm_error("failed to start the app: %s", ctorm_geterror());
 
   // clean up
-  app_free(app);
+  ctorm_app_free(app);
 }

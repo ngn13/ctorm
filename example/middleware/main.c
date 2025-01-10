@@ -1,5 +1,5 @@
-#include "../../include/all.h"
 #include <cjson/cJSON.h>
+#include <ctorm.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -11,29 +11,29 @@ typedef struct user {
 
 user_t *users = NULL;
 
-void index_redirect(req_t *req, res_t *res) {
+void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
   RES_REDIRECT("/users");
 }
 
-void user_auth(req_t *req, res_t *res) {
-  char *auth = REQ_GET("Authorization");
+void user_auth(ctorm_req_t *req, ctorm_res_t *res) {
+  char *auth = REQ_GET("authorization");
 
   if (NULL != auth && strcmp(auth, "secretpassword") == 0)
     return;
 
   req->cancel = true;
-  res->code   = 403;
+  RES_CODE(403);
   RES_SEND("You don't have permission to view this page!");
 }
 
-void user_list(req_t *req, res_t *res) {
+void GET_user_list(ctorm_req_t *req, ctorm_res_t *res) {
   cJSON *json = NULL, *list = NULL, *user, *name, *age;
   json = cJSON_CreateObject();
   list = cJSON_AddArrayToObject(json, "list");
 
   if (NULL == json || NULL == list) {
-    res->code = 500;
-    RES_SEND("Failed to create a JSON");
+    RES_CODE(500);
+    RES_SEND("failed to create a JSON");
   }
 
   user_t *cur = users;
@@ -50,18 +50,18 @@ void user_list(req_t *req, res_t *res) {
   }
 
   if (!RES_JSON(json)) {
-    error("Failed to send the JSON data: %s", app_geterror());
-    res->code = 500;
-    RES_SEND("Failed to send the JSON");
+    ctorm_error("failed to send the JSON data: %s", ctorm_geterror());
+    RES_CODE(500);
+    RES_SEND("failed to send the JSON");
   }
 }
 
-void user_delete(req_t *req, res_t *res) {
+void DELETE_user_delete(ctorm_req_t *req, ctorm_res_t *res) {
   char   *name = REQ_QUERY("name");
   user_t *cur = users, *prev = NULL;
 
   if (NULL == name) {
-    res->code = 400;
+    RES_CODE(400);
     return RES_SEND("Please specify a name");
   }
 
@@ -81,27 +81,27 @@ void user_delete(req_t *req, res_t *res) {
     return RES_SEND("Success!");
   }
 
-  res->code = 404;
+  RES_CODE(404);
   return RES_SEND("User not found");
 }
 
-void user_add(req_t *req, res_t *res) {
+void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
   cJSON *name = NULL, *age = NULL;
   cJSON *json = REQ_JSON();
 
   if (NULL == json) {
-    res->code = 400;
-    error("Failed to get the JSON body: %s", app_geterror());
-    return RES_SEND("Please specify user data");
+    RES_CODE(400);
+    ctorm_error("failed to get the JSON body: %s", ctorm_geterror());
+    return RES_SEND("please specify user data");
   }
 
   name = cJSON_GetObjectItem(json, "name");
   age  = cJSON_GetObjectItem(json, "age");
 
   if (NULL == name || NULL == age) {
-    res->code = 400;
-    error("Failed to get the name or age");
-    return RES_SEND("Please specify user data");
+    RES_CODE(400);
+    ctorm_error("failed to get the name or age");
+    return RES_SEND("please specify user data");
   }
 
   user_t *user = malloc(sizeof(user_t));
@@ -110,7 +110,7 @@ void user_add(req_t *req, res_t *res) {
 
   if (NULL == users) {
     users = user;
-    return RES_SEND("Success!");
+    return RES_SEND("success!");
   }
 
   user_t *cur = users;
@@ -122,7 +122,7 @@ void user_add(req_t *req, res_t *res) {
     cur = cur->next;
   }
 
-  return RES_SEND("Success!");
+  return RES_SEND("success!");
 }
 
 int main() {
@@ -131,19 +131,19 @@ int main() {
   users->name = "John";
   users->age  = 23;
 
-  app_config_t config;
-  app_config_new(&config);
+  ctorm_config_t config;
+  ctorm_config_new(&config);
 
-  app_t *app = app_new(&config);
+  ctorm_app_t *app = ctorm_app_new(&config);
 
   MIDDLEWARE_ALL(app, "/user/*", user_auth);
-  DELETE(app, "/user/delete", user_delete);
-  POST(app, "/user/add", user_add);
-  GET(app, "/", index_redirect);
-  GET(app, "/users", user_list);
+  DELETE(app, "/user/delete", DELETE_user_delete);
+  POST(app, "/user/add", POST_user_add);
+  GET(app, "/", GET_index);
+  GET(app, "/users", GET_user_list);
 
-  if (!app_run(app, "0.0.0.0:8080"))
-    error("Failed to start the app: %s", app_geterror());
+  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+    ctorm_error("failed to start the app: %s", ctorm_geterror());
 
-  app_free(app);
+  ctorm_app_free(app);
 }

@@ -1,6 +1,16 @@
 #pragma once
+#include <stdint.h>
 
-typedef enum app_error_t {
+#ifndef CTORM_EXPORT
+
+struct ctorm_error_desc {
+  uint16_t    code;
+  const char *desc;
+};
+
+#endif
+
+typedef enum app_error {
   BadTcpTimeout       = 9908,
   BadPoolSize         = 9909,
   PoolFailed          = 9910,
@@ -30,12 +40,7 @@ typedef enum app_error_t {
   InvalidContentType  = 9934,
   EmptyBody           = 9935,
   BodyRecvFail        = 9936,
-} app_error_t;
+} ctorm_error_t;
 
-struct app_error_desc_t {
-  int   code;
-  char *desc;
-};
-
-char *app_geterror_code(app_error_t);
-char *app_geterror();
+const char *ctorm_geterror_code(ctorm_error_t error);
+const char *ctorm_geterror();

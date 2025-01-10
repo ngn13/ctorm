@@ -1,5 +1,5 @@
-#include "../include/http.h"
-#include "../include/util.h"
+#include "http.h"
+#include "util.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -40,9 +40,13 @@ void http_static_load() {
 }
 
 method_t http_method_id(char *name) {
+  if (NULL == name)
+    return -1;
+
   for (int i = 0; i < http_static.method_count; i++)
     if (eq(http_method_map[i].name, name))
       return http_method_map[i].code;
+
   return -1;
 }
 

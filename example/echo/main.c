@@ -1,63 +1,63 @@
-#include "../../include/all.h"
+#include <ctorm.h>
 #include <string.h>
 
-void handle_notfound(req_t *req, res_t *res) {
-  res->code = 404;
+void GET_notfound(ctorm_req_t *req, ctorm_res_t *res) {
+  RES_CODE(404);
   RES_SENDFILE("./example/echo/html/404.html");
 }
 
-void handle_post(req_t *req, res_t *res) {
+void POST_form(ctorm_req_t *req, ctorm_res_t *res) {
   enc_url_t *form = NULL;
   char      *msg  = NULL;
 
   if ((form = REQ_FORM()) == NULL) {
-    res->code = 400;
-    error("Failed to parse the form data: %s", app_geterror());
+    RES_CODE(400);
+    ctorm_error("failed to parse the form data: %s", ctorm_geterror());
     return RES_SEND("bad body");
   }
 
   if (NULL == (msg = enc_url_get(form, "msg"))) {
-    res->code = 400;
+    RES_CODE(400);
     enc_url_free(form);
-    error("Form data does not contain the message");
+    ctorm_error("form data does not contain the message");
     return RES_SEND("bad body");
   }
 
-  info("Message: %s", msg);
-  RES_FMT("Message: %s", msg);
+  ctorm_info("message: %s", msg);
+  RES_FMT("message: %s", msg);
 
-  RES_SET("Cool", "yes");
+  RES_SET("cool", "yes");
 
   enc_url_free(form);
 }
 
-void handle_get(req_t *req, res_t *res) {
+void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
   if (!RES_SENDFILE("./example/echo/html/index.html"))
-    error("Failed to send index.html: %s", app_geterror());
+    ctorm_error("Failed to send index.html: %s", ctorm_geterror());
 }
 
 int main() {
   // create the app configuration
-  app_config_t config;
-  app_config_new(&config);
+  ctorm_config_t config;
+  ctorm_config_new(&config);
 
   // create the app
-  app_t *app = app_new(&config);
+  ctorm_app_t *app = ctorm_app_new(&config);
 
   // setup the routes
-  GET(app, "/", handle_get);
-  POST(app, "/post", handle_post);
+  GET(app, "/", GET_index);
+  POST(app, "/post", POST_form);
 
   // setup the static route
-  app_static(app, "/static", "./example/echo/static");
+  ctorm_app_static(app, "/static", "./example/echo/static");
 
   // setup the non handled route handler
-  app_all(app, handle_notfound);
+  ctorm_app_all(app, GET_notfound);
 
   // run the app
-  if (!app_run(app, "0.0.0.0:8080"))
-    error("Failed to start the app: %s", app_geterror());
+  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+    ctorm_error("Failed to start the app: %s", ctorm_geterror());
 
   // clean up
-  app_free(app);
+  ctorm_app_free(app);
 }

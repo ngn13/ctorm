@@ -1,27 +1,26 @@
-#include "../include/options.h"
-#include "../include/headers.h"
-
-#include "../include/errors.h"
-#include "../include/util.h"
-#include "../include/req.h"
-#include "../include/log.h"
+#include "headers.h"
+#include "errors.h"
+#include "util.h"
+#include "req.h"
+#include "log.h"
 
 #include <arpa/inet.h>
+
 #include <stdlib.h>
 #include <string.h>
 
 #include <errno.h>
 #include <stdio.h>
 
-#define req_debug(f, ...)                                                                                              \
-  debug("(" FG_BOLD "Socket " FG_CYAN "%d" FG_RESET FG_BOLD " Request " FG_CYAN "0x%p" FG_RESET ") " f,                \
+#define rdebug(f, ...)                                                                                                 \
+  debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD " Request " FG_CYAN "0x%p" FG_RESET ") " f,                \
       req->con->socket,                                                                                                \
       req,                                                                                                             \
       ##__VA_ARGS__)
 #define rrecv(b, s, f) connection_recv(req->con, b, s, f)
 #define RECV_BUF_SIZE  20
 
-bool __rrecv_until(req_t *req, char **buf, uint64_t *size, char del, bool (*is_valid)(char)) {
+bool __rrecv_until(ctorm_req_t *req, char **buf, uint64_t *size, char del, bool (*is_valid)(char)) {
   if (NULL == req)
     return NULL;
 
@@ -75,15 +74,15 @@ bool __rrecv_until(req_t *req, char **buf, uint64_t *size, char del, bool (*is_v
 
 #define rrecv_until(b, s, d, v) __rrecv_until(req, b, s, d, v)
 
-bool __rrecv_is_valid_header(char c) {
+bool rrecv_is_valid_header(char c) {
   return c == '\r' || http_is_valid_header_char(c);
 }
 
-bool __rrecv_is_valid_path(char c) {
+bool rrecv_is_valid_path(char c) {
   return c == '\r' || http_is_valid_path_char(c);
 }
 
-void req_init(req_t *req, connection_t *con) {
+void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
   headers_init(&req->headers);
   req->received_headers = false;
 
@@ -97,7 +96,7 @@ void req_init(req_t *req, connection_t *con) {
   req->path    = NULL;
 }
 
-void req_free(req_t *req) {
+void ctorm_req_free(ctorm_req_t *req) {
   headers_free(req->headers);
   enc_url_free(req->queries);
 
@@ -112,7 +111,7 @@ void req_free(req_t *req) {
   // req->version is a static pointer
 }
 
-bool req_start(req_t *req) {
+bool ctorm_req_start(ctorm_req_t *req) {
   char     _http_method[http_static.method_max + 1], *http_method    = _http_method;
   char     _http_version[http_static.version_len + 2], *http_version = _http_version;
   uint64_t buf_size = 0;
@@ -121,20 +120,20 @@ bool req_start(req_t *req) {
   buf_size = sizeof(_http_method);
 
   if (!rrecv_until(&http_method, &buf_size, ' ', NULL)) {
-    req_debug("Failed to get the HTTP method");
+    rdebug("failed to get the HTTP method");
     return false;
   }
 
   if ((req->method = http_method_id(http_method)) == -1) {
-    req_debug("Invalid HTTP method: %s", http_method);
+    rdebug("invalid HTTP method: %s", http_method);
     return false;
   }
 
   // get the HTTP path
   buf_size = http_static.path_max + 1;
 
-  if (!rrecv_until(&req->encpath, &buf_size, ' ', __rrecv_is_valid_path)) {
-    req_debug("Failed to get the request path");
+  if (!rrecv_until(&req->encpath, &buf_size, ' ', rrecv_is_valid_path)) {
+    rdebug("failed to get the request path");
     return false;
   }
 
@@ -142,14 +141,14 @@ bool req_start(req_t *req) {
   buf_size = sizeof(_http_version);
 
   if (!rrecv_until(&http_version, &buf_size, '\n', NULL)) {
-    req_debug("Failed to get the HTTP version");
+    rdebug("failed to get the HTTP version");
     return false;
   }
 
   truncate_buf(http_version, buf_size, 2, '\r');
 
   if (NULL == (req->version = http_version_get(http_version))) {
-    req_debug("Received an invalid HTTP version: %s", http_version);
+    rdebug("received an invalid HTTP version: %s", http_version);
     return false;
   }
 
@@ -181,9 +180,9 @@ dup_free_ret:
   return true;
 }
 
-void req_end(req_t *req) {
+void ctorm_req_end(ctorm_req_t *req) {
   // get the request body size
-  req_body_size(req);
+  ctorm_req_body_size(req);
 
   if (!req->received_headers) {
     // skip all the headers (we aint gonna need them after this point)
@@ -197,27 +196,27 @@ void req_end(req_t *req) {
 
   // receive all the body from the connection
   char c = 0;
-  while (req_body(req, &c, sizeof(c)) > 0)
+  while (ctorm_req_body(req, &c, sizeof(c)) > 0)
     ;
 }
 
-char *req_query(req_t *req, char *name) {
+char *ctorm_req_query(ctorm_req_t *req, char *name) {
   if (NULL == name)
     return NULL;
   return enc_url_get(req->queries, name);
 }
 
-enc_url_t *req_form(req_t *req) {
-  char      *contentt = req_get(req, "content-type");
-  enc_url_t *form     = NULL;
-  uint64_t   size     = 0;
+enc_url_t *ctorm_req_form(ctorm_req_t *req) {
+  char      *type = ctorm_req_get(req, "content-type");
+  enc_url_t *form = NULL;
+  uint64_t   size = 0;
 
-  if (!startswith(contentt, "application/x-www-form-urlencoded")) {
+  if (!startswith(type, "application/x-www-form-urlencoded")) {
     errno = InvalidContentType;
     return NULL;
   }
 
-  if ((size = req_body_size(req)) == 0) {
+  if ((size = ctorm_req_body_size(req)) == 0) {
     errno = EmptyBody;
     return NULL;
   }
@@ -225,7 +224,7 @@ enc_url_t *req_form(req_t *req) {
   char data[size];
   bzero(data, size);
 
-  if (req_body(req, data, size) != size) {
+  if (ctorm_req_body(req, data, size) != size) {
     errno = BodyRecvFail;
     return NULL;
   }
@@ -236,17 +235,17 @@ enc_url_t *req_form(req_t *req) {
   return form;
 }
 
-cJSON *req_json(req_t *req) {
+cJSON *ctorm_req_json(ctorm_req_t *req) {
 #if CTORM_JSON_SUPPORT
-  char    *contentt = req_get(req, "content-type");
-  uint64_t size     = 0;
+  char    *type = ctorm_req_get(req, "content-type");
+  uint64_t size = 0;
 
-  if (!startswith(contentt, "application/json")) {
+  if (!startswith(type, "application/json")) {
     errno = InvalidContentType;
     return NULL;
   }
 
-  if ((size = req_body_size(req)) == 0) {
+  if ((size = ctorm_req_body_size(req)) == 0) {
     errno = BodyRecvFail;
     return NULL;
   }
@@ -254,7 +253,7 @@ cJSON *req_json(req_t *req) {
   char data[size + 1];
   bzero(data, size);
 
-  if (req_body(req, data, size) != size) {
+  if (ctorm_req_body(req, data, size) != size) {
     errno = BodyRecvFail;
     return NULL;
   }
@@ -266,11 +265,11 @@ cJSON *req_json(req_t *req) {
 #endif
 }
 
-char *req_method(req_t *req) {
+char *ctorm_req_method(ctorm_req_t *req) {
   return http_method_name(req->method);
 }
 
-char *req_get(req_t *req, char *name) {
+char *ctorm_req_get(ctorm_req_t *req, char *name) {
   char *header_val = NULL;
 
   // if the name equals NULL, we want to receive all the headers
@@ -294,7 +293,7 @@ next_header:
     // we reached the body
     if (sep == '\n') {
       rrecv(&sep, sizeof(sep), MSG_WAITALL);
-      req_debug("Received all the headers");
+      rdebug("received all the headers");
       req->received_headers = true;
       return NULL;
     }
@@ -304,27 +303,27 @@ next_header:
   buf_size    = http_static.header_max;
   header_name = NULL;
 
-  if (!rrecv_until(&header_name, &buf_size, ':', __rrecv_is_valid_header)) {
-    req_debug("Failed to get the header name");
+  if (!rrecv_until(&header_name, &buf_size, ':', rrecv_is_valid_header)) {
+    rdebug("failed to get the header name");
     return NULL;
   }
 
   // receive the header value
   if (rrecv(&sep, sizeof(sep), MSG_WAITALL) != sizeof(sep) || sep != ' ') {
-    req_debug("Failed to receive the header value (invalid separator)");
+    rdebug("failed to receive the header value (invalid separator)");
     return NULL;
   }
 
   buf_size   = http_static.header_max;
   header_val = NULL;
 
-  if (!rrecv_until(&header_val, &buf_size, '\n', __rrecv_is_valid_header)) {
-    req_debug("Failed to get the header value");
+  if (!rrecv_until(&header_val, &buf_size, '\n', rrecv_is_valid_header)) {
+    rdebug("failed to get the header value");
     return NULL;
   }
 
   truncate_buf(header_val, buf_size, 2, '\r');
-  req_debug("Received a new header: %s (%.5s...)", header_name, header_val);
+  rdebug("received a new header: %s (%.5s...)", header_name, header_val);
   headers_set(req->headers, header_name, header_val, true);
 
   if (NULL != name && headers_cmp(header_name, name))
@@ -333,7 +332,7 @@ next_header:
   goto next_header;
 }
 
-uint64_t req_body_size(req_t *req) {
+uint64_t ctorm_req_body_size(ctorm_req_t *req) {
   if (req->bodysize >= 0)
     return req->bodysize;
 
@@ -342,24 +341,24 @@ uint64_t req_body_size(req_t *req) {
     return 0;
   }
 
-  char *content_len = req_get(req, "content-length");
+  char *len = ctorm_req_get(req, "content-length");
 
-  if (NULL == content_len) {
+  if (NULL == len) {
     req->bodysize = 0;
     return 0;
   }
 
-  if ((req->bodysize = atol(content_len)) < 0)
+  if ((req->bodysize = atol(len)) < 0)
     req->bodysize = 0;
 
   return req->bodysize;
 }
 
-uint64_t req_body(req_t *req, char *buffer, uint64_t size) {
+uint64_t ctorm_req_body(ctorm_req_t *req, char *buffer, uint64_t size) {
   // receive all the headers so we can receive the body next
-  req_get(req, NULL);
+  ctorm_req_get(req, NULL);
 
-  if (size >= req_body_size(req))
+  if (size >= ctorm_req_body_size(req))
     size = req->bodysize;
   req->bodysize -= size;
 
@@ -369,7 +368,7 @@ uint64_t req_body(req_t *req, char *buffer, uint64_t size) {
   return rrecv(buffer, size, MSG_WAITALL);
 }
 
-char *req_ip(req_t *req, char *_ipbuf) {
+char *ctorm_req_ip(ctorm_req_t *req, char *_ipbuf) {
   char *ipbuf = _ipbuf;
 
   if (NULL == ipbuf)

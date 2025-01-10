@@ -1,31 +1,29 @@
-#include "../include/ctorm.h"
-#include "../include/options.h"
-
-#include "../include/log.h"
-#include "../include/req.h"
-#include "../include/res.h"
+#include "log.h"
+#include "req.h"
+#include "res.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
 
-void get_time(char *res) {
-  time_t    now = time(NULL);
-  struct tm tm  = *localtime(&now);
+#define __print_prefix(prefix, color)                                                                                  \
+  do {                                                                                                                 \
+    time_t    now   = time(NULL);                                                                                      \
+    struct tm local = *localtime(&now);                                                                                \
+    printf(color "(%02d/%02d/%04d %02d:%02d)" FG_RESET color FG_BOLD prefix FG_RESET,                                  \
+        local.tm_mday,                                                                                                 \
+        local.tm_mon + 1,                                                                                              \
+        (local.tm_year + 1900),                                                                                        \
+        local.tm_min,                                                                                                  \
+        local.tm_hour);                                                                                                \
+  } while (0)
 
-  sprintf(res, "(%02d/%02d/%04d %02d:%02d)", tm.tm_mday, tm.tm_mon + 1, (tm.tm_year + 1900), tm.tm_min, tm.tm_hour);
-}
-
-void log_req(double time, req_t *req, res_t *res) {
-  char tstr[25];
-  get_time(tstr);
-
-  printf(FG_MAGENTA "%s" FG_BOLD FG_MAGENTA " LOG   " FG_RESET FG_YELLO "%.0fμs" FG_RESET FG_CYAN " %d " FG_GREEN
-                    "%s %s" FG_RESET,
-      tstr,
-      time,
+void ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t process_time) {
+  __print_prefix(" LOG   ", FG_MAGENTA);
+  printf(FG_YELLO "%5luμs" FG_RESET FG_CYAN " %d " FG_GREEN "%s %s" FG_RESET,
+      process_time,
       res->code,
-      req_method(req),
+      ctorm_req_method(req),
       req->path);
   printf("\n");
 }
@@ -34,10 +32,7 @@ void info(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
 
-  char tstr[25];
-  get_time(tstr);
-
-  printf(FG_BLUE "%s" FG_RESET FG_BLUE FG_BOLD " INFO  " FG_RESET, tstr);
+  __print_prefix(" INFO  ", FG_BLUE);
   vprintf(msg, args);
   printf("\n");
 
@@ -48,10 +43,7 @@ void error(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
 
-  char tstr[25];
-  get_time(tstr);
-
-  printf(FG_RED "%s" FG_RESET FG_RED FG_BOLD " ERROR " FG_RESET, tstr);
+  __print_prefix(" ERROR ", FG_RED);
   vprintf(msg, args);
   printf("\n");
 
@@ -62,10 +54,7 @@ void warn(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
 
-  char tstr[25];
-  get_time(tstr);
-
-  printf(FG_YELLO "%s" FG_RESET FG_YELLO FG_BOLD " WARN  " FG_RESET, tstr);
+  __print_prefix(" WARN  ", FG_YELLO);
   vprintf(msg, args);
   printf("\n");
 
@@ -79,10 +68,7 @@ void _debug(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
 
-  char tstr[25];
-  get_time(tstr);
-
-  printf(FG_CYAN "%s" FG_RESET FG_CYAN FG_BOLD " DEBUG " FG_RESET, tstr);
+  __print_prefix(" DEBUG ", FG_CYAN);
   vprintf(msg, args);
   printf("\n");
 

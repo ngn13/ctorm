@@ -1,50 +1,48 @@
-#include "../include/errors.h"
+#include "errors.h"
 
-#include <stdlib.h>
 #include <string.h>
-
 #include <errno.h>
 
-struct app_error_desc_t descs[] = {
-    {.code = BadTcpTimeout,       .desc = "invalid TCP timeout"                         },
-    {.code = BadPoolSize,         .desc = "invalid pool size"                           },
-    {.code = PoolFailed,          .desc = "failed to create threadpool"                 },
-    {.code = ListenFailed,        .desc = "failed to listen on the interface"           },
-    {.code = BadAddress,          .desc = "bad address for the interface"               },
-    {.code = BadPort,             .desc = "bad port number for the interface"           },
-    {.code = OptFailed,           .desc = "failed to set socket options"                },
-    {.code = AllocFailed,         .desc = "memory allocation failed"                    },
-    {.code = UnknownErr,          .desc = "unknown error"                               },
-    {.code = BadReadPerm,         .desc = "permissions do not allow reading"            },
-    {.code = SizeFail,            .desc = "failed to get the size of the file"          },
-    {.code = CantRead,            .desc = "failed to read the file"                     },
-    {.code = FileNotExists,       .desc = "file does not exist"                         },
-    {.code = BadPath,             .desc = "invalid HTTP path (should start with /)"     },
-    {.code = InvalidAppPointer,   .desc = "invalid app pointer"                         },
-    {.code = BadUrlPointer,       .desc = "invalid URL pointer"                         },
-    {.code = BadJsonPointer,      .desc = "invalid cJSON pointer"                       },
-    {.code = BadFmtPointer,       .desc = "invalid string format pointer"               },
-    {.code = BadPathPointer,      .desc = "invalid path pointer"                        },
-    {.code = BadDataPointer,      .desc = "invalid data pointer"                        },
-    {.code = BadHeaderPointer,    .desc = "invalid header name/value pointer"           },
-    {.code = BadMaxConnCount,     .desc = "invalid max connection count"                },
-    {.code = NoJSONSupport,       .desc = "library not compiled with JSON support"      },
-    {.code = MutexFail,           .desc = "failed to initialize thread mutex"           },
-    {.code = BadResponseCode,     .desc = "specified response code is invalid"          },
-    {.code = ResponseAlreadySent, .desc = "response has already been sent"              },
-    {.code = InvalidContentType,  .desc = "body is not using the requested content type"},
-    {.code = EmptyBody,           .desc = "body is empty"                               },
-    {.code = BodyRecvFail,        .desc = "failed to receive the body"                  },
+struct ctorm_error_desc descs[] = {
+    {BadTcpTimeout,       "invalid TCP timeout"                         },
+    {BadPoolSize,         "invalid pool size"                           },
+    {PoolFailed,          "failed to create threadpool"                 },
+    {ListenFailed,        "failed to listen on the interface"           },
+    {BadAddress,          "bad address for the interface"               },
+    {BadPort,             "bad port number for the interface"           },
+    {OptFailed,           "failed to set socket options"                },
+    {AllocFailed,         "memory allocation failed"                    },
+    {UnknownErr,          "unknown error"                               },
+    {BadReadPerm,         "permissions do not allow reading"            },
+    {SizeFail,            "failed to get the size of the file"          },
+    {CantRead,            "failed to read the file"                     },
+    {FileNotExists,       "file does not exist"                         },
+    {BadPath,             "invalid HTTP path (should start with /)"     },
+    {InvalidAppPointer,   "invalid app pointer"                         },
+    {BadUrlPointer,       "invalid URL pointer"                         },
+    {BadJsonPointer,      "invalid cJSON pointer"                       },
+    {BadFmtPointer,       "invalid string format pointer"               },
+    {BadPathPointer,      "invalid path pointer"                        },
+    {BadDataPointer,      "invalid data pointer"                        },
+    {BadHeaderPointer,    "invalid header name/value pointer"           },
+    {BadMaxConnCount,     "invalid max connection count"                },
+    {NoJSONSupport,       "library not compiled with JSON support"      },
+    {MutexFail,           "failed to initialize thread mutex"           },
+    {BadResponseCode,     "specified response code is invalid"          },
+    {ResponseAlreadySent, "response has already been sent"              },
+    {InvalidContentType,  "body is not using the requested content type"},
+    {EmptyBody,           "body is empty"                               },
+    {BodyRecvFail,        "failed to receive the body"                  },
 };
 
-char *app_geterror_code(app_error_t code) {
-  for (int i = 0; i < sizeof(descs) / sizeof(struct app_error_desc_t); i++) {
+const char *ctorm_geterror_code(ctorm_error_t code) {
+  for (int i = 0; i < sizeof(descs) / sizeof(*descs); i++) {
     if (descs[i].code == code)
       return descs[i].desc;
   }
   return strerror(code);
 }
 
-char *app_geterror() {
-  return app_geterror_code(errno);
+const char *ctorm_geterror() {
+  return ctorm_geterror_code(errno);
 }

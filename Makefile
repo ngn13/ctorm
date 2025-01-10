@@ -1,44 +1,50 @@
-PREFIX = /usr
-CC = gcc
+# paths & programs
+PREFIX  = /usr
+DISTDIR = dist
+CC      = gcc
 
 # sources
-SRCS   = $(shell find src/ -type f -name '*.c')
-OBJS   = $(patsubst src/%.c,dist/%.o,$(SRCS))
-HDRS   = $(wildcard include/*.h)
+SRCS = $(shell find src/ -type f -name '*.c')
+OBJS = $(patsubst src/%.c,$(DISTDIR)/%.o,$(SRCS))
+HDRS = $(wildcard inc/*.h)
+
+# dirs
+SRCDIRS = $(shell find src/* -type d)
+OBJDIRS = $(patsubst src/%,$(DISTDIR)/%,$(SRCDIRS))
 
 # compiler flags
-CFLAGS = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
-LIBS   = -lpthread
+CFLAGS  = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
+INCLUDE = -I./inc
+LIBS    = -lpthread
 
 # options
-CTORM_DEBUG = 0
+CTORM_DEBUG        = 0
 CTORM_JSON_SUPPORT = 1
 
 ifeq ($(CTORM_JSON_SUPPORT), 1)
 	LIBS += -lcjson
 endif
 
-all: dist dist/libctorm.so
-
-dist:
-	mkdir -pv dist/encoding
+all: $(DISTDIR)/libctorm.so
 
 dist/libctorm.so: $(OBJS)
 	$(CC) -shared -o $@ $^ $(LIBS) $(CFLAGS)
 
-dist/%.o: src/%.c
-	$(CC) -c -Wall -fPIC -o $@ $^ $(LIBS) $(CFLAGS) \
-		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)    \
+$(DISTDIR)/%.o: src/%.c $(OBJDIRS)
+	$(CC) $(CFLAGS) $(INCLUDE) -c -Wall -fPIC -o $@ $< $(LIBS) \
+		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)               \
 		-DCTORM_DEBUG=$(CTORM_DEBUG)
 
+$(OBJDIRS):
+	@mkdir -pv $@
+
 install:
-	install -m755 dist/libctorm.so $(DESTDIR)$(PREFIX)/lib/libctorm.so
-	mkdir -pv $(DESTDIR)/usr/include/ctorm
-	cp $(HDRS) $(DESTDIR)/usr/include/ctorm
+	install -Dm755 $(DISTDIR)/libctorm.so $(DESTDIR)/$(PREFIX)/lib/libctorm.so
+	install -Dm644 inc/ctorm.h            $(DESTDIR)/$(PREFIX)/include/ctorm.h
 
 uninstall:
-	rm $(DESTDIR)$(PREFIX)/lib/libctorm.so
-	rm -r $(DESTDIR)/usr/include/ctorm
+	rm -vf $(DESTDIR)/$(PREFIX)/lib/libctorm.so
+	rm -vf $(DESTDIR)/$(PREFIX)/include/ctorm.h
 
 format:
 	clang-format -i -style=file $(SRCS) $(HDRS) example/*/*.c
@@ -49,4 +55,4 @@ clean:
 example:
 	$(MAKE) -C $@
 
-.PHONY: test install uninstall format clean example
+.PHONY: install uninstall format clean example

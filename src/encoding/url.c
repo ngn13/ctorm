@@ -1,23 +1,13 @@
-#include "../../include/encoding.h"
-#include "../../include/errors.h"
-#include "../../include/util.h"
-#include "../../include/log.h"
+#include "encoding.h"
+#include "errors.h"
+#include "util.h"
+#include "log.h"
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
 
-#define BUF_SIZE 20
-
-enc_url_t *__enc_url_add(enc_url_t *url, char *key, char *val) {
-  enc_url_t *new = malloc(sizeof(enc_url_t));
-  bzero(new, sizeof(enc_url_t));
-
-  new->pre   = url;
-  new->key   = key;
-  new->value = val;
-
-  return new;
-}
+#define BUF_SIZE 16
 
 enc_url_t *enc_url_parse(char *data, uint64_t len) {
   if (NULL == data)
@@ -27,83 +17,99 @@ enc_url_t *enc_url_parse(char *data, uint64_t len) {
     for (char *c = data; *c != 0; c++)
       len++;
 
-  uint64_t   key_size = 0, val_size = 0, indx = 0;
-  char      *key_buf = NULL, *val_buf = NULL;
-  enc_url_t *url    = NULL;
-  bool       is_key = true;
-
-  key_size = val_size = len > BUF_SIZE * 2 ? BUF_SIZE : len;
-
-  if (NULL == (key_buf = malloc(key_size))) {
-    debug("Failed to allocate a buffer for the key size");
-    errno = AllocFailed;
-    return NULL;
-  }
-
-  if (NULL == (val_buf = malloc(val_size))) {
-    debug("Failed to allocate a buffer for the value size");
-    errno = AllocFailed;
-    return NULL;
-  }
+  bool       is_key = true, ignore_val = false;
+  uint64_t   buf_size = 0, indx = 0;
+  enc_url_t *url = NULL;
+  char      *buf = NULL;
 
   for (; len > 0; len--, data++) {
+    // allocate a new buffer if required
+    if (NULL == buf) {
+      buf_size = BUF_SIZE > len + 1 ? len + 1 : BUF_SIZE;
+      indx     = 0;
+
+      if (NULL == (buf = malloc(buf_size))) {
+        debug("failed to allocate a buffer for the key size");
+        errno = AllocFailed;
+        return NULL;
+      }
+    }
+
+    /*
+
+     * key=value
+     *    ^
+     * at this position we should add a new pair, as we have
+     * read the entire key into the buf
+
+     * how ever it possible that the data just starts with '='
+     * so we check indx to make sure we don't add a pair with an empty key
+
+   */
     if (*data == '=' && is_key) {
-      is_key = false;
-      indx   = 0;
+      if (!(ignore_val = (indx == 0))) {
+        urldecode(buf);
+        pair_add(&url, buf, NULL); // not empty? create a new pair
+        buf = NULL;                // reset the buffer (it's now used by the pair)
+      }
+
+      is_key = false; // we are no longer reading the key
       continue;
     }
 
+    /*
+
+     * key=value&other_key=other_value
+     *          ^
+     * this is our current position if the following condition succeeds
+     * in that case, we have the query value in the buf, we should add it
+     * to the last pair
+
+    */
     if (!is_key && *data == '&')
-      goto url_add;
+      goto url_value_add;
 
-    if (is_key) {
-      if (indx + 1 >= key_size)
-        key_buf = realloc(key_buf, key_size *= 2);
-      key_buf[indx++] = *data;
-      key_buf[indx]   = 0;
-    }
+    if (indx + 1 >= buf_size)
+      buf = realloc(buf, buf_size *= 2);
+    buf[indx++] = *data;
+    buf[indx]   = 0;
 
-    else {
-      if (indx + 1 >= val_size)
-        val_buf = realloc(val_buf, val_size *= 2);
-      val_buf[indx++] = *data;
-      val_buf[indx]   = 0;
-    }
+    /*
 
+     * key=value\0
+     *         ^
+     * this is our position if the following condition fails, in that case
+     * we read the entire value and we should add it to the last pair
+
+    */
     if (len != 1)
       continue;
 
-  url_add:
+  url_value_add:
+    if (!ignore_val) {
+      urldecode(buf);
+      url->value = buf;
+      buf        = NULL;
+    }
+
     is_key = true;
-    indx   = 0;
-
-    urldecode(key_buf);
-    urldecode(val_buf);
-
-    url = __enc_url_add(url, key_buf, val_buf);
   }
 
+  free(buf);
   return url;
 }
 
-char *enc_url_get(enc_url_t *url, char *key) {
-  while (NULL != url) {
-    if (strcmp(url->key, key) == 0)
-      return url->value;
-    url = url->pre;
-  }
-
-  return NULL;
+char *enc_url_get(enc_url_t *url, char *name) {
+  if ((url = pair_find(url, name)) == NULL)
+    return NULL;
+  return url->value;
 }
 
 void enc_url_free(enc_url_t *url) {
-  enc_url_t *pre = NULL;
-
-  while (NULL != url) {
-    pre = url->pre;
-    free(url->value);
-    free(url->key);
-    free(url);
-    url = pre;
+  pair_next(url, cur) {
+    free(cur->key);
+    free(cur->value);
   }
+
+  pair_free(url);
 }

@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TABLE_SIZE 20
+#define HEADER_TABLE_SIZE 20
 
 struct header {
   struct header *next;
@@ -19,7 +19,9 @@ typedef struct {
   char          *value;
 } header_pos_t;
 
-typedef struct header *headers_t[TABLE_SIZE];
+typedef struct header *headers_t[HEADER_TABLE_SIZE];
+
+#ifndef CTORM_EXPORT
 
 bool     headers_cmp(const char *s1, const char *s2);
 uint64_t headers_hasher(const char *data);
@@ -33,3 +35,5 @@ bool headers_next(headers_t, header_pos_t *);
 bool  headers_set(headers_t, char *, char *, bool);
 char *headers_get(headers_t, char *);
 void  headers_del(headers_t, char *);
+
+#endif

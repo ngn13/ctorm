@@ -1,8 +1,16 @@
 #pragma once
 #include <stdbool.h>
-
-#include <string.h>
 #include <stdint.h>
+
+typedef struct pair {
+  char        *key, *value;
+  struct pair *next;
+} pair_t;
+
+pair_t *pair_add(pair_t **head, char *key, char *value);
+#define pair_next(head, cur) for (pair_t *cur = head; cur != NULL; cur = cur->next)
+pair_t *pair_find(pair_t *head, char *key);
+void    pair_free(pair_t *head);
 
 #define eq(s1, s2) (strcmp(s1, s2) == 0)
 #define truncate_buf(buf, size, indx, ch)                                                                              \

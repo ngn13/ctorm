@@ -1,2 +1,3 @@
-# dist directory for examples and the library
+compile_commands.json
+.cache
 dist/

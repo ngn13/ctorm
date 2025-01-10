@@ -1,14 +1,65 @@
-#include "../include/util.h"
+#include "util.h"
+
+#include <sys/stat.h>
+#include <stdbool.h>
+#include <errno.h>
+
 #include <assert.h>
+#include <limits.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include <ctype.h>
 #include <fcntl.h>
-#include <limits.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
+
+pair_t *pair_add(pair_t **head, char *key, char *value) {
+  if (NULL == key) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  pair_t *new = malloc(sizeof(pair_t));
+  bzero(new, sizeof(pair_t));
+
+  if (NULL != head) {
+    new->next = *head;
+    *head     = new;
+  }
+
+  new->key   = key;
+  new->value = value;
+
+  return new;
+}
+
+pair_t *pair_find(pair_t *head, char *key) {
+  if (NULL == head || NULL == key) {
+    errno = EINVAL;
+    return NULL;
+  }
+
+  pair_next(head, cur) {
+    if (eq(head->key, cur->key))
+      return cur;
+  }
+
+  errno = EFAULT;
+  return NULL;
+}
+
+void pair_free(pair_t *head) {
+  if (NULL == head)
+    return;
+
+  pair_t *cur = NULL, *next = NULL;
+
+  for (cur = head; cur != NULL; cur = next) {
+    next = cur->next;
+    free(cur);
+  }
+}
 
 bool startswith(char *str, char *pre) {
   if (NULL == str || NULL == pre)

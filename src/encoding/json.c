@@ -1,9 +1,5 @@
-#include "../../include/encoding.h"
-#include "../../include/options.h"
-#include "../../include/errors.h"
-
+#include "encoding.h"
 #include <string.h>
-#include <errno.h>
 
 #if CTORM_JSON_SUPPORT
 

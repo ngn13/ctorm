@@ -1,25 +1,21 @@
-#include "../include/connection.h"
-#include "../include/socket.h"
-#include "../include/errors.h"
-#include "../include/pool.h"
+#include "connection.h"
+#include "socket.h"
+#include "pool.h"
+#include "log.h"
 
-#include "../include/log.h"
-#include "../include/req.h"
-#include "../include/res.h"
-
-#include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <errno.h>
 
-bool socket_set_opts(app_t *app, int sockfd) {
+bool socket_set_opts(ctorm_app_t *app, int sockfd) {
   struct timeval timeout;
   bzero(&timeout, sizeof(timeout));
   int flag = 1;
@@ -55,7 +51,7 @@ bool socket_set_opts(app_t *app, int sockfd) {
   return true;
 }
 
-bool socket_start(app_t *app, char *addr, uint16_t port) {
+bool socket_start(ctorm_app_t *app, char *addr, uint16_t port) {
   int              sockfd = -1, flag = 1;
   struct addrinfo *ainfo = NULL, *cur = NULL;
   socklen_t        addr_len = 0;
@@ -80,54 +76,55 @@ bool socket_start(app_t *app, char *addr, uint16_t port) {
     }
   }
 
-  debug("Failed to resolve the address");
+  debug("failed to resolve the address");
   goto end;
 
 found_addr:
   if ((sockfd = socket(cur->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-    debug("Failed to create socket: %s", strerror(errno));
+    debug("failed to create socket: %s", strerror(errno));
     goto end;
   }
 
   // prevent EADDRINUSE
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
-    debug("Failed to set the REUSEADDR: %s", strerror(errno));
+    debug("failed to set the REUSEADDR: %s", strerror(errno));
     goto end;
   }
 
   if (bind(sockfd, cur->ai_addr, cur->ai_addrlen) != 0) {
-    debug("Failed to bind the socket: %s", strerror(errno));
+    debug("failed to bind the socket: %s", strerror(errno));
     goto end;
   }
 
   if (listen(sockfd, app->config->max_connections) != 0) {
-    debug("Failed to listen socket: %s", strerror(errno));
+    debug("failed to listen socket: %s", strerror(errno));
     goto end;
   }
 
   // start the server
-  info("Starting the application on %s:%u", addr, port);
+  if (!app->config->disable_startup)
+    info("starting the application on %s:%u", addr, port);
 
   // new connection handler loop
   do {
     if (NULL == con)
       goto con_new;
 
-    debug("Accepted a new connection (con: %p, socket %d)", con, con->socket);
+    debug("accepted a new connection (con: %p, socket %d)", con, con->socket);
 
     if (!socket_set_opts(app, con->socket)) {
-      error("Failed to setsockopt for connection (con: %p, socket %d): %s", con, con->socket, strerror(errno));
+      error("failed to setsockopt for connection (con: %p, socket %d): %s", con, con->socket, strerror(errno));
       break;
     }
 
     con->app = app;
 
-    debug("Creating a thread for connection (con: %p, socket %d)", con, con->socket);
+    debug("creating a thread for connection (con: %p, socket %d)", con, con->socket);
     pool_add(app->pool, (void *)connection_handle, (void *)con);
 
   con_new:
     if ((con = connection_new()) == NULL) {
-      debug("Failed to create a new connection: %s", app_geterror());
+      debug("failed to create a new connection: %s", app_geterror());
       goto end;
     }
   } while (app->running && (con->socket = accept(sockfd, &con->addr, &addr_len)) > 0);
@@ -141,7 +138,7 @@ end:
     close(sockfd);
 
   if (NULL != con) {
-    debug("Freeing unused connection (%p)", con);
+    debug("freeing unused connection (%p)", con);
     connection_free(con);
   }
 

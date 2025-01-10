@@ -1,11 +1,12 @@
-#include "../include/config.h"
+#include "config.h"
 #include <stdlib.h>
 
-void app_config_new(app_config_t *config) {
+void ctorm_config_new(ctorm_config_t *config) {
   if (NULL == config)
     return;
 
   config->max_connections = 1000;
+  config->disable_startup = false;
   config->disable_logging = false;
   config->handle_signal   = true;
   config->server_header   = true;
