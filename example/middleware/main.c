@@ -50,7 +50,7 @@ void GET_user_list(ctorm_req_t *req, ctorm_res_t *res) {
   }
 
   if (!RES_JSON(json)) {
-    ctorm_error("failed to send the JSON data: %s", ctorm_geterror());
+    ctorm_fail("failed to send the JSON data: %s", ctorm_geterror());
     RES_CODE(500);
     RES_SEND("failed to send the JSON");
   }
@@ -91,7 +91,7 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
 
   if (NULL == json) {
     RES_CODE(400);
-    ctorm_error("failed to get the JSON body: %s", ctorm_geterror());
+    ctorm_fail("failed to get the JSON body: %s", ctorm_geterror());
     return RES_SEND("please specify user data");
   }
 
@@ -100,7 +100,7 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
 
   if (NULL == name || NULL == age) {
     RES_CODE(400);
-    ctorm_error("failed to get the name or age");
+    ctorm_fail("failed to get the name or age");
     return RES_SEND("please specify user data");
   }
 
@@ -143,7 +143,7 @@ int main() {
   GET(app, "/users", GET_user_list);
 
   if (!ctorm_app_run(app, "0.0.0.0:8080"))
-    ctorm_error("failed to start the app: %s", ctorm_geterror());
+    ctorm_fail("failed to start the app: %s", ctorm_geterror());
 
   ctorm_app_free(app);
 }

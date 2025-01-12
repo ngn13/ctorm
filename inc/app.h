@@ -61,7 +61,7 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res); // i
 #define CTORM_VERSION "1.5"
 
 ctorm_app_t *ctorm_app_new(ctorm_config_t *config); // creates a new application, use app_free() when you are done
-bool         ctorm_app_run(ctorm_app_t *app, const char *addr); // start the app on the specified address
+bool         ctorm_app_run(ctorm_app_t *app, const char *host); // start the app on the specified host
 bool         ctorm_app_add(
             ctorm_app_t *app, char *method, bool is_middleware, char *path, ctorm_route_t handler); // add a new route
 void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler); // handler for all the unhandled routes

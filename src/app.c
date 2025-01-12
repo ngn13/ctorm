@@ -44,6 +44,7 @@ void __ctorm_signal_handler(int sig) {
   if (NULL == signal_app)
     return;
 
+  debug("signal handler got called, stopping the app");
   signal_app->running = false;
 }
 
@@ -110,72 +111,58 @@ void ctorm_app_free(ctorm_app_t *app) {
   if (NULL == app)
     return;
 
-  if (NULL != app->pool)
-    pool_stop(app->pool);
-
-  // reset setbuf
-  ctorm_routemap_t *cur = NULL, *prev = NULL;
-  int               stdout_cp = dup(1);
+  // reset stdout buffer
+  int stdout_cp = dup(1);
   close(1);
   dup2(stdout_cp, 1);
 
-  cur = app->middleware_maps;
-  while (cur != NULL) {
-    prev = cur;
-    cur  = cur->next;
-    free(prev);
+  // free the application pool
+  if (NULL != app->pool) {
+    pool_stop(app->pool);
+    app->pool = NULL;
   }
 
+  // destroy the request mutex
   if (app->config->lock_request)
     pthread_mutex_destroy(&app->request_mutex);
 
-  cur = app->route_maps;
-  while (cur != NULL) {
+  // free the routes and middlewares
+  ctorm_routemap_t *cur = NULL, *prev = NULL;
+
+  for (cur = app->middleware_maps; cur != NULL;) {
     prev = cur;
     cur  = cur->next;
     free(prev);
   }
 
-  if (app->is_default_config)
-    free(app->config);
+  for (cur = app->route_maps; cur != NULL;) {
+    prev = cur;
+    cur  = cur->next;
+    free(prev);
+  }
 
+  app->middleware_maps = NULL;
+  app->route_maps      = NULL;
+
+  // free the configuration
+  if (app->is_default_config) {
+    free(app->config);
+    app->config = NULL;
+  }
+
+  // free the application
   free(app);
 }
 
-bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
+bool ctorm_app_run(ctorm_app_t *app, const char *host) {
   if (NULL == app) {
     errno = InvalidAppPointer;
     return false;
   }
 
-  if (NULL == addr) {
-    errno = BadAddress;
+  if (NULL == host) {
+    errno = BadHost;
     return false;
-  }
-
-  char  *save, *ip = NULL, *_port = NULL;
-  size_t addrsize = strlen(addr) + 1;
-  char   addrcpy[addrsize];
-  bool   ret  = false;
-  int    port = -1;
-
-  memcpy(addrcpy, addr, addrsize);
-
-  if (NULL == (ip = strtok_r(addrcpy, ":", &save))) {
-    errno = BadAddress;
-    return ret;
-  }
-
-  if (NULL == (_port = strtok_r(NULL, ":", &save))) {
-    errno = BadAddress;
-    return ret;
-  }
-
-  port = atoi(_port);
-
-  if (port > UINT16_MAX || port <= 0) {
-    errno = BadPort;
-    return ret;
   }
 
   app->running = true;
@@ -189,9 +176,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
     sigaction(SIGINT, &sa, NULL);
   }
 
-  if (socket_start(app, ip, port))
-    ret = true;
-
+  bool ret     = socket_start(app, host);
   app->running = false;
   signal_app   = NULL;
 

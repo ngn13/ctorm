@@ -8,8 +8,8 @@ struct ctorm_error_desc descs[] = {
     {BadPoolSize,         "invalid pool size"                           },
     {PoolFailed,          "failed to create threadpool"                 },
     {ListenFailed,        "failed to listen on the interface"           },
-    {BadAddress,          "bad address for the interface"               },
-    {BadPort,             "bad port number for the interface"           },
+    {BadHost,             "bad host address"                            },
+    {BadPort,             "invalid port number"                         },
     {OptFailed,           "failed to set socket options"                },
     {AllocFailed,         "memory allocation failed"                    },
     {UnknownErr,          "unknown error"                               },
@@ -33,16 +33,15 @@ struct ctorm_error_desc descs[] = {
     {InvalidContentType,  "body is not using the requested content type"},
     {EmptyBody,           "body is empty"                               },
     {BodyRecvFail,        "failed to receive the body"                  },
+    {PortTooLarge,        "host port number is too large"               },
+    {NameTooLarge,        "host name is too large"                      },
+    {BadName,             "invalid hostname"                            },
 };
 
-const char *ctorm_geterror_code(ctorm_error_t code) {
+const char *ctorm_geterror_from_code(ctorm_error_t code) {
   for (int i = 0; i < sizeof(descs) / sizeof(*descs); i++) {
     if (descs[i].code == code)
       return descs[i].desc;
   }
   return strerror(code);
-}
-
-const char *ctorm_geterror() {
-  return ctorm_geterror_code(errno);
 }

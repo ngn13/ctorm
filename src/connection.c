@@ -75,15 +75,15 @@ done:
 
   // send the complete response
   if (!ctorm_res_end(&res)) {
-    __connection_debug("failed to send the response: %s", app_geterror());
+    __connection_debug("failed to send the response: %s", ctorm_geterror());
     goto free;
   }
 
   // finish the measurement and print out the result
   if (!app->config->disable_logging && ret) {
-    process_time = (clock() - process_time) * 1000000;
+    process_time = (uint64_t)(clock() - process_time) / (uint64_t)(CLOCKS_PER_SEC / 1000000);
     __connection_lock(con);
-    log(&req, &res, process_time / CLOCKS_PER_SEC);
+    log(&req, &res, process_time);
     __connection_unlock(con);
   }
 

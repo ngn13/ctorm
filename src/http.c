@@ -7,11 +7,11 @@
 
 method_map_t http_method_map[] = {
     {.code = METHOD_GET,     .name = "GET",     .body = false},
-    {.code = METHOD_HEAD,    .name = "HEAD",    .body = false},
     {.code = METHOD_POST,    .name = "POST",    .body = true },
     {.code = METHOD_PUT,     .name = "PUT",     .body = true },
     {.code = METHOD_DELETE,  .name = "DELETE",  .body = true },
     {.code = METHOD_OPTIONS, .name = "OPTIONS", .body = false},
+    {.code = METHOD_HEAD,    .name = "HEAD",    .body = false},
 };
 
 const char *http_versions[] = {"HTTP/1.1", "HTTP/1.0"};
@@ -20,7 +20,7 @@ http_static_t http_static;
 
 void http_static_load() {
   http_static.method_count = sizeof(http_method_map) / sizeof(http_method_map[0]);
-  http_static.method_max   = strlen(http_method_map[0].name);
+  http_static.method_max   = HTTP_METHOD_MAX;
 
   http_static.version_count = sizeof(http_versions) / sizeof(char *);
   http_static.version_len   = strlen(http_versions[0]);

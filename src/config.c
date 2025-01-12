@@ -6,7 +6,6 @@ void ctorm_config_new(ctorm_config_t *config) {
     return;
 
   config->max_connections = 1000;
-  config->disable_startup = false;
   config->disable_logging = false;
   config->handle_signal   = true;
   config->server_header   = true;

@@ -2,6 +2,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#define is_digit(c)  ((c) >= '0' && (c) <= '9')
+#define is_letter(c) ((c) >= 'A' && (c) <= 'Z') || ((c) >= 'a' && (c) <= 'z')
+
+#define __str(x) #x
+#define str(x)   __str(x)
+
 typedef struct pair {
   char        *key, *value;
   struct pair *next;
@@ -29,6 +35,4 @@ char *join(char *, char *);
 bool  contains(char *, char);
 bool  validate(char *, char *, char);
 int   digits(int);
-bool  is_digit(char);
-bool  is_letter(char);
 bool  path_matches(char *, char *);

@@ -123,14 +123,6 @@ bool contains(char *str, char s) {
   return false;
 }
 
-bool is_letter(char c) {
-  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-}
-
-bool is_digit(char c) {
-  return c >= '0' && c <= '9';
-}
-
 bool validate(char *str, char *valids, char end) {
   size_t validl = strlen(valids);
   size_t strl   = strlen(str);

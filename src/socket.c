@@ -1,7 +1,9 @@
 #include "connection.h"
 #include "socket.h"
+#include "errors.h"
 #include "pool.h"
 #include "log.h"
+#include "util.h"
 
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -14,6 +16,101 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <errno.h>
+
+bool socket_parse_host(const char *host, struct addrinfo *info) {
+  bool     is_reading_ipv6 = false, is_reading_port = false;
+  char     hostname[UINT8_MAX + 1], hostport[6];
+  uint16_t indx = 0;
+
+  // clear the buffers to make sure everything is NULL terminated
+  bzero(hostname, sizeof(hostname));
+  bzero(hostport, sizeof(hostport));
+
+  for (; *host != 0; host++) {
+    if (*host == '[' && !is_reading_ipv6) {
+      // [::1]:80
+      // ^
+      is_reading_ipv6 = true;
+      continue;
+    }
+
+    if (*host == ']' && is_reading_ipv6) {
+      // [::1]:80
+      //     ^
+      is_reading_ipv6 = false;
+      continue;
+    }
+
+    if (is_reading_port && !is_digit(*host)) {
+      errno = BadPort;
+      return false;
+    }
+
+    if (!is_reading_ipv6 && *host == ':') {
+      // [::1]:80
+      //      ^
+      is_reading_port = true;
+      indx            = 0;
+      continue;
+    }
+
+    if (is_reading_port && indx >= sizeof(hostport)) {
+      errno = PortTooLarge;
+      return false;
+    }
+
+    else if (!is_reading_port && indx >= sizeof(hostname)) {
+      errno = NameTooLarge;
+      return false;
+    }
+
+    if (is_reading_port)
+      hostport[indx++] = *host;
+    else
+      hostname[indx++] = *host;
+  }
+
+  if (*hostname == 0) {
+    errno = BadName;
+    return false;
+  }
+
+  debug("name: %s port: %s", hostname, hostport);
+
+  struct addrinfo *hostinfo = NULL, *cur = NULL;
+  int              port = 0;
+
+  // convert host port to integer
+  if (*hostport != 0 && (port = atoi(hostport)) <= 0 && port > UINT16_MAX) {
+    errno = BadPort;
+    return false;
+  }
+
+  // resolve the host name
+  if (getaddrinfo(hostname, NULL, NULL, &hostinfo) != 0 || NULL == info)
+    return false; // errno set by getaddrinfo
+
+  for (cur = hostinfo; cur != NULL; cur = cur->ai_next) {
+    if (AF_INET == cur->ai_family) {
+      ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(port);
+      break;
+    }
+
+    else if (AF_INET6 == cur->ai_family) {
+      ((struct sockaddr_in6 *)cur->ai_addr)->sin6_port = htons(port);
+      break;
+    }
+  }
+
+  // copy the addrinfo for the host to the provided info structure
+  if (NULL != cur)
+    memcpy(info, cur, sizeof(*cur));
+
+  // free the host addrinfo
+  freeaddrinfo(hostinfo);
+
+  return true;
+}
 
 bool socket_set_opts(ctorm_app_t *app, int sockfd) {
   struct timeval timeout;
@@ -51,36 +148,21 @@ bool socket_set_opts(ctorm_app_t *app, int sockfd) {
   return true;
 }
 
-bool socket_start(ctorm_app_t *app, char *addr, uint16_t port) {
-  int              sockfd = -1, flag = 1;
-  struct addrinfo *ainfo = NULL, *cur = NULL;
-  socklen_t        addr_len = 0;
-  bool             ret      = false;
-  connection_t    *con      = NULL;
+bool socket_start(ctorm_app_t *app, const char *host) {
+  struct addrinfo info;
+  socklen_t       addrlen = 0;
+  int             sockfd = -1, flag = 1;
+  connection_t   *con = NULL;
+  bool            ret = false;
 
-  if (0 == port)
+  // parse the host to get the addrinfo structure
+  if (!socket_parse_host(host, &info)) {
+    debug("failed to parse the host: %s", ctorm_geterror());
     goto end;
-
-  if (getaddrinfo(addr, NULL, NULL, &ainfo) != 0 || NULL == ainfo)
-    goto end;
-
-  for (cur = ainfo; cur != NULL; cur = cur->ai_next) {
-    switch (cur->ai_family) {
-    case AF_INET:
-      ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(port);
-      goto found_addr;
-
-    case AF_INET6:
-      ((struct sockaddr_in6 *)cur->ai_addr)->sin6_port = htons(port);
-      goto found_addr;
-    }
   }
 
-  debug("failed to resolve the address");
-  goto end;
-
-found_addr:
-  if ((sockfd = socket(cur->ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+  // create a new TCP socket
+  if ((sockfd = socket(info.ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     debug("failed to create socket: %s", strerror(errno));
     goto end;
   }
@@ -91,7 +173,8 @@ found_addr:
     goto end;
   }
 
-  if (bind(sockfd, cur->ai_addr, cur->ai_addrlen) != 0) {
+  // bind and listen on the provided host
+  if (bind(sockfd, info.ai_addr, info.ai_addrlen) != 0) {
     debug("failed to bind the socket: %s", strerror(errno));
     goto end;
   }
@@ -101,42 +184,49 @@ found_addr:
     goto end;
   }
 
-  // start the server
-  if (!app->config->disable_startup)
-    info("starting the application on %s:%u", addr, port);
-
   // new connection handler loop
-  do {
-    if (NULL == con)
-      goto con_new;
+  while (app->running) {
+    if (con == NULL && (con = connection_new()) == NULL) {
+      debug("failed to create a new connection: %s", ctorm_geterror());
+      goto end;
+    }
+
+    addrlen  = sizeof(con->addr);
+    con->app = app;
+
+    if ((con->socket = accept(sockfd, &con->addr, &addrlen)) <= 0) {
+      if (errno == EINTR) {
+        debug("accept got interrupted");
+        break;
+      }
+
+      debug("failed to accept new connection: %s", strerror(errno));
+      goto end;
+    }
 
     debug("accepted a new connection (con: %p, socket %d)", con, con->socket);
 
     if (!socket_set_opts(app, con->socket)) {
       error("failed to setsockopt for connection (con: %p, socket %d): %s", con, con->socket, strerror(errno));
-      break;
+      goto end;
     }
-
-    con->app = app;
 
     debug("creating a thread for connection (con: %p, socket %d)", con, con->socket);
     pool_add(app->pool, (void *)connection_handle, (void *)con);
 
-  con_new:
-    if ((con = connection_new()) == NULL) {
-      debug("failed to create a new connection: %s", app_geterror());
-      goto end;
-    }
-  } while (app->running && (con->socket = accept(sockfd, &con->addr, &addr_len)) > 0);
+    con = NULL;
+  }
 
+  // app is no longer running
+  debug("stopping the connection handler");
   ret = true;
-end:
-  if (NULL != ainfo)
-    freeaddrinfo(ainfo);
 
+end:
+  // close the socket
   if (sockfd > 0)
     close(sockfd);
 
+  // free the unused connection structure
   if (NULL != con) {
     debug("freeing unused connection (%p)", con);
     connection_free(con);

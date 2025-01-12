@@ -6,7 +6,6 @@
 // configuration for the ctorm web server
 typedef struct {
   int      max_connections; // max parallel connection count
-  bool     disable_startup; // disable web server startup message
   bool     disable_logging; // disables request logging and the banner
   bool     handle_signal;   // disables SIGINT handler (which stops app_run())
   bool     server_header;   // disable sending the "Server: ctorm" header in the response

@@ -13,6 +13,7 @@ enum {
   METHOD_OPTIONS = 5,
 };
 
+#define HTTP_METHOD_MAX 7
 typedef int8_t method_t;
 
 #ifndef CTORM_EXPORT
