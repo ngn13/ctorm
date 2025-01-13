@@ -11,6 +11,12 @@ struct ctorm_error_desc {
 
 #endif
 
+/*!
+
+ * @brief Error codes
+ * Custom errno numbers for ctorm library
+
+*/
 typedef enum {
   BadTcpTimeout       = 9908,
   BadPoolSize         = 9909,
@@ -46,5 +52,19 @@ typedef enum {
   BadName             = 9939,
 } ctorm_error_t;
 
+/*!
+
+ * Get an errors description by it's error number
+ * @param[in] error Error number
+ * @return Error description
+
+*/
 const char *ctorm_geterror_from_code(ctorm_error_t error);
+
+/*!
+
+ * Get current errno's description
+ * @return errno description
+
+*/
 #define ctorm_geterror() ctorm_geterror_from_code(errno)

@@ -40,14 +40,21 @@
 #include <errno.h>
 #include <stdio.h>
 
-ctorm_app_t *signal_app;
+#define __ctorm_check_app_ptr() do{ \
+  if(NULL == app){ \
+    errno = InvalidAppPointer; \
+    return false; \
+  } \
+}while(0)
+
+ctorm_app_t *__ctorm_signal_app = NULL;
 
 void __ctorm_signal_handler(int sig) {
-  if (NULL == signal_app)
+  if (NULL == __ctorm_signal_app)
     return;
 
   debug("signal handler got called, stopping the app");
-  signal_app->running = false;
+  ctorm_app_stop(__ctorm_signal_app);
 }
 
 void __ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
@@ -56,14 +63,21 @@ void __ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
   res->code = 404;
 }
 
-ctorm_app_t *ctorm_app_new(ctorm_config_t *_config) {
+ctorm_app_t *ctorm_app_new(ctorm_config_t *config) {
   ctorm_app_t    *app    = malloc(sizeof(ctorm_app_t));
-  ctorm_config_t *config = _config;
+
+  if(NULL == app){
+    errno = AllocFailed;
+    return NULL;
+  }
 
   bzero(app, sizeof(ctorm_app_t));
 
   if (NULL == config) {
-    config                 = malloc(sizeof(ctorm_config_t));
+    if(NULL == (config = malloc(sizeof(ctorm_config_t)))){
+      errno = AllocFailed;
+      goto fail;
+    }
     app->is_default_config = true;
     ctorm_config_new(config);
   }
@@ -157,39 +171,45 @@ void ctorm_app_free(ctorm_app_t *app) {
 }
 
 bool ctorm_app_run(ctorm_app_t *app, const char *host) {
-  if (NULL == app) {
-    errno = InvalidAppPointer;
-    return false;
-  }
+  __ctorm_check_app_ptr();
 
   if (NULL == host) {
     errno = BadHost;
     return false;
   }
 
-  app->running = true;
-  signal_app   = app;
-
   if (app->config->handle_signal) {
-    struct sigaction sa;
+    __ctorm_signal_app   = app;
+    signal(SIGINT, __ctorm_signal_handler);
+    /*struct sigaction sa;
     sigemptyset(&sa.sa_mask);
     sa.sa_handler = __ctorm_signal_handler;
     sa.sa_flags   = 0;
-    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGINT, &sa, NULL);*/
   }
 
+  app->running = true;
   bool ret     = ctorm_socket_start(app, host);
   app->running = false;
-  signal_app   = NULL;
+
+  if(app->config->handle_signal){
+    __ctorm_signal_app   = NULL;
+    signal(SIGINT, SIG_DFL);
+    //sigaction(SIGINT, SIG_DFL, NULL);
+  }
 
   return ret;
 }
 
+bool ctorm_app_stop(ctorm_app_t *app){
+  __ctorm_check_app_ptr();
+
+  app->running = false;
+  return true;
+}
+
 bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
-  if (NULL == app) {
-    errno = InvalidAppPointer;
-    return false;
-  }
+  __ctorm_check_app_ptr();
 
   if (path[0] != '/') {
     errno = BadPath;
@@ -202,10 +222,7 @@ bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
 }
 
 bool ctorm_app_add(ctorm_app_t *app, char *method, bool is_middleware, char *path, ctorm_route_t handler) {
-  if (NULL == app) {
-    errno = InvalidAppPointer;
-    return false;
-  }
+  __ctorm_check_app_ptr();
 
   if (*path != '/') {
     errno = BadPath;

@@ -27,10 +27,13 @@ ifeq ($(CTORM_JSON_SUPPORT), 1)
 	LIBS += -lcjson
 endif
 
-all: $(DISTDIR)/libctorm.so
+all: $(DISTDIR)/libctorm.so $(DISTDIR)/man
 
-dist/libctorm.so: $(OBJS)
+$(DISTDIR)/libctorm.so: $(OBJS)
 	$(CC) -shared -o $@ $^ $(LIBS) $(CFLAGS)
+
+$(DISTDIR)/man: $(HDRS)
+	doxygen
 
 $(DISTDIR)/%.c.o: src/%.c $(OBJDIRS)
 	$(CC) $(CFLAGS) $(INCLUDE) -c -Wall -fPIC -o $@ $< $(LIBS) \

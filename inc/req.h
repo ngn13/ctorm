@@ -1,3 +1,9 @@
+/*!
+
+ * @file
+ * @brief Header file that defines HTTP request structure and functions
+
+*/
 #pragma once
 
 #include "connection.h"
@@ -6,20 +12,28 @@
 #include "http.h"
 #include "pair.h"
 
+/*!
+
+ * @brief HTTP request structure
+
+ * Stores information about HTTP request, such as the request method,
+ * path, version, headers etc.
+
+*/
 typedef struct ctorm_req {
-  connection_t *con; // socket connection
+  connection_t *con; /// socket connection
 
-  method_t    method; // HTTP method (GET, POST, PUT etc.)
+  method_t    method; /// HTTP method (GET, POST, PUT etc.)
   bool        cancel;
-  char       *encpath; // url encoded path (does include queries)
-  char       *path;    // url decoded path (does not include queries)
-  const char *version; // HTTP version number (for example "HTTP/1.1")
+  char       *encpath; /// url encoded path (does include queries)
+  char       *path;    /// url decoded path (does not include queries)
+  const char *version; /// HTTP version number (for example "HTTP/1.1")
 
-  headers_t     headers;          // HTTP headers
-  bool          received_headers; // did we receive all the HTTP headers
-  ctorm_url_t  *queries;          // HTTP queries (for example "?key=1")
-  ctorm_pair_t *params;           // HTTP path params (for example "/blog/:slug")
-  int64_t       bodysize;         // size of the HTTP body
+  headers_t     headers;          /// HTTP headers
+  bool          received_headers; /// did we receive all the HTTP headers
+  ctorm_url_t  *queries;          /// HTTP queries (for example "?key=1")
+  ctorm_pair_t *params;           /// HTTP path params (for example "/blog/:slug")
+  int64_t       bodysize;         /// size of the HTTP body
 } ctorm_req_t;
 
 #ifndef CTORM_EXPORT
