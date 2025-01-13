@@ -49,6 +49,7 @@
 #define REQ_BODY(buffer, size) ctorm_req_body(req, buffer, size)
 #define REQ_GET(header)        ctorm_req_get(req, header)
 #define REQ_QUERY(query)       ctorm_req_query(req, query)
+#define REQ_PARAM(param)       ctorm_req_param(req, param)
 #define REQ_FORM()             ctorm_req_form(req)
 #define REQ_JSON()             ctorm_req_json(req)
 #define REQ_CANCEL()           (req->cancel = true)

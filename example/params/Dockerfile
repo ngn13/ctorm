@@ -1,6 +1,6 @@
 FROM ghcr.io/ngn13/ctorm:latest
 
-WORKDIR /example/hello
+WORKDIR /example/params
 COPY main.c ./
 
 # examples uses the local headers, replace it with the global ones

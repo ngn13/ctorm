@@ -31,8 +31,10 @@
 #include <stdbool.h>
 
 #include <signal.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <errno.h>
@@ -67,7 +69,7 @@ ctorm_app_t *ctorm_app_new(ctorm_config_t *_config) {
   }
 
   app->config   = config;
-  app->allroute = __ctorm_default_handler;
+  app->all_route = __ctorm_default_handler;
   app->running  = false;
 
   if (config->tcp_timeout < 0) {
@@ -176,7 +178,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
     sigaction(SIGINT, &sa, NULL);
   }
 
-  bool ret     = socket_start(app, host);
+  bool ret     = ctorm_socket_start(app, host);
   app->running = false;
   signal_app   = NULL;
 
@@ -194,8 +196,8 @@ bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
     return false;
   }
 
-  app->staticpath = path;
-  app->staticdir  = dir;
+  app->static_path = path;
+  app->static_dir  = dir;
   return true;
 }
 
@@ -223,11 +225,6 @@ bool ctorm_app_add(ctorm_app_t *app, char *method, bool is_middleware, char *pat
   new->next          = NULL;
   new->path          = path;
 
-  if (-1 == new->method)
-    new->is_all = true;
-  else
-    new->is_all = false;
-
   if (NULL == (cur = *maps)) {
     *maps = new;
     return true;
@@ -241,52 +238,116 @@ bool ctorm_app_add(ctorm_app_t *app, char *method, bool is_middleware, char *pat
 }
 
 void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler) {
-  app->allroute = handler;
+  app->all_route = handler;
+}
+
+uint64_t __ctorm_path_count_names(char *path) {
+  uint64_t count = 0;
+
+  for(; *path != 0; path++)
+    if(*path == '/' && *(path+1) != 0)
+      count++;
+
+  return count+1;
+}
+
+char *__ctorm_path_next_name(char *path) {
+  for(;*path != 0; path++)
+    if(*path == '/')
+      break;
+  return path;
+}
+
+#define __ctorm_path_is_name_end(name) (*(name) == '/' || *(name) == 0)
+
+bool __ctorm_app_route_matches(ctorm_routemap_t *route, ctorm_req_t *req) {
+  // check if the request method and route method matches
+  if (!ctorm_routemap_is_all(route) && route->method != req->method)
+    return false;
+
+  // remove '/' from both names, and check if both are and index route
+  char *route_pos = route->path, *req_pos = req->path;
+  uint64_t count = 0;
+
+  if(*route_pos == '/')
+    route_pos++;
+
+  if(*req_pos== '/')
+    req_pos++;
+
+  if(*route_pos == 0 && *req_pos == 0)
+    return true;
+
+  // check if both paths have same amount of names (path components)
+  if(__ctorm_path_count_names(route_pos) != (count = __ctorm_path_count_names(req_pos)))
+    return false;
+
+  char *key = NULL, *value = NULL;
+  bool ret = false;
+
+  // now we need to invidiualy compare every name in the path
+  for(; count > 0; count--, route_pos = __ctorm_path_next_name(route_pos)+1, req_pos = __ctorm_path_next_name(req_pos)+1){
+    // if the name is '*' then it's a wildcard route
+    if(*route_pos == '*' && __ctorm_path_is_name_end(route_pos+1))
+      continue;
+
+    // if the name starts with ':' then it's a param
+    if(*route_pos == ':' && !__ctorm_path_is_name_end(route_pos+1)){
+      // duplicate the param name and the value and add it to the request
+      if(NULL == (key = strdup(++route_pos)) || NULL == (value = strdup(req_pos))){
+        errno = AllocFailed;
+        goto end;
+      }
+
+      *__ctorm_path_next_name(key) = 0;
+      *__ctorm_path_next_name(value) = 0;
+
+      ctorm_pair_add(&req->params, key, value);
+      continue;
+    }
+
+    // compare the route name with the request name
+    if(!cu_strcmp_until(route_pos, req_pos, '/'))
+      goto end;
+  }
+
+  ret = true;
+
+end:
+  if(!ret){
+    ctorm_pair_free(req->params);
+    req->params = NULL;
+  }
+
+  return ret;
 }
 
 void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
-  ctorm_routemap_t *cur           = NULL;
-  bool              found_handler = false;
+  ctorm_routemap_t *cur = NULL;
 
   // call the middlewares, stop if a middleware cancels the request
-  for (cur = app->middleware_maps; !req->cancel && cur != NULL; cur = cur->next) {
-    if (cur->method != req->method && !cur->is_all)
-      continue;
-
-    if (!path_matches(cur->path, req->path))
-      continue;
-
-    cur->handler(req, res);
-  }
-
-  // if the request is not cancelled, call all the routes
-  if (!req->cancel) {
-    for (cur = app->route_maps; !req->cancel && cur != NULL; cur = cur->next) {
-      if (cur->method != req->method && !cur->is_all)
-        continue;
-
-      if (!path_matches(cur->path, req->path))
-        continue;
-
+  for (cur = app->middleware_maps; !req->cancel && cur != NULL; cur = cur->next)
+    if (__ctorm_app_route_matches(cur, req))
       cur->handler(req, res);
-      found_handler = true;
-    }
-  }
 
-  // is the request already handled?
-  if (found_handler)
+  if (req->cancel)
     return;
 
+  // if the request is not cancelled, call all the routes
+  for (cur = app->route_maps; cur != NULL; cur = cur->next)
+    if (__ctorm_app_route_matches(cur, req))
+      return cur->handler(req, res);
+
   // if not check if we have a static route configured
-  if (NULL == app->staticpath || NULL == app->staticdir || METHOD_GET != req->method)
-    return app->allroute(req, res);
+  if (NULL == app->static_path || NULL == app->static_dir || METHOD_GET != req->method)
+    return app->all_route(req, res);
 
   // if so, check if this request can be handled with the static route
-  size_t path_len   = strlen(req->path);
-  size_t static_len = strlen(app->staticpath);
+  size_t path_len   = cu_strlen(req->path);
+  size_t static_len = cu_strlen(app->static_path);
   char   staticpath[static_len + 2], realpath[path_len + 1];
 
-  memcpy(staticpath, app->staticpath, static_len + 1);
+  memcpy(staticpath, app->static_path, static_len + 1);
   memcpy(realpath, req->path, path_len + 1);
 
   if (staticpath[static_len - 1] != '/') {
@@ -295,8 +356,8 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
     static_len++;
   }
 
-  if (!startswith(realpath, staticpath))
-    return app->allroute(req, res);
+  if (!cu_startswith(realpath, staticpath))
+    return app->all_route(req, res);
 
   path_len -= static_len;
   if (path_len < 1)
@@ -307,8 +368,8 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
   if (realpath[path_len - 1] == '/')
     goto end;
 
-  char *fp = join(app->staticdir, realpath);
-  if (contains(fp, '\\') || strstr(fp, "..") != NULL) {
+  char *fp = cu_join(app->static_dir, realpath);
+  if (cu_contains(fp, '\\') || strstr(fp, "..") != NULL) {
     free(fp);
     goto end;
   }
@@ -330,5 +391,5 @@ end:
    * by default its the 404 route
 
   */
-  return app->allroute(req, res);
+  return app->all_route(req, res);
 }

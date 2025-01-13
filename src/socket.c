@@ -17,7 +17,7 @@
 #include <netdb.h>
 #include <errno.h>
 
-bool socket_parse_host(const char *host, struct addrinfo *info) {
+bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
   bool     is_reading_ipv6 = false, is_reading_port = false;
   char     hostname[UINT8_MAX + 1], hostport[6];
   uint16_t indx = 0;
@@ -41,7 +41,7 @@ bool socket_parse_host(const char *host, struct addrinfo *info) {
       continue;
     }
 
-    if (is_reading_port && !is_digit(*host)) {
+    if (is_reading_port && !cu_is_digit(*host)) {
       errno = BadPort;
       return false;
     }
@@ -112,7 +112,7 @@ bool socket_parse_host(const char *host, struct addrinfo *info) {
   return true;
 }
 
-bool socket_set_opts(ctorm_app_t *app, int sockfd) {
+bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
   struct timeval timeout;
   bzero(&timeout, sizeof(timeout));
   int flag = 1;
@@ -148,7 +148,7 @@ bool socket_set_opts(ctorm_app_t *app, int sockfd) {
   return true;
 }
 
-bool socket_start(ctorm_app_t *app, const char *host) {
+bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
   struct addrinfo info;
   socklen_t       addrlen = 0;
   int             sockfd = -1, flag = 1;
@@ -156,7 +156,7 @@ bool socket_start(ctorm_app_t *app, const char *host) {
   bool            ret = false;
 
   // parse the host to get the addrinfo structure
-  if (!socket_parse_host(host, &info)) {
+  if (!ctorm_socket_parse_host(host, &info)) {
     debug("failed to parse the host: %s", ctorm_geterror());
     goto end;
   }
@@ -206,7 +206,7 @@ bool socket_start(ctorm_app_t *app, const char *host) {
 
     debug("accepted a new connection (con: %p, socket %d)", con, con->socket);
 
-    if (!socket_set_opts(app, con->socket)) {
+    if (!ctorm_socket_set_opts(app, con->socket)) {
       error("failed to setsockopt for connection (con: %p, socket %d): %s", con, con->socket, strerror(errno));
       goto end;
     }

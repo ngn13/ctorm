@@ -1,15 +1,18 @@
 #include "encoding.h"
 #include "errors.h"
+#include "pair.h"
 #include "util.h"
 #include "log.h"
 
 #include <stdint.h>
 #include <stdlib.h>
+
+#include <stdio.h>
 #include <errno.h>
 
 #define BUF_SIZE 16
 
-enc_url_t *enc_url_parse(char *data, uint64_t len) {
+ctorm_url_t *ctorm_url_parse(char *data, uint64_t len) {
   if (NULL == data)
     return NULL;
 
@@ -19,7 +22,7 @@ enc_url_t *enc_url_parse(char *data, uint64_t len) {
 
   bool       is_key = true, ignore_val = false;
   uint64_t   buf_size = 0, indx = 0;
-  enc_url_t *url = NULL;
+  ctorm_url_t *url = NULL;
   char      *buf = NULL;
 
   for (; len > 0; len--, data++) {
@@ -48,9 +51,9 @@ enc_url_t *enc_url_parse(char *data, uint64_t len) {
    */
     if (*data == '=' && is_key) {
       if (!(ignore_val = (indx == 0))) {
-        urldecode(buf);
-        pair_add(&url, buf, NULL); // not empty? create a new pair
-        buf = NULL;                // reset the buffer (it's now used by the pair)
+        cu_url_decode(buf);
+        ctorm_pair_add(&url, buf, NULL); // not empty? create a new pair
+        buf = NULL;                      // reset the buffer (it's now used by the pair)
       }
 
       is_key = false; // we are no longer reading the key
@@ -87,7 +90,7 @@ enc_url_t *enc_url_parse(char *data, uint64_t len) {
 
   url_value_add:
     if (!ignore_val) {
-      urldecode(buf);
+      cu_url_decode(buf);
       url->value = buf;
       buf        = NULL;
     }
@@ -99,17 +102,17 @@ enc_url_t *enc_url_parse(char *data, uint64_t len) {
   return url;
 }
 
-char *enc_url_get(enc_url_t *url, char *name) {
-  if ((url = pair_find(url, name)) == NULL)
+char *ctorm_url_get(ctorm_url_t *url, char *name) {
+  if ((url = ctorm_pair_find(url, name)) == NULL)
     return NULL;
   return url->value;
 }
 
-void enc_url_free(enc_url_t *url) {
-  pair_next(url, cur) {
+void ctorm_url_free(ctorm_url_t *url) {
+  ctorm_pair_next(url, cur) {
     free(cur->key);
     free(cur->value);
   }
 
-  pair_free(url);
+  ctorm_pair_free(url);
 }

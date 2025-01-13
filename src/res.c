@@ -1,4 +1,3 @@
-#include "options.h"
 #include "headers.h"
 
 #include "errors.h"
@@ -7,6 +6,7 @@
 #include "log.h"
 
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <stdarg.h>
 #include <stdlib.h>
@@ -28,7 +28,7 @@
 #define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
 
 void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
-  headers_init(&res->headers);
+  bzero(res, sizeof(*res));
 
   res->con       = con;
   res->version   = NULL;
@@ -38,6 +38,7 @@ void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
   res->code      = 200;
   res->completed = false;
 
+  headers_init(&res->headers);
   headers_set(res->headers, "server", "ctorm", false);
   headers_set(res->headers, "connection", "close", false);
 
@@ -50,7 +51,7 @@ void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
   char date[50];
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
   strftime(date, 50, "%a, %d %b %Y %H:%M:%S GMT", gmt);
-  ctorm_res_set(res, "Date", date);
+  ctorm_res_set(res, "date", date);
 }
 
 void ctorm_res_free(ctorm_res_t *res) {
@@ -94,7 +95,7 @@ void ctorm_res_send(ctorm_res_t *res, char *data, uint64_t size) {
   ctorm_res_clear(res);
 
   if (size <= 0)
-    res->bodysize = strlen(data);
+    res->bodysize = cu_strlen(data);
 
   res->body = malloc(res->bodysize);
   memcpy(res->body, data, res->bodysize);
@@ -106,31 +107,39 @@ bool ctorm_res_sendfile(ctorm_res_t *res, char *path) {
     return false;
   }
 
-  if (!file_canread(path)) {
-    if (errno == ENOENT)
+  struct stat buf;
+  ctorm_res_clear(res);
+
+  if ((res->bodyfd = open(path, O_RDONLY)) < 0) {
+    switch (errno) {
+    case ENOENT:
       errno = FileNotExists;
-    else
+      break;
+
+    case EPERM:
       errno = BadReadPerm;
+      break;
+    }
+
+    // otherwise the errno is set by open()
     return false;
   }
 
-  ctorm_res_clear(res);
-
-  if (!file_size(path, &res->bodysize)) {
+  if (fstat(res->bodyfd, &buf) != 0) {
     errno = SizeFail;
     return false;
   }
 
-  if ((res->bodyfd = open(path, O_RDONLY)) < 0)
-    return false;
+  res->bodysize = buf.st_size;
 
-  if (endswith(path, ".html"))
+  // HACK: maybe a structure that stores extensions and types would be better
+  if (cu_endswith(path, ".html"))
     ctorm_res_set(res, "content-type", "text/html; charset=utf-8");
-  else if (endswith(path, ".json"))
+  else if (cu_endswith(path, ".json"))
     ctorm_res_set(res, "content-type", "application/json; charset=utf-8");
-  else if (endswith(path, ".css"))
+  else if (cu_endswith(path, ".css"))
     ctorm_res_set(res, "content-type", "text/css; charset=utf-8");
-  else if (endswith(path, ".js"))
+  else if (cu_endswith(path, ".js"))
     ctorm_res_set(res, "content-type", "text/javascript; charset=utf-8");
   else
     ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
@@ -204,7 +213,7 @@ bool ctorm_res_json(ctorm_res_t *res, cJSON *json) {
 
   ctorm_res_clear(res);
 
-  if ((res->body = enc_json_dump(json, &res->bodysize)) == NULL)
+  if ((res->body = ctorm_json_dump(json, &res->bodysize)) == NULL)
     return false;
 
   ctorm_res_set(res, "content-type", "application/json; charset=utf-8");

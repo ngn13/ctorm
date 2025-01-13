@@ -4,8 +4,10 @@ DISTDIR = dist
 CC      = gcc
 
 # sources
-SRCS = $(shell find src/ -type f -name '*.c')
-OBJS = $(patsubst src/%.c,$(DISTDIR)/%.o,$(SRCS))
+CSRCS = $(shell find src/ -type f -name '*.c')
+SSRCS = $(shell find src/ -type f -name '*.S')
+OBJS  = $(patsubst src/%.c,$(DISTDIR)/%.c.o,$(CSRCS))
+OBJS += $(patsubst src/%.S,$(DISTDIR)/%.S.o,$(SSRCS))
 HDRS = $(wildcard inc/*.h)
 
 # dirs
@@ -30,7 +32,12 @@ all: $(DISTDIR)/libctorm.so
 dist/libctorm.so: $(OBJS)
 	$(CC) -shared -o $@ $^ $(LIBS) $(CFLAGS)
 
-$(DISTDIR)/%.o: src/%.c $(OBJDIRS)
+$(DISTDIR)/%.c.o: src/%.c $(OBJDIRS)
+	$(CC) $(CFLAGS) $(INCLUDE) -c -Wall -fPIC -o $@ $< $(LIBS) \
+		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)               \
+		-DCTORM_DEBUG=$(CTORM_DEBUG)
+
+$(DISTDIR)/%.S.o: src/%.S $(OBJDIRS)
 	$(CC) $(CFLAGS) $(INCLUDE) -c -Wall -fPIC -o $@ $< $(LIBS) \
 		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)               \
 		-DCTORM_DEBUG=$(CTORM_DEBUG)
@@ -48,6 +55,7 @@ uninstall:
 
 format:
 	clang-format -i -style=file $(SRCS) $(HDRS) example/*/*.c
+	black scripts/*.py
 
 clean:
 	rm -rf dist

@@ -1,23 +1,20 @@
-CC = gcc
+# WARN: you should run the binaries with LD_LIBRARY_PATH=../dist
 
-# you should run the binaries with LD_LIBRARY_PATH=../dist
+CC   = gcc
+INCD = ../inc
+DIST = ../dist
 
-all: ../dist/example_hello ../dist/example_echo ../dist/example_middleware
+DIRS = $(shell find * -maxdepth 0 -type d)
+BINS = $(patsubst %,$(DIST)/example_%,$(DIRS))
 
-../dist/libctorm.so:
-ifeq (,$(wildcard ../dist/libctorm.so))
-	@echo "!!!! you should first compile libctorm !!!!"
+all: $(BINS)
+
+$(DIST)/libctorm.so:
+ifeq (,$(wildcard $(DIST)/libctorm.so))
+	@echo "you should first compile libctorm"
 	exit 1
 endif
 
-../dist/example_hello: hello/*.c ../dist/libctorm.so
-	mkdir -pv ../dist
-	$(CC) -I../inc -L../dist hello/*.c -lctorm -o $@
-
-../dist/example_echo: echo/*.c ../dist/libctorm.so
-	mkdir -pv ../dist
-	$(CC) -I../inc -L../dist echo/*.c -lctorm -o $@
-
-../dist/example_middleware: middleware/*.c ../dist/libctorm.so
-	mkdir -pv ../dist
-	$(CC) -I../inc -L../dist middleware/*.c -lctorm -lcjson -o $@
+$(DIST)/example_%: %/main.c $(DIST)/libctorm.so
+	@mkdir -pv $(DIST)
+	$(CC) -I$(INCD) -L$(DIST) $< -lctorm -lcjson -o $@

@@ -2,7 +2,6 @@
 #include "util.h"
 
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 method_map_t http_method_map[] = {
@@ -23,7 +22,7 @@ void http_static_load() {
   http_static.method_max   = HTTP_METHOD_MAX;
 
   http_static.version_count = sizeof(http_versions) / sizeof(char *);
-  http_static.version_len   = strlen(http_versions[0]);
+  http_static.version_len   = cu_strlen((char*)http_versions[0]);
 
   http_static.header_max = getpagesize();
   http_static.body_max   = getpagesize();
@@ -33,7 +32,7 @@ void http_static_load() {
   http_static.res_code_max = 511; // 511 Network Authentication Required
 
   for (int i = 1; i < http_static.method_count; i++) {
-    size_t cur_len = strlen(http_method_map[i].name);
+    size_t cur_len = cu_strlen((char*)http_method_map[i].name);
     if (http_static.method_max < cur_len)
       http_static.method_max = cur_len;
   }
@@ -44,13 +43,13 @@ method_t http_method_id(char *name) {
     return -1;
 
   for (int i = 0; i < http_static.method_count; i++)
-    if (eq(http_method_map[i].name, name))
+    if (cu_streq(http_method_map[i].name, name))
       return http_method_map[i].code;
 
   return -1;
 }
 
-char *http_method_name(int code) {
+const char *http_method_name(int code) {
   for (int i = 0; i < http_static.method_count; i++)
     if (http_method_map[i].code == code)
       return http_method_map[i].name;
@@ -66,7 +65,7 @@ bool http_method_has_body(int code) {
 
 const char *http_version_get(char *version) {
   for (int i = 0; i < http_static.version_count; i++)
-    if (eq(http_versions[i], version))
+    if (cu_streq(http_versions[i], version))
       return http_versions[i];
   return NULL;
 }

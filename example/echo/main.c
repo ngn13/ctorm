@@ -7,8 +7,8 @@ void GET_notfound(ctorm_req_t *req, ctorm_res_t *res) {
 }
 
 void POST_form(ctorm_req_t *req, ctorm_res_t *res) {
-  enc_url_t *form = NULL;
-  char      *msg  = NULL;
+  ctorm_url_t *form = NULL;
+  char        *msg  = NULL;
 
   if ((form = REQ_FORM()) == NULL) {
     RES_CODE(400);
@@ -16,9 +16,9 @@ void POST_form(ctorm_req_t *req, ctorm_res_t *res) {
     return RES_SEND("bad body");
   }
 
-  if (NULL == (msg = enc_url_get(form, "msg"))) {
+  if (NULL == (msg = ctorm_url_get(form, "msg"))) {
     RES_CODE(400);
-    enc_url_free(form);
+    ctorm_url_free(form);
     ctorm_fail("form data does not contain the message");
     return RES_SEND("bad body");
   }
@@ -28,7 +28,7 @@ void POST_form(ctorm_req_t *req, ctorm_res_t *res) {
 
   RES_SET("cool", "yes");
 
-  enc_url_free(form);
+  ctorm_url_free(form);
 }
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {

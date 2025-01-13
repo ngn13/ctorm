@@ -20,9 +20,9 @@ typedef int8_t method_t;
 
 // HTTP method map
 typedef struct {
-  method_t code;
-  char    *name;
-  bool     body;
+  method_t    code;
+  const char *name;
+  bool        body;
 } method_map_t;
 
 extern method_map_t http_method_map[];
@@ -58,12 +58,13 @@ typedef struct {
 extern http_static_t http_static;
 void                 http_static_load();
 
-method_t http_method_id(char *);
-char    *http_method_name(int);
-bool     http_method_has_body(int);
+method_t    http_method_id(char *);
+const char *http_method_name(int);
+bool        http_method_has_body(int);
 
-#define http_is_valid_header_char(c) (is_digit(c) || is_letter(c) || contains("_ :;.,\\/\"'?!(){}[]@<>=-+*#$&`|~^%", c))
-#define http_is_valid_path_char(c)   (is_digit(c) || is_letter(c) || contains("-._~:/?#[]@!$&'()*+,;%=", c))
+#define http_is_valid_header_char(c)                                                                                   \
+  (cu_is_digit(c) || cu_is_letter(c) || cu_contains("_ :;.,\\/\"'?!(){}[]@<>=-+*#$&`|~^%", c))
+#define http_is_valid_path_char(c) (cu_is_digit(c) || cu_is_letter(c) || cu_contains("-._~:/?#[]@!$&'()*+,;%=", c))
 
 const char *http_version_get(char *);
 

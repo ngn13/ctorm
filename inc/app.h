@@ -26,11 +26,12 @@ typedef void (*ctorm_route_t)(ctorm_req_t *, ctorm_res_t *);
 typedef struct ctorm_routemap {
   struct ctorm_routemap *next;
   bool                   is_middleware;
-  bool                   is_all;
   char                  *path;
   method_t               method;
   ctorm_route_t          handler;
 } ctorm_routemap_t;
+
+#define ctorm_routemap_is_all(route) (route->method == -1)
 
 /*
 
@@ -43,9 +44,9 @@ typedef struct ctorm_routemap {
 typedef struct ctorm_app {
   ctorm_routemap_t *middleware_maps; // middleware map
   ctorm_routemap_t *route_maps;      // route map
-  char             *staticpath;      // static directory serving path
-  char             *staticdir;       // static directory
-  ctorm_route_t     allroute;        // all handler route (see app_all())
+  char             *static_path;     // static directory serving path
+  char             *static_dir;      // static directory
+  ctorm_route_t     all_route;       // all handler route (see app_all())
   bool              running;         // is the app running?
   pool_t           *pool;            // thread pool for the app
   pthread_mutex_t   request_mutex;   // mutex used to lock request threads

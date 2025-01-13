@@ -23,19 +23,13 @@ jobs:
         run: make example
 
       - name: 'run example #1'
-        run: |
-          ./dist/example_hello &
-          ./scripts/hello_test.sh
-          killall -9 example_hello
+        run: ./dist/test.sh 1
 
       - name: 'run example #2'
-        run: |
-          ./dist/example_echo &
-          ./scripts/echo_test.sh
-          killall -9 example_echo
+        run: ./dist/test.sh 2
 
       - name: 'run example #3'
-        run: |
-          ./dist/example_middleware &
-          ./scripts/middleware_test.sh
-          killall -9 example_middleware
+        run: ./dist/test.sh 3
+
+      - name: 'run example #4'
+        run: ./dist/test.sh 4

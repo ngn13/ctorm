@@ -1,3 +1,4 @@
+#include "util.h"
 #include "log.h"
 #include "req.h"
 #include "res.h"
@@ -23,11 +24,11 @@
 #define __print_log(time, time_fmt, req, res)                                                                          \
   do {                                                                                                                 \
     fprintf(stdout,                                                                                                    \
-        FG_YELLO time_fmt FG_RESET FG_CYAN " %d " FG_GREEN "%" str(HTTP_METHOD_MAX) "s %s" FG_RESET "\n",              \
+        FG_YELLO time_fmt FG_RESET FG_CYAN " %d " FG_GREEN "%" cu_to_str_macro(HTTP_METHOD_MAX) "s %s" FG_RESET "\n",           \
         time,                                                                                                          \
         res->code,                                                                                                     \
         ctorm_req_method(req),                                                                                         \
-        req->path);                                                                                                    \
+        req->encpath);                                                                                                    \
   } while (0)
 
 void ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t process_time) {

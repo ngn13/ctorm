@@ -1,6 +1,9 @@
 #include "headers.h"
 #include "errors.h"
+
+#include "http.h"
 #include "util.h"
+
 #include "req.h"
 #include "log.h"
 
@@ -63,8 +66,10 @@ bool __rrecv_until(ctorm_req_t *req, char **buf, uint64_t *size, char del, bool 
   if (ret)
     return true;
 
-  if (buf_size > 0)
+  if (buf_size > 0){
     free(*buf);
+    *buf = NULL;
+  }
 
   if (NULL != size)
     *size = 0;
@@ -83,10 +88,13 @@ bool rrecv_is_valid_path(char c) {
 }
 
 void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
+  bzero(req, sizeof(*req));
+
   headers_init(&req->headers);
   req->received_headers = false;
 
   req->queries  = NULL;
+  req->params   = NULL;
   req->bodysize = -1;
 
   req->con     = con;
@@ -98,12 +106,8 @@ void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
 
 void ctorm_req_free(ctorm_req_t *req) {
   headers_free(req->headers);
-  enc_url_free(req->queries);
-
-  if (req->encpath == req->path) {
-    free(req->encpath);
-    return;
-  }
+  ctorm_url_free(req->queries);
+  ctorm_pair_free(req->params);
 
   free(req->encpath);
   free(req->path);
@@ -145,7 +149,7 @@ bool ctorm_req_start(ctorm_req_t *req) {
     return false;
   }
 
-  truncate_buf(http_version, buf_size, 2, '\r');
+  cu_truncate(http_version, buf_size, 2, '\r');
 
   if (NULL == (req->version = http_version_get(http_version))) {
     rdebug("received an invalid HTTP version: %s", http_version);
@@ -155,28 +159,17 @@ bool ctorm_req_start(ctorm_req_t *req) {
   // decode the path (queries and shit)
   char *save = NULL, *rest = NULL, *dup = NULL;
 
-  if (!contains(req->encpath, '?')) {
-    req->path = req->encpath;
-    return true;
+  if((dup = strdup(req->encpath)) == NULL){
+    rdebug("failed to duplicate encpath: %s", strerror(errno));
+    return false;
   }
 
-  dup = strdup(req->encpath);
+  if(NULL == (req->path = strtok_r(dup, "?", &save)) || NULL == (rest = strtok_r(NULL, "?", &save)))
+    req->path = dup;
+  else
+    req->queries = ctorm_url_parse(rest, 0);
 
-  if (NULL == (req->path = strtok_r(dup, "?", &save))) {
-    req->path = req->encpath;
-    goto dup_free_ret;
-  }
-
-  if (NULL == (rest = strtok_r(NULL, "?", &save))) {
-    req->path = strdup(req->path);
-    goto dup_free_ret;
-  }
-
-  req->queries = enc_url_parse(rest, 0);
-  req->path    = strdup(req->path);
-
-dup_free_ret:
-  free(dup);
+  cu_url_decode(req->path);
   return true;
 }
 
@@ -203,15 +196,27 @@ void ctorm_req_end(ctorm_req_t *req) {
 char *ctorm_req_query(ctorm_req_t *req, char *name) {
   if (NULL == name)
     return NULL;
-  return enc_url_get(req->queries, name);
+  return ctorm_url_get(req->queries, name);
 }
 
-enc_url_t *ctorm_req_form(ctorm_req_t *req) {
+char *ctorm_req_param(ctorm_req_t *req, char *name) {
+  if (NULL == name)
+    return NULL;
+
+  ctorm_pair_t *pair = ctorm_pair_find(req->params, name);
+
+  if(NULL == pair)
+    return NULL;
+
+  return pair->value;
+}
+
+ctorm_url_t *ctorm_req_form(ctorm_req_t *req) {
   char      *type = ctorm_req_get(req, "content-type");
-  enc_url_t *form = NULL;
+  ctorm_url_t *form = NULL;
   uint64_t   size = 0;
 
-  if (!startswith(type, "application/x-www-form-urlencoded")) {
+  if (!cu_startswith(type, "application/x-www-form-urlencoded")) {
     errno = InvalidContentType;
     return NULL;
   }
@@ -229,7 +234,7 @@ enc_url_t *ctorm_req_form(ctorm_req_t *req) {
     return NULL;
   }
 
-  if ((form = enc_url_parse(data, size)) == NULL)
+  if ((form = ctorm_url_parse(data, size)) == NULL)
     return NULL;
 
   return form;
@@ -240,7 +245,7 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
   char    *type = ctorm_req_get(req, "content-type");
   uint64_t size = 0;
 
-  if (!startswith(type, "application/json")) {
+  if (!cu_startswith(type, "application/json")) {
     errno = InvalidContentType;
     return NULL;
   }
@@ -258,14 +263,14 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
     return NULL;
   }
 
-  return enc_json_parse(data);
+  return ctorm_json_parse(data);
 #else
   errno = NoJSONSupport;
   return NULL;
 #endif
 }
 
-char *ctorm_req_method(ctorm_req_t *req) {
+const char *ctorm_req_method(ctorm_req_t *req) {
   return http_method_name(req->method);
 }
 
@@ -322,7 +327,7 @@ next_header:
     return NULL;
   }
 
-  truncate_buf(header_val, buf_size, 2, '\r');
+  cu_truncate(header_val, buf_size, 2, '\r');
   rdebug("received a new header: %s (%.5s...)", header_name, header_val);
   headers_set(req->headers, header_name, header_val, true);
 
