@@ -23,13 +23,13 @@ jobs:
         run: make example
 
       - name: 'run example #1'
-        run: ./dist/test.sh 1
+        run: ./scripts/test.sh 1
 
       - name: 'run example #2'
-        run: ./dist/test.sh 2
+        run: ./scripts/test.sh 2
 
       - name: 'run example #3'
-        run: ./dist/test.sh 3
+        run: ./scripts/test.sh 3
 
       - name: 'run example #4'
-        run: ./dist/test.sh 4
+        run: ./scripts/test.sh 4
