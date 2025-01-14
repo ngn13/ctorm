@@ -1,4 +1,4 @@
-# WARN: you should run the binaries with LD_LIBRARY_PATH=../dist
+# WARN: you should run the example binaries with LD_LIBRARY_PATH=../dist
 
 CC   = gcc
 INCD = ../inc

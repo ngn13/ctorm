@@ -17,9 +17,10 @@ SRCDIRS = $(shell find src/* -type d)
 OBJDIRS = $(patsubst src/%,$(DISTDIR)/%,$(SRCDIRS))
 
 # compiler flags
-CFLAGS  = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
-INCLUDE = -I./inc
-LIBS    = -lpthread
+CFLAGS   = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
+CFLAGS  += -z noexecstack # used get rid of 'missing .note.GNU-stack section' warning
+INCLUDE  = -I./inc
+LIBS     = -lpthread
 
 # options
 CTORM_DEBUG        = 0
