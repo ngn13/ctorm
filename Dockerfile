@@ -5,7 +5,7 @@ RUN apt install -y gcc make libcjson-dev dumb-init
 
 WORKDIR       /pkg
 COPY src      ./src
-COPY include  ./inc
+COPY inc      ./inc
 COPY Makefile ./
 
 RUN make
