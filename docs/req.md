@@ -5,16 +5,16 @@
 
 > [!WARNING]
 > Most of these functions are macros, and will only work if the
-> `req_t` pointer is named `req`, otherwise you should directly
+> `ctorm_req_t` pointer is named `req`, otherwise you should directly
 > use the original functions.
 
 ### Request path
-There are two different sections of the `req_t` which you can
+There are two different sections of the `ctorm_req_t` which you can
 use to access the request path, however you should not directly modify
 these sections:
 ```c
-info("URL encoded full path with the queries: %s", req->encpath);
-info("URL decoded full path without the queries: %s", req->path);
+ctorm_info("URL encoded full path with the queries: %s", req->encpath);
+ctorm_info("URL decoded full path without the queries: %s", req->path);
 ```
 
 ### Request method
@@ -48,11 +48,11 @@ you provide:
 ```c
 // get the body size
 uint64_t size = REQ_BODY_SIZE();
-// uint64_t size = req_body_size(req);
+// uint64_t size = ctorm_req_body_size(req);
 
 // check if body size is valid
 if(size == 0){
-    error("request does not contain a body");
+    ctorm_fail("request does not contain a body");
     return;
 }
 
@@ -61,24 +61,24 @@ char *body = malloc(size);
 
 // read "size" bytes of body into the "buffer"
 REQ_BODY(body, size);
-// req_body(req, body, size);
+// ctorm_req_body(req, body, size);
 ```
 
 ctrom also contains few helper functions to work with certain
 body formats:
 ```c
 // parse the form encoded body
-enc_url_t *form = REQ_FORM();
-// enc_url_t *form = req_form(req);
-char *username = enc_url_get(form, "username"); // do not free or directly modify
-enc_url_free(form); // "username" now points to an invalid address
+ctorm_url_t *form = REQ_FORM();
+// enc_url_t *form = ctorm_req_form(req);
+char *username = ctorm_url_get(form, "username"); // do not free or directly modify
+ctorm_url_free(form); // "username" now points to an invalid address
 
 // parse the JSON encoded body
 cJSON *json = REQ_JSON();
-// cJSON *json = req_json(req);
+// cJSON *json = ctorm_req_json(req);
 cJSON *un_item = cJSON_GetObjectItem(json, "username");
 char *un = cJSON_GetStringValue(un_item); // do not free or directly modify
-enc_json_free(json); // "un" and "un_item" now points to an invalid address
+ctorm_json_free(json); // "un" and "un_item" now points to an invalid address
 ```
 
 ### Request queries
@@ -86,30 +86,45 @@ To get URL decoded request queries, you can use the `REQ_QUERY` macro or the
 `req_query` function:
 ```c
 char *username = REQ_QUERY("username"); // do not free or directly modify
-// char *username = req_query(req, "username");
+// char *username = ctorm_req_query(req, "username");
 
 if(NULL == username){
-    error("username query is not specified");
+    ctorm_fail("username query is not specified");
     return;
 }
 
-info("username: %s", username);
+ctorm_info("username: %s", username);
+```
+
+### Request parameters
+If the route uses a URL parameter (see [app documentation](app.md) for more information)
+then you can access this parameter by it's name:
+```c
+char *lang = REQ_PARAM("lang");
+// char *lang = ctorm_req_param(req, "lang");
+
+if(NULL == lang){
+    ctorm_warn("no language specified, using the default");
+    lang = "en";
+}
+
+ctorm_info("language: %s", lang);
 ```
 
 ### Request headers
 To get HTTP headers, you can use the `REQ_HEADER` macro or the
-`req_header` function, please note that HTTP headers are case-insensitive.
+`ctorm_req_header` function, please note that HTTP headers are case-insensitive.
 
 Also, if the client sent multiple headers with the same name, this macro/function
 will return the first one in the header list.
 ```c
-char* agent = REQ_GET("User-Agent");
-// char *agent = req_get(req, "User-Agent");
+char* agent = REQ_GET("user-agent");
+// char *agent = ctorm_req_get(req, "user-agent");
 
 if(NULL == agent){
-    error("user-agent header is not set");
+    ctorm_fail("user-agent header is not set");
     return;
 }
 
-info("user-agent is %s", agent);
+ctorm_info("user-agent is %s", agent);
 ```

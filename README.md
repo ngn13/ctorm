@@ -1,9 +1,9 @@
 ```
         __
-  _____/ /__________  ____ ___
- / ___/ __/ ___/ __ \/ __ `__ \
-/ /__/ /_/ /  / /_/ / / / / / /
-\___/\__/_/   \____/_/ /_/ /_/ 1.5
+  _____/ /_____  _________ ___
+ / ___/ __/ __ \/ ___/ __ `__ \
+/ /__/ /_/ /_/ / /  / / / / / /
+\___/\__/\____/_/  /_/ /_/ /_/ 1.6
 
 ```
 
@@ -13,7 +13,7 @@
 ![](https://img.shields.io/github/v/tag/ngn13/ctorm?label=version)
 ![](https://img.shields.io/github/license/ngn13/ctorm)
 
-ctorm is a multi-threaded HTTP server for `HTTP/1.1` and `HTTP/1.0`.
+ctorm is a multi-threaded, simple web server framework for `HTTP/1.1` and `HTTP/1.0`.
 It has an easy API for general web server applications.
 
 > [!WARNING]
@@ -26,70 +26,93 @@ if you are interested.
 ### Features
 - Wildcard routes
 - Middleware support
-- Form body parsing
 - URL queries (parameters)
+- URL encoded body parsing
 - JSON support with [cJSON](https://github.com/DaveGamble/cJSON)
 - Handling 404 (all) routes
 - Sending files and static file serving
 
 ### Installation
 You will need the following software in order to build and install ctorm:
+- GNU tar to extract the release archive (`tar`)
 - GCC and other general build tools (`build-essential`)
+- If you want to build the man pages, [`doxygen`](https://www.doxygen.org/)
 - If you want JSON support, cJSON and it's headers (`cjson`, `libcjson-dev`)
-- tar (to extract the release archive)
 
-First [download the latest release](https://github.com/ngn13/ctorm/tags) archive,
-**do not compile from the latest commit unless you are doing development**:
+First [download the latest release archive](https://github.com/ngn13/ctorm/tags),
+**do not compile from the latest commit or a branch unless you are doing development**:
 ```bash
 wget https://github.com/ngn13/ctorm/archive/refs/tags/1.5.tar.gz
 tar xf 1.5.tar.gz && cd ctorm-1.5
 ```
-
-Then use the `make` command to build and install:
+Then use the `make` command to compile the library:
 ```bash
-make && sudo make install
+make
+```
+**If you don't have cJSON installed**, you need to run this command with `CTORM_JSON_SUPPORT=0`
+option to disable JSON support:
+```bash
+make CTORM_JSON_SUPPORT=0
+```
+**If you installed `doxygen`, and you want to build the man pages** run `make` with
+the `docs` command:
+```bash
+make docs
+```
+To install the library (and if you've built it, the documentation) run `make` with
+the `install` command **as root**:
+```bash
+make install
 ```
 
 ### Getting started
 #### Hello world application
 ```c
-#include <ctorm/all.h>
+#include <ctorm/ctorm.h>
 
-void hello_world(req_t *req, res_t *res) {
+void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
   // send the "Hello world!" message
   RES_SEND("Hello world!");
 }
 
 int main() {
   // create the app with default configuration
-  app_t *app = app_new(NULL);
+  ctorm_app_t *app = ctorm_app_new(NULL);
 
   // setup the routes
-  GET(app, "/", hello_world);
+  GET(app, "/", GET_index);
 
   // run the app
-  if (!app_run(app, "0.0.0.0:8080"))
-    error("app failed: %s", app_geterror());
+  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+    ctorm_fail("failed to start the application: %s", ctorm_geterror());
 
   // clean up
-  app_free(app);
+  ctorm_app_free(app);
   return 0;
 }
 ```
 
 #### Other functions
+Here are some nicely formatted markdown documents that explain all the functions you will
+most likely gonna use:
 - [App](docs/app.md)
+- [Error](docs/error.md)
 - [Logging](docs/log.md)
 - [Request](docs/req.md)
 - [Response](docs/res.md)
 
+You can also checkout the man pages if you built and installed during the [installation](#installation).
+
 #### Example applications
-Repository also contains few example applications in the `example` folder, you can
-build these by running `make example`.
+Repository also contains few example applications in the `example` directory. You can
+build these by running:
+```bash
+make example
+```
 
 #### Deploying your application
-You can use the docker image (built with actions) to easily deploy your application, here is
-an example:
+You can use the docker image (built by github actions) to easily deploy your
+application, here is an example:
 ```Dockerfile
 FROM ghcr.io/ngn13/ctorm:latest
 
@@ -108,12 +131,13 @@ CMD ["/app/server"]
 ```
 
 ### Development
-For development, you can compile the library with debug mode:
+For development, you can compile the library with the `CTORM_DEBUG=1` option to enable debug
+messages:
 ```bash
 make CTORM_DEBUG=1
 ```
-then you can use the example applications for testing:
+Then you can use the example applications and the test scripts in the `scripts` directory
+for testing:
 ```bash
-make example
-LD_LIBRARY_PATH=./dist ./dist/example_hello
+make test
 ```

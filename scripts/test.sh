@@ -16,7 +16,7 @@ function run_example(){
 if [ ! -z "${index}" ]; then
   index="$((index-1))"
 
-  if [ ! "${index}" -lt "${#examples[@]}" ]; then
+  if [ ! "${index}" -lt "${#examples[@]}" ] || [ "${index}" -lt 0 ]; then
     echo "invalid example number: ${1}"
     exit 1
   fi

@@ -1,21 +1,35 @@
+/*!
+
+ * @file
+ * @brief Header file that defines HTTP response structure and functions
+
+*/
 #pragma once
 
 #include "connection.h"
 #include "encoding.h"
 #include "headers.h"
 
-typedef struct res {
-  connection_t *con; // socket connection
+/*!
 
-  headers_t      headers; // HTTP headers
-  const char    *version; // HTTP version
-  unsigned short code;    // HTTP response code
+ * @brief HTTP response structure
 
-  char    *body;     // HTTP response body
-  uint64_t bodysize; // HTTP response body size
-  int      bodyfd;   // file descriptor associated with the body
+ * Stores information about HTTP response, such as the response code,
+ * body, version, headers etc.
 
-  bool completed; // set to true if response is transferred
+*/
+typedef struct {
+  connection_t *con; /// socket connection
+
+  ctorm_headers_t headers; /// HTTP headers
+  const char     *version; /// HTTP version
+  unsigned short  code;    /// HTTP response code
+
+  char    *body;     /// HTTP response body
+  uint64_t bodysize; /// HTTP response body size
+  int      bodyfd;   /// file descriptor associated with the body
+
+  bool completed; /// set to true if response is transferred
 } ctorm_res_t;
 
 #ifndef CTORM_EXPORT

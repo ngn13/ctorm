@@ -66,7 +66,7 @@ bool __rrecv_until(ctorm_req_t *req, char **buf, uint64_t *size, char del, bool 
   if (ret)
     return true;
 
-  if (buf_size > 0){
+  if (buf_size > 0) {
     free(*buf);
     *buf = NULL;
   }
@@ -90,7 +90,7 @@ bool rrecv_is_valid_path(char c) {
 void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
   bzero(req, sizeof(*req));
 
-  headers_init(&req->headers);
+  ctorm_headers_init(&req->headers);
   req->received_headers = false;
 
   req->queries  = NULL;
@@ -105,7 +105,7 @@ void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
 }
 
 void ctorm_req_free(ctorm_req_t *req) {
-  headers_free(req->headers);
+  ctorm_headers_free(req->headers);
   ctorm_url_free(req->queries);
   ctorm_pair_free(req->params);
 
@@ -159,12 +159,12 @@ bool ctorm_req_start(ctorm_req_t *req) {
   // decode the path (queries and shit)
   char *save = NULL, *rest = NULL, *dup = NULL;
 
-  if((dup = strdup(req->encpath)) == NULL){
+  if ((dup = strdup(req->encpath)) == NULL) {
     rdebug("failed to duplicate encpath: %s", strerror(errno));
     return false;
   }
 
-  if(NULL == (req->path = strtok_r(dup, "?", &save)) || NULL == (rest = strtok_r(NULL, "?", &save)))
+  if (NULL == (req->path = strtok_r(dup, "?", &save)) || NULL == (rest = strtok_r(NULL, "?", &save)))
     req->path = dup;
   else
     req->queries = ctorm_url_parse(rest, 0);
@@ -205,16 +205,16 @@ char *ctorm_req_param(ctorm_req_t *req, char *name) {
 
   ctorm_pair_t *pair = ctorm_pair_find(req->params, name);
 
-  if(NULL == pair)
+  if (NULL == pair)
     return NULL;
 
   return pair->value;
 }
 
 ctorm_url_t *ctorm_req_form(ctorm_req_t *req) {
-  char      *type = ctorm_req_get(req, "content-type");
+  char        *type = ctorm_req_get(req, "content-type");
   ctorm_url_t *form = NULL;
-  uint64_t   size = 0;
+  uint64_t     size = 0;
 
   if (!cu_startswith(type, "application/x-www-form-urlencoded")) {
     errno = InvalidContentType;
@@ -278,7 +278,7 @@ char *ctorm_req_get(ctorm_req_t *req, char *name) {
   char *header_val = NULL;
 
   // if the name equals NULL, we want to receive all the headers
-  if (NULL != name && (header_val = headers_get(req->headers, name)) != NULL)
+  if (NULL != name && (header_val = ctorm_headers_get(req->headers, name)) != NULL)
     return header_val;
 
   if (req->received_headers)
@@ -329,9 +329,9 @@ next_header:
 
   cu_truncate(header_val, buf_size, 2, '\r');
   rdebug("received a new header: %s (%.5s...)", header_name, header_val);
-  headers_set(req->headers, header_name, header_val, true);
+  ctorm_headers_set(req->headers, header_name, header_val, true);
 
-  if (NULL != name && headers_cmp(header_name, name))
+  if (NULL != name && ctorm_headers_cmp(header_name, name))
     return header_val;
 
   goto next_header;

@@ -43,7 +43,7 @@ ctorm_pair_t *ctorm_pair_find(ctorm_pair_t *head, char *key) {
 void ctorm_pair_free(ctorm_pair_t *head) {
   ctorm_pair_t *cur = NULL, *next = head;
 
-  while(NULL != (cur = next)){
+  while (NULL != (cur = next)) {
     next = cur->next;
     free(cur);
   }

@@ -1,4 +1,4 @@
-# WARN: you should run the binaries with LD_LIBRARY_PATH=../dist
+# WARN: you should run the example binaries with LD_LIBRARY_PATH=../dist
 
 CC   = gcc
 INCD = ../inc
@@ -11,8 +11,7 @@ all: $(BINS)
 
 $(DIST)/libctorm.so:
 ifeq (,$(wildcard $(DIST)/libctorm.so))
-	@echo "you should first compile libctorm"
-	exit 1
+	$(error you should first compile libctorm)
 endif
 
 $(DIST)/example_%: %/main.c $(DIST)/libctorm.so

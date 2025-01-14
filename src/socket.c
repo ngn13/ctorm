@@ -212,7 +212,7 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
     }
 
     debug("creating a thread for connection (con: %p, socket %d)", con, con->socket);
-    pool_add(app->pool, (void *)connection_handle, (void *)con);
+    ctorm_pool_add(app->pool, (void *)connection_handle, (void *)con);
 
     con = NULL;
   }

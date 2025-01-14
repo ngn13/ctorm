@@ -11,13 +11,10 @@ jobs:
       - name: 'install dependencies'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc make libcjson-dev
+          sudo apt-get install -y jq gcc make libcjson-dev
 
       - name: 'build the library'
         run: make
-
-      - name: 'install the library'
-        run: sudo make install
 
       - name: 'build the examples'
         run: make example

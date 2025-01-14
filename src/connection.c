@@ -3,6 +3,7 @@
 
 #include "log.h"
 #include "app.h"
+#include "req.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -71,6 +72,9 @@ void connection_handle(connection_t *con) {
   ctorm_req_end(&req);
 
 done:
+  if (!ctorm_req_is_valid(&req))
+    goto free; // no need to waste time tryna send response to a non-existent request
+
   __connection_debug("sending response (%d)", res.code);
 
   // send the complete response

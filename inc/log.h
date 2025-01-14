@@ -27,10 +27,40 @@
 #define debug(...) asm("nop")
 #endif
 
+void ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t process_time);
+void ctorm_debug(const char *fmt, ...);
+
 #endif
 
-void ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t process_time);
+/*
+
+ * Print messages marked as "info", you can use this
+ * to print informative messages
+
+ * @param[in] fmt Message format string
+ * @param[in] ... Arguments for the formatted string
+
+*/
 void ctorm_info(const char *fmt, ...);
-void ctorm_debug(const char *fmt, ...);
+
+/*
+
+ * Print messages marked as "warn", you can use this
+ * to print warnings
+
+ * @param[in] fmt Message format string
+ * @param[in] ... Arguments for the formatted string
+
+*/
 void ctorm_warn(const char *fmt, ...);
+
+/*
+
+ * Print messages marked as "fail", you can use this
+ * to print failures
+
+ * @param[in] fmt Message format string
+ * @param[in] ... Arguments for the formatted string
+
+*/
 void ctorm_fail(const char *fmt, ...);
