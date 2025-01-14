@@ -82,4 +82,8 @@ docs:
 example:
 	$(MAKE) -C $@
 
-.PHONY: install uninstall docs format clean example
+test:
+	make example
+	./scripts/test.sh
+
+.PHONY: install uninstall docs format clean example test

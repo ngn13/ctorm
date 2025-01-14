@@ -1,11 +1,11 @@
-# Response functions 
-> [!IMPORTANT]  
+# Response functions
+> [!IMPORTANT]
 > You should **NOT** `free()` any data returned by this functions
 > **UNLESS** it's explicitly told to do so.
 
 > [!WARNING]
 > Most of these functions are macros, and will only work if the
-> `res_t` pointer is named `res`, otherwise you should directly
+> `ctorm_res_t` pointer is named `res`, otherwise you should directly
 > use the original functions.
 
 ### Setting the response code
@@ -19,7 +19,7 @@ Or you can directly modify the response code:
 res->code = 403;
 ```
 
-### Working with the response body 
+### Working with the response body
 There are few different ways to work with the response body:
 ```c
 // you can use local data, it will be copied to heap
@@ -31,12 +31,12 @@ RES_SEND("hello world!");
 // at the end
 char raw[128];
 ...
-res_send(res, data, sizeof(raw));
+ctorm_res_send(res, data, sizeof(raw));
 
 // if the data is null terminated, you can set the size
 // to 0, and the size will be calculated with strlen()
 // internally
-res_send(res, "hello world!", 0);
+ctorm_res_send(res, "hello world!", 0);
 ```
 
 If you have formatted text, you can use the formatted
@@ -49,7 +49,7 @@ res_fmt(res, "username: %s", username);
 
 // this macro/function will append to the response body
 RES_ADD("age: %d", age);
-res_add(res, "age: %d", age);
+ctorm_res_add(res, "age: %d", age);
 ```
 
 You can also send JSON data with response body using `cJSON`
@@ -62,7 +62,7 @@ cJSON_AddStringToObject(json, "username", "John");
 RES_JSON(json);
 
 // same thing without using the macro
-res_json(res, json);
+ctorm_res_json(res, json);
 ```
 
 If for whatever reason, you want to completely clear the
@@ -71,18 +71,20 @@ response body:
 RES_CLEAR();
 
 // without using the macro
-res_clear(res);
+ctorm_res_clear(res);
 ```
 
 ### Sending a file
 Using relative or absolute paths, you can send files with
-the response using the `RES_SENDFILE` macro or the `res_sendfile`
-function, `Content-Type` will be set for `html`, `css`, `js` and `json`
-files based on the extension, for any other file type the `Content-Type` 
+the response using the `RES_SENDFILE` macro or the `ctorm_res_sendfile`
+function.
+
+`Content-Type` header will be set for `html`, `css`, `js` and `json`
+files based on the extension, for any other file type the `Content-Type`
 will be set to `text/plain` and you may need to manually set it.
 ```c
 RES_SENDFILE("files/index.html");
-res_sendfile(res, "files/index.html");
+ctorm_res_sendfile(res, "files/index.html");
 ```
 
 ### Working with headers
@@ -91,14 +93,14 @@ function:
 ```c
 // just like the other body functions, you can use local data
 RES_SET("Cool", "yes");
-res_set(res, "Cool", "yes");
+ctorm_res_set(res, "Cool", "yes");
 ```
 
 To remove a header, you can use `RES_DEL` macro or the `res_del`
 function:
 ```c
 RES_DEL("Cool");
-res_del(res, "Cool");
+ctorm_res_del(res, "Cool");
 ```
 
 ### Redirecting
@@ -106,5 +108,5 @@ To redirect the client to another page or a URL, you can use the
 `RES_REDIRECT` macro or the `res_redirect` function:
 ```c
 RES_REDIRECT("/login");
-res_redirect(res, "/login");
+ctorm_res_redirect(res, "/login");
 ```
