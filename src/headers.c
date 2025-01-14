@@ -41,7 +41,7 @@ void __ctorm_headers_free_single(struct ctorm_header *header) {
 void __ctorm_headers_free_list(struct ctorm_header *cur) {
   struct ctorm_header *next = cur;
 
-  while (NULL != (next = cur)) {
+  while (NULL != (cur = next)) {
     next = cur->next;
     __ctorm_headers_free_single(cur);
   }
@@ -71,7 +71,7 @@ next_node:
     goto next_node;
   }
 
-  pos->name   = pos->_cur->name;
+  pos->name  = pos->_cur->name;
   pos->value = pos->_cur->value;
 
   return true;
@@ -87,7 +87,7 @@ bool __ctorm_headers_add(ctorm_headers_t headers, char *name, char *value, bool 
 
   new->alloced = alloced;
   new->next    = NULL;
-  new->name     = name;
+  new->name    = name;
   new->value   = value;
 
   if (NULL == (cur = *(head = __ctorm_headers_list(name)))) {
@@ -115,7 +115,7 @@ bool ctorm_headers_set(ctorm_headers_t headers, char *name, char *value, bool al
 
   (*header)->alloced = alloced;
   (*header)->value   = value;
-  (*header)->name     = name;
+  (*header)->name    = name;
 
   return true;
 }

@@ -22,7 +22,7 @@ void http_static_load() {
   http_static.method_max   = HTTP_METHOD_MAX;
 
   http_static.version_count = sizeof(http_versions) / sizeof(char *);
-  http_static.version_len   = cu_strlen((char*)http_versions[0]);
+  http_static.version_len   = cu_strlen((char *)http_versions[0]);
 
   http_static.header_max = getpagesize();
   http_static.body_max   = getpagesize();
@@ -32,7 +32,7 @@ void http_static_load() {
   http_static.res_code_max = 511; // 511 Network Authentication Required
 
   for (int i = 1; i < http_static.method_count; i++) {
-    size_t cur_len = cu_strlen((char*)http_method_map[i].name);
+    size_t cur_len = cu_strlen((char *)http_method_map[i].name);
     if (http_static.method_max < cur_len)
       http_static.method_max = cur_len;
   }

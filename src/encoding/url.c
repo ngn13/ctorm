@@ -20,10 +20,10 @@ ctorm_url_t *ctorm_url_parse(char *data, uint64_t len) {
     for (char *c = data; *c != 0; c++)
       len++;
 
-  bool       is_key = true, ignore_val = false;
-  uint64_t   buf_size = 0, indx = 0;
+  bool         is_key = true, ignore_val = false;
+  uint64_t     buf_size = 0, indx = 0;
   ctorm_url_t *url = NULL;
-  char      *buf = NULL;
+  char        *buf = NULL;
 
   for (; len > 0; len--, data++) {
     // allocate a new buffer if required

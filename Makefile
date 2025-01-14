@@ -67,7 +67,7 @@ uninstall:
 	find $(DESTDIR)/$(PREFIX)/share/man/man3 -type f -name 'ctorm*' -exec rm -v {} \;
 
 format:
-	clang-format -i -style=file $(SRCS) $(HDRS) example/*/*.c
+	clang-format -i -style=file $(CSRCS) $(HDRS) example/*/*.c
 	black scripts/*.py
 
 clean:

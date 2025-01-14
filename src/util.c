@@ -17,7 +17,7 @@ bool cu_endswith(char *str, char *suf) {
   uint64_t str_len = cu_strlen(str);
   uint64_t suf_len = cu_strlen(suf);
 
-  if(suf_len > str_len)
+  if (suf_len > str_len)
     return false;
 
   return cu_streq(str + (str_len - suf_len), suf);
@@ -34,8 +34,8 @@ char *cu_join(char *p1, char *p2) {
 }
 
 bool cu_contains(char *str, char c) {
-  for(; *str != 0; str++)
-    if(*str == c)
+  for (; *str != 0; str++)
+    if (*str == c)
       return true;
   return false;
 }

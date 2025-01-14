@@ -15,12 +15,13 @@ ctorm_thread_t *__ctorm_thread_new(func_t func, void *arg) {
   return thread;
 }
 
-#define __ctorm_thread_free(thread) do { \
-  free(thread); \
-  thread = NULL; \
-} while(0);
+#define __ctorm_thread_free(thread)                                                                                    \
+  do {                                                                                                                 \
+    free(thread);                                                                                                      \
+    thread = NULL;                                                                                                     \
+  } while (0);
 
-#define __ctorm_pool_lock(pool) pthread_mutex_lock(&pool->mutex)
+#define __ctorm_pool_lock(pool)   pthread_mutex_lock(&pool->mutex)
 #define __ctorm_pool_unlock(pool) pthread_mutex_unlock(&pool->mutex)
 
 ctorm_thread_t *__ctorm_pool_get(ctorm_pool_t *pool) {
@@ -36,7 +37,7 @@ ctorm_thread_t *__ctorm_pool_get(ctorm_pool_t *pool) {
 }
 
 void *__ctorm_pool_worker(void *_pool) {
-  ctorm_pool_t *pool = _pool;
+  ctorm_pool_t   *pool = _pool;
   ctorm_thread_t *thread;
 
   while (true) {
@@ -103,7 +104,7 @@ bool ctorm_pool_add(ctorm_pool_t *pool, func_t func, void *arg) {
   __ctorm_pool_lock(pool);
 
   if (pool->first == NULL)
-    pool->last  = pool->first = thread;
+    pool->last = pool->first = thread;
 
   else {
     pool->last->next = thread;

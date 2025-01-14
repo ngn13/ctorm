@@ -66,7 +66,7 @@ bool __rrecv_until(ctorm_req_t *req, char **buf, uint64_t *size, char del, bool 
   if (ret)
     return true;
 
-  if (buf_size > 0){
+  if (buf_size > 0) {
     free(*buf);
     *buf = NULL;
   }
@@ -159,12 +159,12 @@ bool ctorm_req_start(ctorm_req_t *req) {
   // decode the path (queries and shit)
   char *save = NULL, *rest = NULL, *dup = NULL;
 
-  if((dup = strdup(req->encpath)) == NULL){
+  if ((dup = strdup(req->encpath)) == NULL) {
     rdebug("failed to duplicate encpath: %s", strerror(errno));
     return false;
   }
 
-  if(NULL == (req->path = strtok_r(dup, "?", &save)) || NULL == (rest = strtok_r(NULL, "?", &save)))
+  if (NULL == (req->path = strtok_r(dup, "?", &save)) || NULL == (rest = strtok_r(NULL, "?", &save)))
     req->path = dup;
   else
     req->queries = ctorm_url_parse(rest, 0);
@@ -205,16 +205,16 @@ char *ctorm_req_param(ctorm_req_t *req, char *name) {
 
   ctorm_pair_t *pair = ctorm_pair_find(req->params, name);
 
-  if(NULL == pair)
+  if (NULL == pair)
     return NULL;
 
   return pair->value;
 }
 
 ctorm_url_t *ctorm_req_form(ctorm_req_t *req) {
-  char      *type = ctorm_req_get(req, "content-type");
+  char        *type = ctorm_req_get(req, "content-type");
   ctorm_url_t *form = NULL;
-  uint64_t   size = 0;
+  uint64_t     size = 0;
 
   if (!cu_startswith(type, "application/x-www-form-urlencoded")) {
     errno = InvalidContentType;

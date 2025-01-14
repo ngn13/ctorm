@@ -24,10 +24,10 @@
       res->con->socket,                                                                                                \
       res,                                                                                                             \
       ##__VA_ARGS__)
-#define rsend(b, s, f)  connection_send(res->con, b, s, f)
+#define rsend(b, s, f) connection_send(res->con, b, s, f)
 
 void __rprintf(ctorm_res_t *res, char *fmt, ...) {
-  int size = 0;
+  int     size = 0;
   va_list args, args_cp;
 
   va_start(args, fmt);
@@ -37,12 +37,12 @@ void __rprintf(ctorm_res_t *res, char *fmt, ...) {
   char buf[size];
   vsnprintf(buf, size, fmt, args_cp);
 
-  rsend(buf, size-1, MSG_NOSIGNAL);
+  rsend(buf, size - 1, MSG_NOSIGNAL);
   va_end(args);
 }
 
 #define rprintf(f, ...) __rprintf(res, f, ##__VA_ARGS__)
-//#define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
+// #define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
 
 void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
   bzero(res, sizeof(*res));
