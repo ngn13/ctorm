@@ -119,9 +119,8 @@ FROM ghcr.io/ngn13/ctorm:latest
 WORKDIR /app
 
 # copy over all the sources
-COPY src       ./src
-COPY Makefile  ./
 COPY main.c    ./
+COPY Makefile  ./
 
 # run the make script
 RUN make
