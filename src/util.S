@@ -1,14 +1,14 @@
 .section .text
 
-.type cu_streq, @function
-.type cu_strlen, @function
-.type cu_startswith, @function
-.type cu_strcmp_until, @function
-
 .global cu_streq
 .global cu_strlen
 .global cu_startswith
 .global cu_strcmp_until
+
+.type cu_streq, @function
+.type cu_strlen, @function
+.type cu_startswith, @function
+.type cu_strcmp_until, @function
 
 .L__cu_ret_true:
   mov $1, %rax

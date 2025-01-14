@@ -9,13 +9,14 @@
 #include "config.h"
 #include "http.h"
 #include "pool.h"
+#include "util.h"
 
 #include "req.h"
 #include "res.h"
 
 #ifdef CTORM_EXPORT
 
-typedef void *ctorm_app_t;
+typedef void ctorm_app_t;
 
 #endif
 
@@ -59,14 +60,14 @@ typedef struct ctorm_routemap {
  * create a new application using @ref ctorm_app_new
 
 */
-typedef struct ctorm_app {
+typedef struct {
   ctorm_routemap_t *middleware_maps; /// middleware map
   ctorm_routemap_t *route_maps;      /// route map
-  char             *static_path;     /// static directory serving path
-  char             *static_dir;      /// static directory
+  cu_str_t          static_path;     /// static directory route path
+  cu_str_t          static_dir;      /// static directory path
   ctorm_route_t     all_route;       /// all handler route (see app_all())
   bool              running;         /// is the app running?
-  pool_t           *pool;            /// thread pool for the app
+  ctorm_pool_t     *pool;            /// thread pool for the app
   pthread_mutex_t   request_mutex;   /// mutex used to lock request threads
 
   ctorm_config_t *config;            /// app configuration

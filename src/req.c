@@ -90,7 +90,7 @@ bool rrecv_is_valid_path(char c) {
 void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
   bzero(req, sizeof(*req));
 
-  headers_init(&req->headers);
+  ctorm_headers_init(&req->headers);
   req->received_headers = false;
 
   req->queries  = NULL;
@@ -105,7 +105,7 @@ void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
 }
 
 void ctorm_req_free(ctorm_req_t *req) {
-  headers_free(req->headers);
+  ctorm_headers_free(req->headers);
   ctorm_url_free(req->queries);
   ctorm_pair_free(req->params);
 
@@ -278,7 +278,7 @@ char *ctorm_req_get(ctorm_req_t *req, char *name) {
   char *header_val = NULL;
 
   // if the name equals NULL, we want to receive all the headers
-  if (NULL != name && (header_val = headers_get(req->headers, name)) != NULL)
+  if (NULL != name && (header_val = ctorm_headers_get(req->headers, name)) != NULL)
     return header_val;
 
   if (req->received_headers)
@@ -329,9 +329,9 @@ next_header:
 
   cu_truncate(header_val, buf_size, 2, '\r');
   rdebug("received a new header: %s (%.5s...)", header_name, header_val);
-  headers_set(req->headers, header_name, header_val, true);
+  ctorm_headers_set(req->headers, header_name, header_val, true);
 
-  if (NULL != name && headers_cmp(header_name, name))
+  if (NULL != name && ctorm_headers_cmp(header_name, name))
     return header_val;
 
   goto next_header;

@@ -18,12 +18,12 @@
  * body, version, headers etc.
 
 */
-typedef struct res {
+typedef struct {
   connection_t *con; /// socket connection
 
-  headers_t      headers; /// HTTP headers
-  const char    *version; /// HTTP version
-  unsigned short code;    /// HTTP response code
+  ctorm_headers_t headers; /// HTTP headers
+  const char     *version; /// HTTP version
+  unsigned short  code;    /// HTTP response code
 
   char    *body;     /// HTTP response body
   uint64_t bodysize; /// HTTP response body size

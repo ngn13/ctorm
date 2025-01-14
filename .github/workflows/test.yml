@@ -16,9 +16,6 @@ jobs:
       - name: 'build the library'
         run: make
 
-      - name: 'install the library'
-        run: sudo make install
-
       - name: 'build the examples'
         run: make example
 

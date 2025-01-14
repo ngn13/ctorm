@@ -20,7 +20,7 @@
  * path, version, headers etc.
 
 */
-typedef struct ctorm_req {
+typedef struct {
   connection_t *con; /// socket connection
 
   method_t    method; /// HTTP method (GET, POST, PUT etc.)
@@ -29,19 +29,21 @@ typedef struct ctorm_req {
   char       *path;    /// url decoded path (does not include queries)
   const char *version; /// HTTP version number (for example "HTTP/1.1")
 
-  headers_t     headers;          /// HTTP headers
-  bool          received_headers; /// did we receive all the HTTP headers
-  ctorm_url_t  *queries;          /// HTTP queries (for example "?key=1")
-  ctorm_pair_t *params;           /// HTTP path params (for example "/blog/:slug")
-  int64_t       bodysize;         /// size of the HTTP body
+  ctorm_headers_t headers;          /// HTTP headers
+  bool            received_headers; /// did we receive all the HTTP headers
+  ctorm_url_t    *queries;          /// HTTP queries (for example "?key=1")
+  ctorm_pair_t   *params;           /// HTTP path params (for example "/blog/:slug")
+  int64_t         bodysize;         /// size of the HTTP body
 } ctorm_req_t;
 
 #ifndef CTORM_EXPORT
 
-void ctorm_req_init(ctorm_req_t *, connection_t *); // setup a request
-void ctorm_req_free(ctorm_req_t *);                 // cleanup a request
-bool ctorm_req_start(ctorm_req_t *);                // receive the (at least the first part) of the HTTP request
-void ctorm_req_end(ctorm_req_t *);                  // completely receive the HTTP request
+#define ctorm_req_is_valid(req)                                                                                        \
+  (NULL != (req)->version && NULL != (req)->encpath && NULL != (req)->path) // check if the request is valid
+void ctorm_req_init(ctorm_req_t *, connection_t *);                         // setup a request
+void ctorm_req_free(ctorm_req_t *);                                         // cleanup a request
+bool ctorm_req_start(ctorm_req_t *); // receive the (at least the first part) of the HTTP request
+void ctorm_req_end(ctorm_req_t *);   // completely receive the HTTP request
 
 #endif
 

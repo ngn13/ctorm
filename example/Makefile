@@ -11,8 +11,7 @@ all: $(BINS)
 
 $(DIST)/libctorm.so:
 ifeq (,$(wildcard $(DIST)/libctorm.so))
-	@echo "you should first compile libctorm"
-	exit 1
+	$(error you should first compile libctorm)
 endif
 
 $(DIST)/example_%: %/main.c $(DIST)/libctorm.so

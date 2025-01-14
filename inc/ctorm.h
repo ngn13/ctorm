@@ -1,12 +1,15 @@
 /*
 
+ * ctorm | Simple web framework for C
+ * Written by ngn (https://ngn.tf) (2025)
+
+*/
+
+/*!
+
  * @file
  * @brief Header file that contains all the application, request
  *        and response macros
-
- * @section DESCRIPTION
- * ctorm | Simple web framework for C
- * Written by ngn (https://ngn.tf) (2024)
 
  * @section LICENSE
  * This program is free software: you can redistribute it and/or modify
@@ -334,13 +337,18 @@
 */
 #define RES_JSON(json) ctorm_res_json(res, json)
 
-/// Clear (empty) the response body
+/*!
+
+ * Clear (empty) the response body
+
+*/
 #define RES_CLEAR() ctorm_res_clear(res)
 
 /*!
 
  * Set response body to a formatted string
- * @param[in] fmt String format
+ * @param[in] fmt Format string
+ * @return Format string arguments
 
 */
 #define RES_FMT(fmt, ...) ctorm_res_fmt(res, fmt, __VA_ARGS__)
@@ -348,7 +356,8 @@
 /*!
 
  * Append formatted string to the response body
- * @param[in] fmt String format
+ * @param[in] fmt Format string
+ * @return Format string arguments
 
 */
 #define RES_ADD(fmt, ...) ctorm_res_add(res, fmt, __VA_ARGS__)

@@ -25,7 +25,24 @@
       res,                                                                                                             \
       ##__VA_ARGS__)
 #define rsend(b, s, f)  connection_send(res->con, b, s, f)
-#define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
+
+void __rprintf(ctorm_res_t *res, char *fmt, ...) {
+  int size = 0;
+  va_list args, args_cp;
+
+  va_start(args, fmt);
+  va_copy(args_cp, args);
+
+  size = vsnprintf(NULL, 0, fmt, args) + 1;
+  char buf[size];
+  vsnprintf(buf, size, fmt, args_cp);
+
+  rsend(buf, size-1, MSG_NOSIGNAL);
+  va_end(args);
+}
+
+#define rprintf(f, ...) __rprintf(res, f, ##__VA_ARGS__)
+//#define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
 
 void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
   bzero(res, sizeof(*res));
@@ -38,9 +55,9 @@ void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
   res->code      = 200;
   res->completed = false;
 
-  headers_init(&res->headers);
-  headers_set(res->headers, "server", "ctorm", false);
-  headers_set(res->headers, "connection", "close", false);
+  ctorm_headers_init(&res->headers);
+  ctorm_headers_set(res->headers, "server", "ctorm", false);
+  ctorm_headers_set(res->headers, "connection", "close", false);
 
   struct tm *gmt;
   time_t     raw;
@@ -55,7 +72,7 @@ void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
 }
 
 void ctorm_res_free(ctorm_res_t *res) {
-  headers_free(res->headers);
+  ctorm_headers_free(res->headers);
   ctorm_res_clear(res);
 }
 
@@ -63,7 +80,7 @@ void ctorm_res_set(ctorm_res_t *res, char *name, char *value) {
   if (NULL == name || NULL == value)
     errno = BadHeaderPointer;
   else
-    headers_set(res->headers, strdup(name), strdup(value), true);
+    ctorm_headers_set(res->headers, strdup(name), strdup(value), true);
 }
 
 void ctorm_res_del(ctorm_res_t *res, char *name) {
@@ -72,7 +89,7 @@ void ctorm_res_del(ctorm_res_t *res, char *name) {
     return;
   }
 
-  headers_del(res->headers, name);
+  ctorm_headers_del(res->headers, name);
 }
 
 void ctorm_res_clear(ctorm_res_t *res) {
@@ -236,7 +253,7 @@ bool ctorm_res_end(ctorm_res_t *res) {
     return false;
   }
 
-  header_pos_t pos;
+  ctorm_header_pos_t pos;
 
   // fix the HTTP code if its invalid
   if (res->code > http_static.res_code_max || res->code < http_static.res_code_min) {
@@ -251,10 +268,10 @@ bool ctorm_res_end(ctorm_res_t *res) {
     rprintf("%s %u\r\n", res->version, res->code);
 
   // send response headers
-  headers_start(&pos);
+  ctorm_headers_start(&pos);
 
-  while (headers_next(res->headers, &pos))
-    rprintf("%s: %s\r\n", pos.key, pos.value);
+  while (ctorm_headers_next(res->headers, &pos))
+    rprintf("%s: %s\r\n", pos.name, pos.value);
   rprintf("content-length: %lu\r\n", res->bodysize);
   rprintf("\r\n");
 
