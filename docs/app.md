@@ -107,3 +107,12 @@ to a 404 page, you set a custom route for this:
 ```c
 ctorm_app_all(app, all_route);
 ```
+
+### Global locals
+If you want to pass a variable to all the routes and middlewares, you can use global
+locals:
+```c
+ctorm_app_local(app, "config", &config);
+```
+To access the local from the route or the middleware handler, you can use `REQ_LOCAL` or
+`ctorm_req_local`. See the [request documentation](req.md) for more information.

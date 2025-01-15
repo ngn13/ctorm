@@ -155,3 +155,5 @@ you can access the "username" local:
 char *username = REQ_LOCAL("username");
 // char *username = ctorm_req_local(req, "username", NULL);
 ```
+If you want to pass a variable to all routes/middlewares, you should use global locals. See
+the [app documentation](app.md).
