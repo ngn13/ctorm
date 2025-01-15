@@ -2,6 +2,7 @@
 #include "errors.h"
 
 #include "http.h"
+#include "pair.h"
 #include "util.h"
 
 #include "req.h"
@@ -9,6 +10,7 @@
 
 #include <arpa/inet.h>
 
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -92,22 +94,16 @@ void ctorm_req_init(ctorm_req_t *req, connection_t *con) {
 
   ctorm_headers_init(&req->headers);
   req->received_headers = false;
-
-  req->queries  = NULL;
-  req->params   = NULL;
-  req->bodysize = -1;
-
-  req->con     = con;
-  req->cancel  = false;
-  req->version = NULL;
-  req->encpath = NULL;
-  req->path    = NULL;
+  req->con              = con;
+  req->cancel           = false;
+  req->bodysize         = -1;
 }
 
 void ctorm_req_free(ctorm_req_t *req) {
   ctorm_headers_free(req->headers);
   ctorm_url_free(req->queries);
   ctorm_pair_free(req->params);
+  ctorm_pair_free(req->locals);
 
   free(req->encpath);
   free(req->path);
@@ -194,21 +190,43 @@ void ctorm_req_end(ctorm_req_t *req) {
 }
 
 char *ctorm_req_query(ctorm_req_t *req, char *name) {
-  if (NULL == name)
+  if (NULL == name) {
+    errno = BadQueryPointer;
     return NULL;
+  }
+
   return ctorm_url_get(req->queries, name);
 }
 
 char *ctorm_req_param(ctorm_req_t *req, char *name) {
-  if (NULL == name)
+  if (NULL == name) {
+    errno = BadParamPointer;
     return NULL;
+  }
 
-  ctorm_pair_t *pair = ctorm_pair_find(req->params, name);
+  ctorm_pair_t *param = ctorm_pair_find(req->params, name);
+  return NULL == param ? NULL : param->value;
+}
 
-  if (NULL == pair)
+void *ctorm_req_local(ctorm_req_t *req, char *name, ...) {
+  if (NULL == name) {
+    errno = BadLocalPointer;
     return NULL;
+  }
 
-  return pair->value;
+  ctorm_pair_t *local = NULL;
+  void         *value = NULL;
+  va_list       args;
+
+  va_start(args, name);
+
+  if (NULL == (value = va_arg(args, void *)))
+    local = ctorm_pair_find(req->locals, name);
+  else
+    local = ctorm_pair_add(&req->locals, name, value);
+
+  va_end(args);
+  return NULL == local ? NULL : local->value;
 }
 
 ctorm_url_t *ctorm_req_form(ctorm_req_t *req) {

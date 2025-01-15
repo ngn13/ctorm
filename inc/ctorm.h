@@ -265,6 +265,15 @@
 
 /*!
 
+ * Get or set a local
+ * @param[in] name Local name
+ * @param[in] ...  Local value
+
+*/
+#define REQ_LOCAL(local, ...) ctorm_req_local(req, local, ##__VA_ARGS__)
+
+/*!
+
  * Parse URL form encoded request body
  * @return URL decoded body structure
 
@@ -348,7 +357,7 @@
 
  * Set response body to a formatted string
  * @param[in] fmt Format string
- * @return Format string arguments
+ * @param[in] ... Arguments for the format string
 
 */
 #define RES_FMT(fmt, ...) ctorm_res_fmt(res, fmt, __VA_ARGS__)

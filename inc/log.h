@@ -37,8 +37,8 @@ void ctorm_debug(const char *fmt, ...);
  * Print messages marked as "info", you can use this
  * to print informative messages
 
- * @param[in] fmt Message format string
- * @param[in] ... Arguments for the formatted string
+ * @param[in] fmt Format string
+ * @param[in] ... Arguments for the format string
 
 */
 void ctorm_info(const char *fmt, ...);
@@ -48,8 +48,8 @@ void ctorm_info(const char *fmt, ...);
  * Print messages marked as "warn", you can use this
  * to print warnings
 
- * @param[in] fmt Message format string
- * @param[in] ... Arguments for the formatted string
+ * @param[in] fmt Format string
+ * @param[in] ... Arguments for the format string
 
 */
 void ctorm_warn(const char *fmt, ...);
@@ -59,8 +59,8 @@ void ctorm_warn(const char *fmt, ...);
  * Print messages marked as "fail", you can use this
  * to print failures
 
- * @param[in] fmt Message format string
- * @param[in] ... Arguments for the formatted string
+ * @param[in] fmt Format string
+ * @param[in] ... Arguments for the format string
 
 */
 void ctorm_fail(const char *fmt, ...);

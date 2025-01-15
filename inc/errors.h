@@ -50,6 +50,9 @@ typedef enum {
   PortTooLarge        = 9937,
   NameTooLarge        = 9938,
   BadName             = 9939,
+  BadLocalPointer     = 9940,
+  BadQueryPointer     = 9941,
+  BadParamPointer     = 9942,
 } ctorm_error_t;
 
 /*!
