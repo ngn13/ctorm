@@ -94,7 +94,7 @@ MIDDLEWARE_OPTIONS(app, "/", options_index_mid);
 
 ### Set static directory
 To setup a static route you can use the `ctorm_app_static` function,
-**please note that ctorm only supports a single static route.**
+**please note that ctorm only supports a single static route**.
 ```c
 // static files be served at '/static' path,
 // from the './files' directory
@@ -102,11 +102,12 @@ ctorm_app_static(app, "/static", "./files");
 ```
 
 ### Setup 404 (all) route
-By default, routes that does not match with any other will be redirected
-to a 404 page, you set a custom route for this:
+By default, requests that does not match with any route will receive a 404 page.
+You can change this behavior by creating a custom handler for these requests:
 ```c
 ctorm_app_all(app, all_route);
 ```
+This handler needs to follow the same route handler structure.
 
 ### Global locals
 If you want to pass a variable to all the routes and middlewares, you can use global
@@ -114,5 +115,5 @@ locals:
 ```c
 ctorm_app_local(app, "config", &config);
 ```
-To access the local from the route or the middleware handler, you can use `REQ_LOCAL` or
+To access the local from a route or the middleware handler, you can use `REQ_LOCAL` or
 `ctorm_req_local`. See the [request documentation](req.md) for more information.
