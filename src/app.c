@@ -19,6 +19,8 @@
 */
 
 #include "errors.h"
+#include "pair.h"
+#include "req.h"
 #include "socket.h"
 
 #include "pool.h"
@@ -210,6 +212,10 @@ bool ctorm_app_stop(ctorm_app_t *app) {
   return true;
 }
 
+bool ctorm_app_local(ctorm_app_t *app, char *name, void *value) {
+  return NULL != ctorm_pair_add(&app->locals, name, value);
+}
+
 bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
   __ctorm_check_app_ptr();
 
@@ -345,6 +351,9 @@ end:
 
 void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
   ctorm_routemap_t *cur = NULL;
+
+  // copy the global locals to the request
+  ctorm_pair_next(app->locals, local) ctorm_req_local(req, local->key, local->value, NULL);
 
   // call the middlewares, stop if a middleware cancels the request
   for (cur = app->middleware_maps; !req->cancel && cur != NULL; cur = cur->next)

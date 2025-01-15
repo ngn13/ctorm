@@ -268,6 +268,7 @@
  * Get or set a local
  * @param[in] name Local name
  * @param[in] ...  Local value
+ * @return Local value
 
 */
 #define REQ_LOCAL(local, ...) ctorm_req_local(req, local, ##__VA_ARGS__, NULL)

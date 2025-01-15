@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "http.h"
+#include "pair.h"
 #include "pool.h"
 #include "util.h"
 
@@ -67,6 +68,7 @@ typedef struct {
   cu_str_t          static_dir;      /// static directory path
   ctorm_route_t     all_route;       /// all handler route (see app_all())
   bool              running;         /// is the app running?
+  ctorm_pair_t     *locals;          /// global locals
   ctorm_pool_t     *pool;            /// thread pool for the app
   pthread_mutex_t   request_mutex;   /// mutex used to lock request threads
 
@@ -124,6 +126,19 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host);
 
 */
 bool ctorm_app_stop(ctorm_app_t *app);
+
+/*!
+
+ * Get or set a local, these locals will be copied to every single request so they
+ * are global
+
+ * param[in] app   ctorm server application
+ * param[in] name  Local name
+ * param[in] value Local value
+ * @return Returns false if an error occurs, you can obtain the error from the errno
+
+*/
+bool ctorm_app_local(ctorm_app_t *app, char *name, void *value);
 
 /*!
 

@@ -2,7 +2,8 @@
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
   char *username = REQ_LOCAL("username");
-  RES_FMT("username: %s", username);
+  char *format   = REQ_LOCAL("format");
+  RES_FMT(format, username);
 }
 
 void username_middleware(ctorm_req_t *req, ctorm_res_t *res) {
@@ -20,6 +21,9 @@ void username_middleware(ctorm_req_t *req, ctorm_res_t *res) {
 int main() {
   // create the app
   ctorm_app_t *app = ctorm_app_new(NULL);
+
+  // add a global local
+  ctorm_app_local(app, "format", "username: %s");
 
   // setup the routes
   MIDDLEWARE_GET(app, "/*", username_middleware);
