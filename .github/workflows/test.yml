@@ -30,3 +30,6 @@ jobs:
 
       - name: 'run example #4'
         run: ./scripts/test.sh 4
+
+      - name: 'run example #5'
+        run: ./scripts/test.sh 5
