@@ -1,7 +1,7 @@
 /*
 
  * ctorm | Simple web framework for C
- * Written by ngn (https://ngn.tf) (2024)
+ * Written by ngn (https://ngn.tf) (2025)
 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -10,8 +10,10 @@ BINS = $(patsubst %,$(DIST)/example_%,$(DIRS))
 all: $(BINS)
 
 $(DIST)/libctorm.so:
-ifeq (,$(wildcard $(DIST)/libctorm.so))
-	$(error you should first compile libctorm)
+ifneq ($(DONT_CHECK_LIBCTORM), 1)
+	ifeq (,$(wildcard $(DIST)/libctorm.so))
+		$(error you should first compile libctorm)
+	endif
 endif
 
 $(DIST)/example_%: %/main.c $(DIST)/libctorm.so

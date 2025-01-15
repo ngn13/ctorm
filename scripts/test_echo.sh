@@ -1,6 +1,6 @@
 #!/bin/bash
 
-data=$(curl -X POST 'http://127.0.0.1:8080/post'       \
+data=$(curl -X POST 'http://127.0.0.1:8081/post'       \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data 'msg=testing' --silent)
 

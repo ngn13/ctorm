@@ -14,9 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <errno.h>
-#include <stdio.h>
-
 #define rdebug(f, ...)                                                                                                 \
   debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD " Request " FG_CYAN "0x%p" FG_RESET ") " f,                \
       req->con->socket,                                                                                                \

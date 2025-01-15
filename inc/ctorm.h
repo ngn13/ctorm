@@ -270,7 +270,7 @@
  * @param[in] ...  Local value
 
 */
-#define REQ_LOCAL(local, ...) ctorm_req_local(req, local, ##__VA_ARGS__)
+#define REQ_LOCAL(local, ...) ctorm_req_local(req, local, ##__VA_ARGS__, NULL)
 
 /*!
 

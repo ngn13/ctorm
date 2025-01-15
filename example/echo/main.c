@@ -55,7 +55,7 @@ int main() {
   ctorm_app_all(app, GET_notfound);
 
   // run the app
-  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+  if (!ctorm_app_run(app, "0.0.0.0:8081"))
     ctorm_fail("failed to start the app: %s", ctorm_geterror());
 
   // clean up
