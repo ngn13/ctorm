@@ -128,3 +128,32 @@ if(NULL == agent){
 
 ctorm_info("user-agent is %s", agent);
 ```
+
+### Request locals
+You may want to pass variables around different routes/middlewares that handle the same
+request. To do this, you can use request locals, inspired by [fiber's ctx locals](https://docs.gofiber.io/api/ctx/#locals).
+
+Here is a middleware that creates a new local named "username":
+```c
+char *username = REQ_QUERY("username");
+
+if(NULL == username){
+    RES_SEND("please specify a username");
+    REQ_CANCEL();
+    return;
+}
+
+for(char *c = username; *c != 0; c++)
+    *c = tolower(*c);
+
+REQ_LOCAL("username", username);
+// ctorm_req_local(req, "username", username, NULL);
+```
+In an another route/middleware that handle the same request after the previous middleware,
+you can access the "username" local:
+```c
+char *username = REQ_LOCAL("username");
+// char *username = ctorm_req_local(req, "username", NULL);
+```
+If you want to pass a variable to all routes/middlewares, you should use global locals. See
+the [app documentation](app.md).

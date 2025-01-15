@@ -1,7 +1,5 @@
 #include "errors.h"
-
 #include <string.h>
-#include <errno.h>
 
 struct ctorm_error_desc descs[] = {
     {BadTcpTimeout,       "invalid TCP timeout"                         },
@@ -24,6 +22,9 @@ struct ctorm_error_desc descs[] = {
     {BadFmtPointer,       "invalid string format pointer"               },
     {BadPathPointer,      "invalid path pointer"                        },
     {BadDataPointer,      "invalid data pointer"                        },
+    {BadLocalPointer,     "invalid local name pointer"                  },
+    {BadParamPointer,     "invalid URL parameter name pointer"          },
+    {BadQueryPointer,     "invalid URL query name pointer"              },
     {BadHeaderPointer,    "invalid header name/value pointer"           },
     {BadMaxConnCount,     "invalid max connection count"                },
     {NoJSONSupport,       "library not compiled with JSON support"      },

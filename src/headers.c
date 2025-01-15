@@ -78,7 +78,7 @@ next_node:
 }
 
 bool __ctorm_headers_add(ctorm_headers_t headers, char *name, char *value, bool alloced) {
-  struct ctorm_header *new = NULL, *cur = NULL, **head = NULL;
+  struct ctorm_header *new = NULL, **head = NULL;
 
   if (NULL == (new = malloc(sizeof(struct ctorm_header)))) {
     errno = AllocFailed;
@@ -90,15 +90,10 @@ bool __ctorm_headers_add(ctorm_headers_t headers, char *name, char *value, bool 
   new->name    = name;
   new->value   = value;
 
-  if (NULL == (cur = *(head = __ctorm_headers_list(name)))) {
-    *head = new;
-    return true;
-  }
+  if (NULL != *(head = __ctorm_headers_list(name)))
+    (*head)->next = new;
 
-  while (NULL != cur->next)
-    cur = cur->next;
-  cur->next = new;
-
+  *head = new;
   return true;
 }
 

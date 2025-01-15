@@ -17,7 +17,7 @@ int main() {
   GET(app, "/echo/:param/*", GET_param);
 
   // run the app
-  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+  if (!ctorm_app_run(app, "0.0.0.0:8082"))
     ctorm_fail("failed to start the app: %s", ctorm_geterror());
 
   // clean up

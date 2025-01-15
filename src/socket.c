@@ -75,8 +75,6 @@ bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
     return false;
   }
 
-  debug("name: %s port: %s", hostname, hostport);
-
   struct addrinfo *hostinfo = NULL, *cur = NULL;
   int              port = 0;
 

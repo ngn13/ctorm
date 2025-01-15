@@ -142,7 +142,7 @@ int main() {
   GET(app, "/", GET_index);
   GET(app, "/users", GET_user_list);
 
-  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+  if (!ctorm_app_run(app, "0.0.0.0:8084"))
     ctorm_fail("failed to start the app: %s", ctorm_geterror());
 
   ctorm_app_free(app);

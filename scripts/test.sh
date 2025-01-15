@@ -1,16 +1,31 @@
 #!/bin/bash
 
-set -e
-
 export LD_LIBRARY_PATH='./dist'
-examples=("hello" "echo" "params" "middleware")
+examples=(
+  "hello"
+  "echo"
+  "params"
+  "locals"
+  "middleware"
+)
 index="${1}"
 
 function run_example(){
-  echo "testing example: ${1}"
-  (./dist/example_${1} & 2>/dev/null)
+  echo "${1}: testing..."
+
+  ./dist/example_${1} &
   ./scripts/test_${1}.sh
-  killall -9 "example_${1}"
+
+  res=$?
+  kill -9 $!
+
+  if [ $res -ne 0 ]; then
+    echo "${1}: failed"
+    return 1
+  fi
+
+  echo "${1}: success"
+  return 0
 }
 
 if [ ! -z "${index}" ]; then
@@ -26,5 +41,7 @@ if [ ! -z "${index}" ]; then
 fi
 
 for example in "${examples[@]}"; do
-  run_example "${example}"
+  if ! run_example "${example}"; then
+    exit 1
+  fi
 done
