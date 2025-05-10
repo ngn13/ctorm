@@ -36,12 +36,10 @@ if [ ! -z "${index}" ]; then
     exit 1
   fi
 
-  run_example "${examples[${index}]}"
-  exit 0
+  run_example "${examples[${index}]}" && exit 0
+  exit 1
 fi
 
 for example in "${examples[@]}"; do
-  if ! run_example "${example}"; then
-    exit 1
-  fi
+  run_example "${example}" || exit 1
 done

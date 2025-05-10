@@ -15,45 +15,45 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - name: 'checkout the source code'
+      - name: "Checkout the source code"
         uses: actions/checkout@v3
 
-      - name: 'install dependencies'
+      - name: "Install dependencies"
         run: |
           sudo apt-get update
           sudo apt-get install -y make clang-format
 
-      - name: 'check formatting'
+      - name: "Check formatting"
         run: make check
 
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: 'checkout the source code'
+      - name: "Checkout the source code"
         uses: actions/checkout@v3
 
-      - name: 'install dependencies'
+      - name: "Install dependencies"
         run: |
           sudo apt-get update
           sudo apt-get install -y jq gcc make libcjson-dev
 
-      - name: 'build the library'
+      - name: "Build the library"
         run: make
 
-      - name: 'build the examples'
+      - name: "Build the examples"
         run: make example
 
-      - name: 'run example #1'
+      - name: "Run example #1"
         run: ./scripts/test.sh 1
 
-      - name: 'run example #2'
+      - name: "Run example #2"
         run: ./scripts/test.sh 2
 
-      - name: 'run example #3'
+      - name: "Run example #3"
         run: ./scripts/test.sh 3
 
-      - name: 'run example #4'
+      - name: "Run example #4"
         run: ./scripts/test.sh 4
 
-      - name: 'run example #5'
+      - name: "Run example #5"
         run: ./scripts/test.sh 5
