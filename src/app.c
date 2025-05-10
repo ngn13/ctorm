@@ -329,10 +329,21 @@ bool __ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
   char *key = NULL, *value = NULL;
   bool  ret = false;
 
-  // now we need to individually compare every name in the path
+  /*
+
+   * now we need to individually compare every name in the path
+
+   * BUG: gh workflow uses clang-format 19.1.1 atm, which uses a different
+   *      formatting for this loop for some reason, so temporarily disable the
+   *      formatting here
+
+  */
+  // clang-format off
   for (; count > 0; count--,
       route_pos = __ctorm_path_next_name(route_pos) + 1,
       req_pos   = __ctorm_path_next_name(req_pos) + 1) {
+    // clang-format on
+
     // if the name is '*' then it's a wildcard route
     if (*route_pos == '*' && __ctorm_path_is_name_end(route_pos + 1))
       continue;
