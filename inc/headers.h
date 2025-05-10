@@ -29,8 +29,9 @@ void ctorm_headers_free(ctorm_headers_t headers);
 #define ctorm_headers_start(pos) bzero(pos, sizeof(ctorm_header_pos_t))
 bool ctorm_headers_next(ctorm_headers_t headers, ctorm_header_pos_t *pos);
 
-bool  ctorm_headers_cmp(const char *s1, const char *s2);
-bool  ctorm_headers_set(ctorm_headers_t headers, char *name, char *value, bool);
+bool ctorm_headers_cmp(const char *s1, const char *s2);
+bool ctorm_headers_set(
+    ctorm_headers_t headers, char *name, char *value, bool allocated);
 char *ctorm_headers_get(ctorm_headers_t headers, char *name);
 void  ctorm_headers_del(ctorm_headers_t headers, char *name);
 

@@ -40,25 +40,30 @@ bool cu_contains(char *str, char c) {
   return false;
 }
 
-void cu_url_decode(char *str) {
-  char   *curr_ptr = NULL, *step_ptr = NULL;
-  uint8_t value;
+int64_t cu_url_decode(char *str) {
+  if (NULL == str)
+    return -1;
 
-  for (curr_ptr = step_ptr = str; *curr_ptr != 0; curr_ptr++, step_ptr++) {
-    if (*curr_ptr == '+') {
-      *step_ptr = ' ';
+  char    *cur = NULL, *step = NULL;
+  uint64_t len   = 0;
+  uint8_t  value = 0;
+
+  for (cur = step = str; *cur != 0; cur++, step++, len++) {
+    if (*cur == '+') {
+      *step = ' ';
       continue;
     }
 
-    if (*curr_ptr == '%') {
-      sscanf(++curr_ptr, "%02hhx", &value);
-      *step_ptr = value;
-      curr_ptr++;
+    if (*cur == '%') {
+      sscanf(++cur, "%02hhx", &value);
+      *step = value;
+      cur++;
       continue;
     }
 
-    *step_ptr = *curr_ptr;
+    *step = *cur;
   }
 
-  *step_ptr = 0;
+  *step = 0;
+  return len;
 }

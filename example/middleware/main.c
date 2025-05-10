@@ -23,7 +23,7 @@ void user_auth(ctorm_req_t *req, ctorm_res_t *res) {
 
   req->cancel = true;
   RES_CODE(403);
-  RES_SEND("You don't have permission to view this page!");
+  RES_BODY("you don't have permission to view this page!");
 }
 
 void GET_user_list(ctorm_req_t *req, ctorm_res_t *res) {
@@ -33,7 +33,7 @@ void GET_user_list(ctorm_req_t *req, ctorm_res_t *res) {
 
   if (NULL == json || NULL == list) {
     RES_CODE(500);
-    RES_SEND("failed to create a JSON");
+    RES_BODY("failed to create a JSON");
   }
 
   user_t *cur = users;
@@ -50,9 +50,9 @@ void GET_user_list(ctorm_req_t *req, ctorm_res_t *res) {
   }
 
   if (!RES_JSON(json)) {
-    ctorm_fail("failed to send the JSON data: %s", ctorm_geterror());
+    ctorm_fail("failed to send the JSON data: %s", ctorm_error());
     RES_CODE(500);
-    RES_SEND("failed to send the JSON");
+    RES_BODY("failed to send the JSON");
   }
 }
 
@@ -62,7 +62,8 @@ void DELETE_user_delete(ctorm_req_t *req, ctorm_res_t *res) {
 
   if (NULL == name) {
     RES_CODE(400);
-    return RES_SEND("Please specify a name");
+    RES_BODY("please specify a name");
+    return;
   }
 
   while (NULL != cur) {
@@ -78,11 +79,12 @@ void DELETE_user_delete(ctorm_req_t *req, ctorm_res_t *res) {
       prev->next = cur->next;
 
     free(cur);
-    return RES_SEND("Success!");
+    RES_BODY("success!");
+    return;
   }
 
   RES_CODE(404);
-  return RES_SEND("User not found");
+  RES_BODY("user not found");
 }
 
 void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
@@ -91,8 +93,9 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
 
   if (NULL == json) {
     RES_CODE(400);
-    ctorm_fail("failed to get the JSON body: %s", ctorm_geterror());
-    return RES_SEND("please specify user data");
+    ctorm_fail("failed to get the JSON body: %s", ctorm_error());
+    RES_BODY("please specify user data");
+    return;
   }
 
   name = cJSON_GetObjectItem(json, "name");
@@ -101,7 +104,8 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
   if (NULL == name || NULL == age) {
     RES_CODE(400);
     ctorm_fail("failed to get the name or age");
-    return RES_SEND("please specify user data");
+    RES_BODY("please specify user data");
+    return;
   }
 
   user_t *user = malloc(sizeof(user_t));
@@ -110,7 +114,8 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
 
   if (NULL == users) {
     users = user;
-    return RES_SEND("success!");
+    RES_BODY("success!");
+    return;
   }
 
   user_t *cur = users;
@@ -122,7 +127,7 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
     cur = cur->next;
   }
 
-  return RES_SEND("success!");
+  RES_BODY("success!");
 }
 
 int main() {
@@ -136,14 +141,15 @@ int main() {
 
   ctorm_app_t *app = ctorm_app_new(&config);
 
-  MIDDLEWARE_ALL(app, "/user/*", user_auth);
+  GET(app, "/", GET_index);
+
+  ALL(app, "/user/*", user_auth);
   DELETE(app, "/user/delete", DELETE_user_delete);
   POST(app, "/user/add", POST_user_add);
-  GET(app, "/", GET_index);
   GET(app, "/users", GET_user_list);
 
   if (!ctorm_app_run(app, "0.0.0.0:8084"))
-    ctorm_fail("failed to start the app: %s", ctorm_geterror());
+    ctorm_fail("failed to start the app: %s", ctorm_error());
 
   ctorm_app_free(app);
 }

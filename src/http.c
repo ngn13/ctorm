@@ -4,68 +4,151 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-method_map_t http_method_map[] = {
-    {.code = METHOD_GET,     .name = "GET",     .body = false},
-    {.code = METHOD_POST,    .name = "POST",    .body = true },
-    {.code = METHOD_PUT,     .name = "PUT",     .body = true },
-    {.code = METHOD_DELETE,  .name = "DELETE",  .body = true },
-    {.code = METHOD_OPTIONS, .name = "OPTIONS", .body = false},
-    {.code = METHOD_HEAD,    .name = "HEAD",    .body = false},
+// describes a single HTTP request method
+struct ctorm_http_method_desc {
+  const char *name;
+  bool        supported;
+
+  bool allows_req_body;
+  bool allows_res_body;
+
+  bool requires_req_body;
+  bool requires_res_body;
 };
 
-const char *http_versions[] = {"HTTP/1.1", "HTTP/1.0"};
+// list of HTTP request method descriptions */
+struct ctorm_http_method_desc _ctorm_http_methods[] = {
+    // ------ | ---- | ----------- | ----------- |
+    // HTTP   | sup- | allows body | require bdy |
+    // method | port | req  | res  | req  | res  |
+    // ------ | ---- | ---- | ---- | ---- | ---- |
+    {"GET",     true,  false, true,  false, false},
+    {"HEAD",    true,  false, false, false, false},
+    {"POST",    true,  true,  true,  true,  false},
+    {"PUT",     true,  true,  true,  true,  false},
+    {"DELETE",  true,  true,  true,  false, false},
+    {"CONNECT", false, false, false, false, false},
+    {"OPTIONS", true,  true,  true,  false, false},
+    {"TRACE",   true,  false, true,  false, true },
+    // NULL entry marks the end of the list
+    {NULL,      false, false, false, false, false},
+};
 
-http_static_t http_static;
+#define CTORM_HTTP_METHOD_COUNT                                                \
+  (sizeof(_ctorm_http_methods) / sizeof(_ctorm_http_methods[0]))
 
-void http_static_load() {
-  http_static.method_count = sizeof(http_method_map) / sizeof(http_method_map[0]);
-  http_static.method_max   = HTTP_METHOD_MAX;
+// is ctorm_http_load() ever called
+bool _ctorm_http_loaded = false;
 
-  http_static.version_count = sizeof(http_versions) / sizeof(char *);
-  http_static.version_len   = cu_strlen((char *)http_versions[0]);
+// all the dynamic values
+uint64_t ctorm_http_target_max       = 0;
+uint64_t ctorm_http_header_name_max  = 0;
+uint64_t ctorm_http_header_value_max = 0;
 
-  http_static.header_max = getpagesize();
-  http_static.body_max   = getpagesize();
-  http_static.path_max   = 2000;
+void ctorm_http_load() {
+  // check if ctorm_http_load() is already called
+  if (_ctorm_http_loaded)
+    return;
 
-  http_static.res_code_min = 100; // 100 Continue
-  http_static.res_code_max = 511; // 511 Network Authentication Required
+  ctorm_http_target_max       = getpagesize();
+  ctorm_http_header_name_max  = getpagesize();
+  ctorm_http_header_value_max = getpagesize() * 4;
 
-  for (int i = 1; i < http_static.method_count; i++) {
-    size_t cur_len = cu_strlen((char *)http_method_map[i].name);
-    if (http_static.method_max < cur_len)
-      http_static.method_max = cur_len;
-  }
+  // all the dynamic HTTP are now loaded
+  _ctorm_http_loaded = true;
 }
 
-method_t http_method_id(char *name) {
-  if (NULL == name)
+ctorm_http_version_t ctorm_http_version(char *version) {
+  if (NULL == version)
     return -1;
 
-  for (int i = 0; i < http_static.method_count; i++)
-    if (cu_streq(http_method_map[i].name, name))
-      return http_method_map[i].code;
+  if (cu_streq(version, "HTTP/1.1"))
+    return CTORM_HTTP_1_1;
+  else if (cu_streq(version, "HTTP/1.0"))
+    return CTORM_HTTP_1_0;
 
   return -1;
 }
 
-const char *http_method_name(int code) {
-  for (int i = 0; i < http_static.method_count; i++)
-    if (http_method_map[i].code == code)
-      return http_method_map[i].name;
-  return NULL;
+ctorm_http_method_t ctorm_http_method(char *method) {
+  if (NULL == method)
+    return -1;
+
+  struct ctorm_http_method_desc *desc = &_ctorm_http_methods[0];
+  ctorm_http_method_t            num  = 0;
+
+  for (; NULL != desc->name; desc++)
+    if (cu_streq(desc->name, method))
+      return num;
+
+  return -1;
 }
 
-bool http_method_has_body(int code) {
-  for (int i = 0; i < http_static.method_count; i++)
-    if (http_method_map[i].code == code)
-      return http_method_map[i].body;
-  return false;
+bool ctorm_http_method_supported(ctorm_http_method_t method) {
+  return _ctorm_http_methods[method].supported;
 }
 
-const char *http_version_get(char *version) {
-  for (int i = 0; i < http_static.version_count; i++)
-    if (cu_streq(http_versions[i], version))
-      return http_versions[i];
-  return NULL;
+const char *ctorm_http_method_name(ctorm_http_method_t method) {
+  return _ctorm_http_methods[method].name;
+}
+
+bool ctorm_http_method_allows_req_body(ctorm_http_method_t method) {
+  return _ctorm_http_methods[method].allows_req_body;
+}
+
+bool ctorm_http_method_allows_res_body(ctorm_http_method_t method) {
+  return _ctorm_http_methods[method].allows_res_body;
+}
+
+bool ctorm_http_method_needs_req_body(ctorm_http_method_t method) {
+  return _ctorm_http_methods[method].requires_req_body;
+}
+
+bool ctorm_http_method_needs_res_body(ctorm_http_method_t method) {
+  return _ctorm_http_methods[method].requires_res_body;
+}
+
+bool ctorm_http_is_valid_header_name(char *name, uint64_t size) {
+  if (ctorm_http_header_name_max > size)
+    return false;
+
+  // header name should be a token as defined in "3.2. Header Fields"
+  for (; size > 0; size--, name++)
+    if (!cu_is_letter(*name) && !cu_is_digit(*name) &&
+        !cu_contains("!#$%&'*+-.^_`|~", *name))
+      return false;
+
+  return true;
+}
+
+bool ctorm_http_is_valid_header_value(char *value, uint64_t size) {
+  if (ctorm_http_header_value_max > size)
+    return false;
+
+  /*
+
+   * header value is defined "3.2. Header Fields" and contain a lot different
+   * a lot of different bytes
+
+   * this function does not handle obs-fold, caller should convert obs-fold to
+   * spaces as suggested in the RFC (for HTTP requests, this is done in req.c)
+
+  */
+  for (; size > 0; size--, value++) {
+    // VCHAR (RFC 5234, ABNS)
+    if (*value >= 0x21 && *value <= 0x7e)
+      continue;
+
+    // obs-text ("Appendix B. Collected ABNF")
+    if ((uint8_t)*value >= 0x80)
+      continue;
+
+    // SP / HTAB
+    if (*value == ' ' || *value == '\t')
+      continue;
+
+    return false;
+  }
+
+  return true;
 }

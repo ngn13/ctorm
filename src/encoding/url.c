@@ -1,5 +1,5 @@
 #include "encoding.h"
-#include "errors.h"
+#include "error.h"
 #include "pair.h"
 #include "util.h"
 #include "log.h"
@@ -33,7 +33,7 @@ ctorm_url_t *ctorm_url_parse(char *data, uint64_t len) {
 
       if (NULL == (buf = malloc(buf_size))) {
         debug("failed to allocate a buffer for the key size");
-        errno = AllocFailed;
+        errno = CTORM_ERR_ALLOC_FAIL;
         return NULL;
       }
     }
@@ -53,7 +53,7 @@ ctorm_url_t *ctorm_url_parse(char *data, uint64_t len) {
       if (!(ignore_val = (indx == 0))) {
         cu_url_decode(buf);
         ctorm_pair_add(&url, buf, NULL); // not empty? create a new pair
-        buf = NULL;                      // reset the buffer (it's now used by the pair)
+        buf = NULL; // reset the buffer (it's now used by the pair)
       }
 
       is_key = false; // we are no longer reading the key

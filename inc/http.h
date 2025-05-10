@@ -3,69 +3,209 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// HTTP method enum
-enum {
-  METHOD_GET     = 0,
-  METHOD_HEAD    = 1,
-  METHOD_POST    = 2,
-  METHOD_PUT     = 3,
-  METHOD_DELETE  = 4,
-  METHOD_OPTIONS = 5,
-};
+/*!
 
-#define HTTP_METHOD_MAX 7
-typedef int8_t method_t;
+ * @brief HTTP methods
+
+ * This enum stores different types of HTTP request methods as defined in the
+ * section "4. Request Methods" of RFC 7231. Only method that is not implemented
+ * is the CONNECT method as it's practically useless in a library like ctorm.
+
+*/
+typedef enum {
+  /*!
+
+   * @brief HTTP GET method
+
+   * This method is explained in section "4.3.1. GET":
+   * "The GET method requests transfer of a current selected representation
+   * for the target resource.  GET is the primary mechanism of information
+   * retrieval and the focus of almost all performance optimizations."
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.0, HTTP/1.1
+   * Request body : not allowed
+   * Response body: allowed
+
+   * @note RFC technically allows GET requests to contain a body. However most
+   *       of the implementations does not, and they reject any GET request with
+   *       a body. This is also the case for ctorm.
+
+  */
+  CTORM_HTTP_GET,
+
+  /*!
+
+   * @brief HTTP HEAD method
+
+   * This method is explained in section "4.3.2 HEAD":
+   * "The HEAD method is identical to GET except that the server MUST NOT send a
+   * message body in the response (i.e., the response terminates at the end of
+   * the header section)."
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.0, HTTP/1.1
+   * Request body : not allowed
+   * Response body: not allowed
+
+   * @note Similar to the GET request, RFC technically allows HEAD requests to
+   *       contain a body. However most implementations do not allow this. This
+   *       is also the case for ctorm.
+
+  */
+  CTORM_HTTP_HEAD,
+
+  /*!
+
+   * @brief HTTP POST method
+
+   * This method is explained in section "4.3.3. POST":
+   * "The POST method requests that the target resource process the
+   * representation enclosed in the request according to the resource's own
+   * specific semantics"
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.0, HTTP/1.1
+   * Request body : required
+   * Response body: allowed
+
+  */
+  CTORM_HTTP_POST,
+
+  /*!
+
+   * @brief HTTP PUT method
+
+   * This method is explained in section "4.3.4. PUT":
+   * "The PUT method requests that the state of the target resource be created
+   * or replaced with the state defined by the representation enclosed in the
+   * request message payload"
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.0 (as an addition), HTTP/1.1
+   * Request body : required
+   * Response body: allowed
+
+  */
+  CTORM_HTTP_PUT,
+
+  /*!
+
+   * @brief HTTP DELETE method
+
+   * This method is explained in section "4.3.5. DELETE":
+   * "The DELETE method requests that the origin server remove the association
+   * between the target resource and its current functionality."
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.0 (as an addition), HTTP/1.1
+   * Request body : allowed
+   * Response body: allowed
+
+  */
+  CTORM_HTTP_DELETE,
+
+  /*!
+
+   * @brief HTTP CONNECT method
+
+   * This method is explained in section "4.3.6. CONNECT":
+   * "The CONNECT method requests that the recipient establish a tunnel to the
+   * destination origin server..."
+
+   * Supported    : no
+   * Defined in   : HTTP/1.1
+   * Request body : not allowed
+   * Response body: not allowed
+
+  */
+  CTORM_HTTP_CONNECT,
+
+  /*!
+
+   * @brief HTTP OPTIONS method
+
+   * This method is explained in section "4.3.7. OPTIONS":
+   * "The OPTIONS method requests information about the communication options
+   * available for the target resource, at either the origin server or an
+   * intervening intermediary."
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.1
+   * Request body : allowed
+   * Response body: allowed
+
+  */
+  CTORM_HTTP_OPTIONS,
+
+  /*!
+
+   * @brief HTTP TRACE method
+
+   * This method is explained in section "4.3.8. TRACE":
+   * "The TRACE method requests a remote, application-level loop-back of the
+   * request message. The final recipient of the request SHOULD reflect the
+   * message received, excluding some fields described below, back to the client
+   * as the message body of a 200 (OK) response..."
+
+   * Supported    : yes
+   * Defined in   : HTTP/1.1
+   * Request body : not allowed
+   * Response body: required
+
+  */
+  CTORM_HTTP_TRACE
+} ctorm_http_method_t;
+
+/*!
+
+ * @brief HTTP version numbers
+
+ * This enum contains supported HTTP version numbers
+
+*/
+typedef enum {
+  CTORM_HTTP_1_0, /// HTTP/1.0 (RFC 1945)
+  CTORM_HTTP_1_1, /// HTTP/1.1 (RFC 7230, 7231)
+} ctorm_http_version_t;
 
 #ifndef CTORM_EXPORT
 
-// HTTP method map
-typedef struct {
-  method_t    code;
-  const char *name;
-  bool        body;
-} method_map_t;
+// static values calculated at compile time
+#define CTORM_HTTP_VERSION_LEN 8   // "HTTP/x.x"
+#define CTORM_HTTP_METHOD_MAX  7   // "OPTIONS" (or "CONNECT")
+#define CTORM_HTTP_HOST_MAX    261 // 255 + 5 + 1 (hostname + port + ":")
+#define CTORM_HTTP_CODE_MIN    100 // min response code
+#define CTORM_HTTP_CODE_MAX    599 // max response code
 
-extern method_map_t http_method_map[];
+// dynamic values calculated at runtime
+extern uint64_t ctorm_http_target_max;       // max HTTP request target length
+extern uint64_t ctorm_http_header_name_max;  // max HTTP header name length
+extern uint64_t ctorm_http_header_value_max; // max HTTP header value length
 
-// supported HTTP versions
-extern const char *http_versions[];
+// initializes & calculates all the dynamic values
+void ctorm_http_load();
+
+// get version/method from the string representation of it
+ctorm_http_version_t ctorm_http_version(char *version);
+ctorm_http_method_t  ctorm_http_method(char *method);
 
 /*
 
- * static values that are only calculated once for optimization
- * this calculation is made in http_static_load(), which is
- * called by app_new()
-
- * most of these values are max sizes, which are used to allocate
- * static buffers on stack for optimization
+ * these method functions does not check the method argument, so the caller
+ * should make sure it's valid, ideally by obtaining it with ctorm_http_method()
 
 */
-typedef struct {
-  uint8_t method_count; // stores the count of HTTP methods
-  uint8_t method_max;   // stores the longest HTTP method's length
+const char *ctorm_http_method_name(ctorm_http_method_t method);
+bool        ctorm_http_method_supported(ctorm_http_method_t method);
 
-  uint8_t version_count; // stores the count of HTTP versions
-  uint8_t version_len;   // stores the HTTP version length
+bool ctorm_http_method_allows_req_body(ctorm_http_method_t method);
+bool ctorm_http_method_allows_res_body(ctorm_http_method_t method);
 
-  uint64_t header_max; // stores the max header size
-  uint64_t path_max;   // stroes the max path size
-  uint64_t body_max;   // stores the max size for HTTP body
+bool ctorm_http_method_needs_req_body(ctorm_http_method_t method);
+bool ctorm_http_method_needs_res_body(ctorm_http_method_t method);
 
-  uint16_t res_code_min; // stores the minimum HTTP response code value
-  uint16_t res_code_max; // stores the maximum HTTP response code value
-} http_static_t;
-
-extern http_static_t http_static;
-void                 http_static_load();
-
-method_t    http_method_id(char *);
-const char *http_method_name(int);
-bool        http_method_has_body(int);
-
-#define http_is_valid_header_char(c)                                                                                   \
-  (cu_is_digit(c) || cu_is_letter(c) || cu_contains("_ :;.,\\/\"'?!(){}[]@<>=-+*#$&`|~^%", c))
-#define http_is_valid_path_char(c) (cu_is_digit(c) || cu_is_letter(c) || cu_contains("-._~:/?#[]@!$&'()*+,;%=", c))
-
-const char *http_version_get(char *);
+bool ctorm_http_is_valid_header_name(char *name, uint64_t size);
+bool ctorm_http_is_valid_header_value(char *value, uint64_t size);
 
 #endif

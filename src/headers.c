@@ -1,5 +1,5 @@
 #include "headers.h"
-#include "errors.h"
+#include "error.h"
 #include "util.h"
 
 #include <string.h>
@@ -77,11 +77,12 @@ next_node:
   return true;
 }
 
-bool __ctorm_headers_add(ctorm_headers_t headers, char *name, char *value, bool alloced) {
+bool __ctorm_headers_add(
+    ctorm_headers_t headers, char *name, char *value, bool alloced) {
   struct ctorm_header *new = NULL, **head = NULL;
 
   if (NULL == (new = malloc(sizeof(struct ctorm_header)))) {
-    errno = AllocFailed;
+    errno = CTORM_ERR_ALLOC_FAIL;
     return false;
   }
 
@@ -97,7 +98,8 @@ bool __ctorm_headers_add(ctorm_headers_t headers, char *name, char *value, bool 
   return true;
 }
 
-bool ctorm_headers_set(ctorm_headers_t headers, char *name, char *value, bool alloced) {
+bool ctorm_headers_set(
+    ctorm_headers_t headers, char *name, char *value, bool alloced) {
   struct ctorm_header **header = NULL;
 
   if (*(header = __ctorm_headers_list(name)) == NULL)
@@ -121,7 +123,8 @@ char *ctorm_headers_get(ctorm_headers_t headers, char *name) {
 }
 
 void ctorm_headers_del(ctorm_headers_t headers, char *key) {
-  struct ctorm_header **head = __ctorm_headers_list(key), *cur = NULL, *pre = NULL;
+  struct ctorm_header **head = __ctorm_headers_list(key), *cur = NULL,
+                      *pre = NULL;
 
   if (NULL == (cur = *head))
     return;

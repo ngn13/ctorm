@@ -1,21 +1,17 @@
 # WARN: you should run the example binaries with LD_LIBRARY_PATH=../dist
 
-CC   = gcc
-INCD = ../inc
-DIST = ../dist
-
 DIRS = $(shell find * -maxdepth 0 -type d)
-BINS = $(patsubst %,$(DIST)/example_%,$(DIRS))
+BINS = $(patsubst %,$(DISTDIR)/example_%,$(DIRS))
 
 all: $(BINS)
 
-$(DIST)/libctorm.so:
+$(DISTDIR)/libctorm.so:
 ifneq ($(DONT_CHECK_LIBCTORM), 1)
-	ifeq (,$(wildcard $(DIST)/libctorm.so))
+	ifeq (,$(wildcard $(DISTDIR)/libctorm.so))
 		$(error you should first compile libctorm)
 	endif
 endif
 
-$(DIST)/example_%: %/main.c $(DIST)/libctorm.so
-	@mkdir -pv $(DIST)
-	$(CC) -I$(INCD) -L$(DIST) $< -lctorm -lcjson -o $@
+$(DISTDIR)/example_%: %/main.c $(DISTDIR)/libctorm.so
+	@mkdir -pv $(DISTDIR)
+	$(CC) -I$(INCDIR) -L$(DISTDIR) $< -lctorm -lcjson -o $@

@@ -1,8 +1,8 @@
 #include <ctorm.h>
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
-  char *username = REQ_LOCAL("username");
-  char *format   = REQ_LOCAL("format");
+  char *username = REQ_LOCAL("username", NULL);
+  char *format   = REQ_LOCAL("format", NULL);
   RES_FMT(format, username);
 }
 
@@ -10,7 +10,7 @@ void username_middleware(ctorm_req_t *req, ctorm_res_t *res) {
   char *username = REQ_QUERY("username");
 
   if (NULL == username) {
-    RES_SEND("no username provided");
+    RES_BODY("no username provided");
     REQ_CANCEL();
     return;
   }
@@ -26,12 +26,12 @@ int main() {
   ctorm_app_local(app, "format", "username: %s");
 
   // setup the routes
-  MIDDLEWARE_GET(app, "/*", username_middleware);
+  GET(app, "/*", username_middleware);
   GET(app, "/", GET_index);
 
   // run the app
   if (!ctorm_app_run(app, "0.0.0.0:8083"))
-    ctorm_fail("failed to start the app: %s", ctorm_geterror());
+    ctorm_fail("failed to start the app: %s", ctorm_error());
 
   // clean up
   ctorm_app_free(app);

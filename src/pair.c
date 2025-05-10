@@ -1,5 +1,5 @@
 #include "pair.h"
-#include "errors.h"
+#include "error.h"
 #include "util.h"
 
 #include <string.h>
@@ -15,7 +15,7 @@ ctorm_pair_t *ctorm_pair_add(ctorm_pair_t **head, char *key, char *value) {
   ctorm_pair_t *new = malloc(sizeof(ctorm_pair_t));
 
   if (NULL == new) {
-    errno = AllocFailed;
+    errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
 

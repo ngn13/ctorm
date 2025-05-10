@@ -1,11 +1,22 @@
-# paths & programs
-PREFIX  = /usr
-DISTDIR = dist
-MANDIR  = $(DISTDIR)/man/man3
+# programs
 DOXYGEN = doxygen
 CC      = gcc
 
-# sources
+export DOXYGEN
+export CC
+
+# paths
+PREFIX  = /usr
+DISTDIR = $(abspath dist)
+INCDIR  = $(abspath inc)
+MANDIR  = $(DISTDIR)/man/man3
+
+export PREFIX
+export DISTDIR
+export INCDIR
+export MANDIR
+
+# sources & objects
 CSRCS  = $(shell find src/ -type f -name '*.c')
 SSRCS  = $(shell find src/ -type f -name '*.S')
 OBJS   = $(patsubst src/%.c,$(DISTDIR)/%.c.o,$(CSRCS))
@@ -16,13 +27,22 @@ HDRS   = $(wildcard inc/*.h)
 SRCDIRS = $(shell find src/* -type d)
 OBJDIRS = $(patsubst src/%,$(DISTDIR)/%,$(SRCDIRS))
 
-# compiler flags
-CFLAGS   = -O3 -march=native -fstack-protector-strong -fcf-protection=full -fstack-clash-protection
-CFLAGS  += -z noexecstack # used get rid of 'missing .note.GNU-stack section' warning
+# optimization flags
+CFLAGS   = -O3 -march=native
+
+# memory protection flags
+CFLAGS  += -fstack-protector-strong -fcf-protection=full
+CFLAGS  += -fstack-clash-protection
+
+# get rid of 'missing .note.GNU-stack section' warning
+CFLAGS  += -z noexecstack
+
+# other flags
+CFLAGS  += -Wall -Wextra -Werror -std=gnu99 -pedantic
 INCLUDE  = -I./inc
 LIBS     = -lpthread
 
-# options
+# compile time options
 CTORM_DEBUG        = 0
 CTORM_JSON_SUPPORT = 1
 
@@ -35,13 +55,13 @@ all: $(DISTDIR)/libctorm.so
 $(DISTDIR)/libctorm.so: $(OBJS)
 	$(CC) -shared -o $@ $^ $(LIBS) $(CFLAGS)
 
-$(DISTDIR)/%.c.o: src/%.c
+$(DISTDIR)/%.c.o: src/%.c $(HDRS)
 	@mkdir -pv $(OBJDIRS)
 	$(CC) $(CFLAGS) $(INCLUDE) -c -Wall -fPIC -o $@ $< $(LIBS) \
 		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)               \
 		-DCTORM_DEBUG=$(CTORM_DEBUG)
 
-$(DISTDIR)/%.S.o: src/%.S
+$(DISTDIR)/%.S.o: src/%.S $(HDRS)
 	@mkdir -pv $(OBJDIRS)
 	$(CC) $(CFLAGS) $(INCLUDE) -c -Wall -fPIC -o $@ $< $(LIBS) \
 		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)               \
@@ -65,11 +85,18 @@ endif
 uninstall:
 	rm -vf $(DESTDIR)/$(PREFIX)/lib/libctorm.so
 	rm -vrf $(DESTDIR)/$(PREFIX)/include/ctorm
-	find $(DESTDIR)/$(PREFIX)/share/man/man3 -type f -name 'ctorm*' -exec rm -v {} \;
+	find $(DESTDIR)/$(PREFIX)/share/man/man3 \
+		-type f \
+		-name 'ctorm*' \
+		-exec rm -v {} \;
 
 format:
 	clang-format -i -style=file $(CSRCS) $(HDRS) example/*/*.c
-	black scripts/*.py
+	black -l 80 scripts/*.py
+
+check:
+	clang-format -n --Werror -style=file $(CSRCS) $(HDRS) example/*/*.c
+	black -l 80 --check scripts/*.py
 
 clean:
 	rm -rf $(DISTDIR)
@@ -86,4 +113,4 @@ test:
 	make example
 	./scripts/test.sh
 
-.PHONY: install uninstall docs format clean example test
+.PHONY: install uninstall docs format check clean example test

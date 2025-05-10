@@ -1,7 +1,31 @@
-name: Run Test Scripts
-on: push
+name: Tests
+
+on:
+  push:
+    paths-ignore:
+      - ".github/workflows/docker.yml"
+      - "docs/*"
+      - ".clang-format"
+      - "Dockerfile"
+      - "Doxyfile"
+      - "README.md"
+      - "LICENSE.txt"
 
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'checkout the source code'
+        uses: actions/checkout@v3
+
+      - name: 'install dependencies'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make clang-format
+
+      - name: 'check formatting'
+        run: make check
+
   test:
     runs-on: ubuntu-latest
     steps:

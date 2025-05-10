@@ -1,15 +1,22 @@
-name: Publish Docker Images
+name: Docker
+
 on:
   push:
     tags:
       - '*'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{github.repository}}
+
 jobs:
-  push-image:
+  docker:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
+
     steps:
       - name: 'checkout the source code'
         uses: actions/checkout@main
@@ -23,6 +30,8 @@ jobs:
 
       - name: 'build inventory image'
         run: |
-          docker build . --tag ghcr.io/ngn13/ctorm:latest --tag ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
-          docker push ghcr.io/ngn13/ctorm:${GITHUB_REF##*/}
-          docker push ghcr.io/ngn13/ctorm:latest
+          docker build . \
+            --tag ${{env.REGISTRY}}/${{env.IMAGE}}:latest \
+            --tag ${{env.REGISTRY}}/${{env.IMAGE}}:${GITHUB_REF##*/}
+          docker push ${{env.REGISTRY}}/${{env.IMAGE}}:latest
+          docker push ${{env.REGISTRY}}/${{env.IMAGE}}:${GITHUB_REF##*/}

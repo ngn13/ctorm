@@ -1,9 +1,10 @@
-#include "connection.h"
 #include "socket.h"
-#include "errors.h"
+#include "error.h"
+
+#include "conn.h"
 #include "pool.h"
-#include "log.h"
 #include "util.h"
+#include "log.h"
 
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -42,7 +43,7 @@ bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
     }
 
     if (is_reading_port && !cu_is_digit(*host)) {
-      errno = BadPort;
+      errno = CTORM_ERR_BAD_PORT;
       return false;
     }
 
@@ -55,12 +56,12 @@ bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
     }
 
     if (is_reading_port && indx >= sizeof(hostport)) {
-      errno = PortTooLarge;
+      errno = CTORM_ERR_PORT_TOO_LARGE;
       return false;
     }
 
     else if (!is_reading_port && indx >= sizeof(hostname)) {
-      errno = NameTooLarge;
+      errno = CTORM_ERR_HOSTNAME_TOO_LARGE;
       return false;
     }
 
@@ -71,7 +72,7 @@ bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
   }
 
   if (*hostname == 0) {
-    errno = BadName;
+    errno = CTORM_ERR_BAD_HOSTNAME;
     return false;
   }
 
@@ -80,7 +81,7 @@ bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
 
   // convert host port to integer
   if (*hostport != 0 && (port = atoi(hostport)) <= 0 && port > UINT16_MAX) {
-    errno = BadPort;
+    errno = CTORM_ERR_BAD_PORT;
     return false;
   }
 
@@ -117,32 +118,43 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
 
   /*
 
-   * TCP delayed acknowledgment, buffers and combines multiple ACKs to reduce overhead
-   * it may delay the ACK response by up to 500ms, and we don't want that because slow bad fast good
+   * TCP delayed acknowledgment, buffers and combines multiple ACKs to reduce
+   * overhead it may delay the ACK response by up to 500ms, and we don't want
+   * that because slow bad fast good
 
   */
-  if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag)) < 0)
+  if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag)) < 0) {
+    errno = CTORM_ERR_SOCKET_OPT_FAIL;
     return false;
+  }
 
   /*
 
-   * nagle's algorithm buffers and combines outgoing packets to solve the "small-packet problem",
-   * we want to send all the packets as fast as possible so we can disable buffering with TCP_NODELAY
+   * Nagle's algorithm buffers and combines outgoing packets to solve the
+   * "small-packet problem", we want to send all the packets as fast as possible
+   * so we can disable this buffering with TCP_NODELAY
 
   */
-  if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0)
+  if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0) {
+    errno = CTORM_ERR_SOCKET_OPT_FAIL;
     return false;
+  }
 
   // set the socket timeout
   if (app->config->tcp_timeout > 0) {
     timeout.tv_sec  = app->config->tcp_timeout;
     timeout.tv_usec = 0;
 
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+    setsockopt(
+        sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
   }
 
   // make the socket blocking
-  fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) & (~O_NONBLOCK));
+  if (fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) & (~O_NONBLOCK)) == -1) {
+    errno = CTORM_ERR_FCNTL_FAIL;
+    return false;
+  }
+
   return true;
 }
 
@@ -150,7 +162,7 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
   struct addrinfo info;
   socklen_t       addrlen = 0;
   int             sockfd = -1, flag = 1;
-  connection_t   *con = NULL;
+  ctorm_conn_t   *con = NULL;
   bool            ret = false;
 
   // parse the host to get the addrinfo structure
@@ -168,6 +180,7 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
   // prevent EADDRINUSE
   if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
     debug("failed to set the REUSEADDR: %s", strerror(errno));
+    errno = CTORM_ERR_SOCKET_OPT_FAIL;
     goto end;
   }
 
@@ -184,7 +197,7 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
 
   // new connection handler loop
   while (app->running) {
-    if (con == NULL && (con = connection_new()) == NULL) {
+    if (con == NULL && (con = ctorm_conn_new()) == NULL) {
       debug("failed to create a new connection: %s", ctorm_geterror());
       goto end;
     }
@@ -205,12 +218,18 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
     debug("accepted a new connection (con: %p, socket %d)", con, con->socket);
 
     if (!ctorm_socket_set_opts(app, con->socket)) {
-      error("failed to setsockopt for connection (con: %p, socket %d): %s", con, con->socket, strerror(errno));
+      error("failed to setsockopt for connection (con: %p, socket %d): %s",
+          con,
+          con->socket,
+          strerror(errno));
+      errno = CTORM_ERR_SOCKET_OPT_FAIL;
       goto end;
     }
 
-    debug("creating a thread for connection (con: %p, socket %d)", con, con->socket);
-    ctorm_pool_add(app->pool, (void *)connection_handle, (void *)con);
+    debug("creating a thread for connection (con: %p, socket %d)",
+        con,
+        con->socket);
+    ctorm_pool_add(app->pool, (func_t)ctorm_conn_handle, (void *)con);
 
     con = NULL;
   }
@@ -227,7 +246,7 @@ end:
   // free the unused connection structure
   if (NULL != con) {
     debug("freeing unused connection (%p)", con);
-    connection_free(con);
+    ctorm_conn_free(con);
   }
 
   return ret;

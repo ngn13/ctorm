@@ -15,10 +15,10 @@ ctorm_thread_t *__ctorm_thread_new(func_t func, void *arg) {
   return thread;
 }
 
-#define __ctorm_thread_free(thread)                                                                                    \
-  do {                                                                                                                 \
-    free(thread);                                                                                                      \
-    thread = NULL;                                                                                                     \
+#define __ctorm_thread_free(thread)                                            \
+  do {                                                                         \
+    free(thread);                                                              \
+    thread = NULL;                                                             \
   } while (0);
 
 #define __ctorm_pool_lock(pool)   pthread_mutex_lock(&pool->mutex)

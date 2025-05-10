@@ -6,7 +6,7 @@
 */
 #pragma once
 
-#include "connection.h"
+#include "conn.h"
 #include "encoding.h"
 #include "headers.h"
 #include "http.h"
@@ -16,50 +16,176 @@
 
  * @brief HTTP request structure
 
- * Stores information about HTTP request, such as the request method,
- * path, version, headers etc.
+ * Stores information about HTTP request, such as the request method, path,
+ * version, headers etc.
 
 */
 typedef struct {
-  connection_t *con; /// socket connection
+  ctorm_conn_t *con;    /// socket connection
+  ctorm_pair_t *locals; /// local variables to pass along with the request
+  bool          cancel; /// is the request cancelled?
 
-  method_t    method; /// HTTP method (GET, POST, PUT etc.)
-  bool        cancel;
-  char       *encpath; /// url encoded path (does include queries)
-  char       *path;    /// url decoded path (does not include queries)
-  const char *version; /// HTTP version number (for example "HTTP/1.1")
+  ctorm_http_method_t  method;  /// HTTP method (GET, POST, PUT etc.)
+  ctorm_http_version_t version; /// HTTP version number (HTTP/1.1 etc.)
 
-  ctorm_headers_t headers;          /// HTTP headers
-  bool            received_headers; /// did we receive all the HTTP headers
-  ctorm_url_t    *queries;          /// HTTP queries (for example "?key=1")
-  ctorm_pair_t   *params;           /// HTTP path params (for example "/blog/:slug")
-  ctorm_pair_t   *locals;           /// Local variables to pass along with the request
-  int64_t         bodysize;         /// size of the HTTP body
+  char *target; /// HTTP request target (see "5.3. Request Target")
+  char *host;   /// target host
+  char *path;   /// target path (URL decoded, does not include queries)
+
+  ctorm_url_t  *queries; /// HTTP queries (for example "?key=1")
+  ctorm_pair_t *params;  /// HTTP path parameters (for example "/blog/:slug")
+
+  ctorm_headers_t headers;   /// HTTP headers
+  int64_t         body_size; /// remaining size of HTTP request body
 } ctorm_req_t;
 
 #ifndef CTORM_EXPORT
 
-#define ctorm_req_is_valid(req)                                                                                        \
-  (NULL != (req)->version && NULL != (req)->encpath && NULL != (req)->path) // check if the request is valid
-void ctorm_req_init(ctorm_req_t *req, connection_t *con);                   // setup a request
-void ctorm_req_free(ctorm_req_t *req);                                      // cleanup a request
-bool ctorm_req_start(ctorm_req_t *req); // receive the (at least the first part) of the HTTP request
-void ctorm_req_end(ctorm_req_t *req);   // completely receive the HTTP request
+// check if the request is valid
+#define ctorm_req_is_valid(req)                                                \
+  ((req)->version >= 0 && (req)->method >= 0 && NULL != (req)->target &&       \
+      NULL != (req)->path)
+
+void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con); // init HTTP request
+void ctorm_req_free(ctorm_req_t *req);                    // free a HTTP request
+bool ctorm_req_recv(ctorm_req_t *req); // receive the HTTP request
 
 #endif
 
-const char *ctorm_req_method(ctorm_req_t *req);                 // get the request method (GET, POST, PUT etc.)
-char       *ctorm_req_query(ctorm_req_t *req, char *name);      // get a request URL query
-char       *ctorm_req_param(ctorm_req_t *req, char *name);      // get a request URL param
-void       *ctorm_req_local(ctorm_req_t *req, char *name, ...); // get or set a local by name
-char       *ctorm_req_get(ctorm_req_t *req, char *header);      // get a request header
+/*!
 
-uint64_t ctorm_req_body(
-    ctorm_req_t *req, char *buf, uint64_t size); // copy given amount of bytes from body to the buffer
-uint64_t ctorm_req_body_size(ctorm_req_t *req);  // get the body size
+ * Get the request method
 
-char *ctorm_req_ip(ctorm_req_t *req, char *);  // get the requester IPv4/IPv6 address as string
-#define ctorm_req_addr(req) ((req)->con->addr) // get the requester address as sockaddr
+ * @param[in] req: HTTP request
+ * @return    HTTP request method as string ("GET", "POST" etc.)
 
-ctorm_url_t *ctorm_req_form(ctorm_req_t *req); // parse URL encoded form body
-cJSON       *ctorm_req_json(ctorm_req_t *req); // parse JSON encoded form body
+*/
+const char *ctorm_req_method(ctorm_req_t *req);
+
+/*!
+
+ * Get the value for an URL query
+
+ * @param[in] req: HTTP request
+ * @param[in] name: Query name
+ * @return    Query value
+
+*/
+char *ctorm_req_query(ctorm_req_t *req, char *name);
+
+/*!
+
+ * Get the value for a route parameter
+
+ * @param[in] req: HTTP request
+ * @param[in] name: Parameter name
+ * @return    Parameter value
+
+*/
+char *ctorm_req_param(ctorm_req_t *req, char *name);
+
+/*!
+
+ * Get a local variable from the request. If no value is provided, the function
+ * returns the value associated with the provided name. Also see @ref
+ * ctorm_app_local
+
+ * @param[in] req: HTTP request
+ * @param[in] name: Local variable name
+ * @param[in] value: Local variable value
+ * @return    Local variable value
+
+*/
+void *ctorm_req_local(ctorm_req_t *req, char *name, char *value);
+
+/*!
+
+ * Get HTTP request header
+
+ * @param[in] req: HTTP request
+ * @param[in] header: Header name
+ * @return    Header value
+
+*/
+char *ctorm_req_get(ctorm_req_t *req, char *header);
+
+/*!
+
+ * Copy a given amount of bytes from request body to the buffer
+
+ * @param[in]  req: HTTP request
+ * @param[out] buf: Destination buffer
+ * @param[in]  size: Amount of bytes to copy
+ * @return     Amount of bytes that has been copied (smaller than or equal to
+ *             the size argument
+
+*/
+int64_t ctorm_req_body(ctorm_req_t *req, char *buf, int64_t size);
+
+/*!
+
+ * Get the HTTP request body size in bytes
+
+ * @param[in] req: HTTP request
+ * @return    Size of the body in bytes
+
+*/
+int64_t ctorm_req_body_size(ctorm_req_t *req);
+
+/*!
+
+ * Copy the sender's IPv4 or IPv6 address to the provided buffer as string.
+ * Buffer should at least be INET6_ADDRSTRLEN+1 bytes long. If no buffer is
+ * provided, function will allocate a buffer from the heap, and return it's
+ * address. You should free this buffer when you are done with it.
+
+ * @param[in]  req: HTTP request
+ * @param[out] ipbuf: Destination buffer
+ * @return     Pointer to the start of the IP string
+
+*/
+char *ctorm_req_ip(ctorm_req_t *req, char *ipbuf);
+
+/*!
+
+ * @brief     Get socket address (struct sockaddr) of the sender
+ * @param[in] req: HTTP request
+ * @return    Socket address (struct sockaddr)
+
+*/
+#define ctorm_req_addr(req) ((req)->con->addr)
+
+/*!
+
+ * Parse URL encoded form body. Only works if the body is URL encoded and if
+ * it's using the content type application/x-www-form-urlencoded
+
+ * @param[in] req: HTTP request
+ * @return    URL decoded data, which can be used with URL encoding functions
+
+*/
+ctorm_url_t *ctorm_req_form(ctorm_req_t *req);
+
+/*!
+
+ * Parse JSON encoded form body. Only works if the body is JSON encoded and if
+ * it's using the content type application/json
+
+ * @param[in] req: HTTP request
+ * @return    JSON decoded data, which can be used cJSON
+
+*/
+cJSON *ctorm_req_json(ctorm_req_t *req);
+
+/*!
+
+ * Check if the HTTP request will persist or not. This is explained in the
+ * "6.3. Persistence" section of RFC 7230. Please note that a client may still
+ * unexpectedly or maliciously close the connection even though the connection
+ * is supposed to be persistent
+
+ * @param[in] req: HTTP request
+ * @return    True if the request wants a persistent HTTP connection
+
+*/
+bool ctorm_req_persist(ctorm_req_t *req);
