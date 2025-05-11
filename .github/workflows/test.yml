@@ -24,6 +24,9 @@ on:
       - "LICENSE.txt"
     types: [opened, reopened, synchronize, ready_for_review]
 
+permissions:
+  pull-requests: read
+
 jobs:
   format:
     runs-on: ubuntu-latest
