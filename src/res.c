@@ -1,6 +1,4 @@
-#include "encoding.h"
-#include "headers.h"
-
+#include "enc/json.h"
 #include "error.h"
 #include "util.h"
 #include "res.h"
@@ -13,8 +11,8 @@
 
 #include <errno.h>
 #include <stdio.h>
-
 #include <fcntl.h>
+
 #include <time.h>
 
 #define res_debug(f, ...)                                                      \
@@ -258,10 +256,10 @@ bool ctorm_res_json(ctorm_res_t *res, cJSON *json) {
 
   ctorm_res_clear(res);
 
-  if ((res->body = ctorm_json_dump(json, &res->body_size)) == NULL) {
-    res->body_size = 0;
+  if ((res->body = ctorm_json_encode(json)) == NULL)
     return false;
-  }
+
+  res->body_size = cu_strlen(res->body);
 
   ctorm_res_set(res, "content-type", "application/json; charset=utf-8");
   return true;

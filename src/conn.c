@@ -47,7 +47,7 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
 
   ctorm_app_t *app   = con->app; // just for easy access
   clock_t      ptime = 0;        // request process time
-  bool         ret   = false;    // return value
+  bool         ret = false, persist = false;
 
   // define the HTTP request and the response
   ctorm_req_t req;
@@ -89,14 +89,17 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
 
   respond:
     // no need to waste time on a non-existent request
-    if (!ctorm_req_is_valid(&req))
+    if (!ctorm_req_is_valid(&req)) {
+      persist = false;
       goto next;
+    }
 
+    persist = ctorm_req_persist(&req);
     conn_debug("sending a %d response", res.code);
 
     // send the complete response
     if (!ctorm_res_send(&res)) {
-      conn_debug("failed to send the response: %s", ctorm_geterror());
+      conn_debug("failed to send the response: %s", ctorm_error());
       goto next;
     }
 
@@ -112,7 +115,7 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
     // reset the request and response data
     ctorm_req_free(&req);
     ctorm_res_free(&res);
-  } while (ctorm_req_persist(&req));
+  } while (persist);
 
   // close & free the connection
   conn_debug("closing connection");

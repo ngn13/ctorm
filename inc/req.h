@@ -6,8 +6,10 @@
 */
 #pragma once
 
+#include "enc/query.h"
+#include "enc/json.h"
+
 #include "conn.h"
-#include "encoding.h"
 #include "headers.h"
 #include "http.h"
 #include "pair.h"
@@ -32,11 +34,13 @@ typedef struct {
   char *host;   /// target host
   char *path;   /// target path (URL decoded, does not include queries)
 
-  ctorm_url_t  *queries; /// HTTP queries (for example "?key=1")
-  ctorm_pair_t *params;  /// HTTP path parameters (for example "/blog/:slug")
+  ctorm_query_t *queries; /// HTTP queries (for example "?key=1")
+  ctorm_pair_t  *params;  /// HTTP path parameters (for example "/blog/:slug")
 
   ctorm_headers_t headers;   /// HTTP headers
   int64_t         body_size; /// remaining size of HTTP request body
+  cJSON          *body_json; /// JSON decoded body
+  ctorm_query_t  *body_form; /// URL form decoded body
 } ctorm_req_t;
 
 #ifndef CTORM_EXPORT
@@ -158,21 +162,28 @@ char *ctorm_req_ip(ctorm_req_t *req, char *ipbuf);
 /*!
 
  * Parse URL encoded form body. Only works if the body is URL encoded and if
- * it's using the content type application/x-www-form-urlencoded
+ * it's using the content type application/x-www-form-urlencoded. After
+ * obtaining a @ref ctorm_query_t pointer by calling this function, you can read
+ * different key-value pairs using @ref ctorm_query_get. However do NOT free
+ * this structure using @ref ctorm_query_free, this is done internally when the
+ * processing of the request is complete
 
  * @param[in] req: HTTP request
- * @return    URL decoded data, which can be used with URL encoding functions
+ * @return    Form data
 
 */
-ctorm_url_t *ctorm_req_form(ctorm_req_t *req);
+ctorm_query_t *ctorm_req_form(ctorm_req_t *req);
 
 /*!
 
  * Parse JSON encoded form body. Only works if the body is JSON encoded and if
- * it's using the content type application/json
+ * it's using the content type application/json. This function will provide you
+ * a cJSON structure that you can use with the cJSON library. However do NOT
+ * free this structure using the cJSON functions, this is done internally when
+ * the processing of the request is complete
 
  * @param[in] req: HTTP request
- * @return    JSON decoded data, which can be used cJSON
+ * @return    JSON decoded data
 
 */
 cJSON *ctorm_req_json(ctorm_req_t *req);

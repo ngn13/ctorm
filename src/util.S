@@ -2,28 +2,29 @@
 
 .global cu_streq
 .global cu_strlen
+.global cu_strcmpu
 .global cu_startswith
-.global cu_strcmp_until
+.global cu_endswith
+.global cu_contains
 
 .type cu_streq, @function
 .type cu_strlen, @function
+.type cu_strcmpu, @function
 .type cu_startswith, @function
-.type cu_strcmp_until, @function
+.type cu_endswith, @function
+.type cu_contains, @function
 
 .L__cu_ret_true:
-  mov $1, %rax
+  orb $1, %al
   ret
 
 .L__cu_ret_false:
-  mov $0, %rax
+  xor %al, %al
   ret
 
-/*
+// WARN: these functions do NOT check for NULL pointers for extra speed
 
- * checks if two given strings (rdi, rsi) are EXACTLY the same
- * no NULL checking is done for extra speed
-
-*/
+// checks if two given strings (rdi, rsi) are exactly the same
 cu_streq:
   // get the current char
   movb (%rdi), %al
@@ -49,10 +50,12 @@ cu_strlen:
 
   .Lcu_strlen_loop:
     inc %rax
-    cmpb $0, (%rax)
+    cmpb $0, -1(%rax)
     jne .Lcu_strlen_loop
 
   sub %rdi, %rax
+  dec %rax
+
   ret
 
 // check if a string (rdi) starts with an another given string (rsi)
@@ -75,13 +78,8 @@ cu_startswith:
   // loop
   jmp cu_startswith
 
-/*
-
- * compare two strings until a given strings (rdi, rsi)
- * until a given byte (dl) is reached
-
-*/
-cu_strcmp_until:
+// compare two strings (rdi, rsi) until a given byte (dl) is reached
+cu_strcmpu:
   // get the current char
   movb (%rdi), %al
 
@@ -102,4 +100,16 @@ cu_strcmp_until:
   inc %rsi
 
   // loop
-  jmp cu_strcmp_until
+  jmp cu_strcmpu
+
+// check if a given byte (si) is present in a string (rdi)
+cu_contains:
+  // compare the chars, return true if char matches
+  cmpb (%rdi), %al
+  je .L__cu_ret_true
+
+  // move to the next char
+  inc %rdi
+
+  // if not matches, loop
+  jmp cu_contains

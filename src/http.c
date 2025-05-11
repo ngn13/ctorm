@@ -78,7 +78,7 @@ ctorm_http_method_t ctorm_http_method(char *method) {
   ctorm_http_method_t            num  = 0;
 
   for (; NULL != desc->name; desc++)
-    if (cu_streq(desc->name, method))
+    if (cu_streq((char *)desc->name, method))
       return num;
 
   return -1;

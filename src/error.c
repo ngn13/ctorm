@@ -29,8 +29,8 @@ struct ctorm_error_desc _ctorm_err_descs[] = {
     {CTORM_ERR_BAD_LOCAL_PTR,      "invalid local name pointer"             },
     {CTORM_ERR_BAD_PARAM_PTR,      "invalid URL parameter name pointer"     },
     {CTORM_ERR_BAD_QUERY_PTR,      "invalid URL query name pointer"         },
+    {CTORM_ERR_BAD_AUTH_PTR,       "invalid URL authority pointer"          },
     {CTORM_ERR_BAD_HEADER_PTR,     "invalid header name/value pointer"      },
-    {CTORM_ERR_BAD_HOST_PTR,       "invalid host address pointer"           },
 
     {CTORM_ERR_PORT_TOO_LARGE,     "host port number is too large"          },
     {CTORM_ERR_HOSTNAME_TOO_LARGE, "hostname is too large"                  },

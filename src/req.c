@@ -1,4 +1,5 @@
-#include "encoding.h"
+#include "enc/json.h"
+#include "enc/query.h"
 #include "headers.h"
 #include "error.h"
 
@@ -118,9 +119,15 @@ void ctorm_req_free(ctorm_req_t *req) {
         break;
   }
 
+  if (NULL != req->body_form)
+    ctorm_query_free(req->body_form);
+
+  if (NULL != req->body_json)
+    ctorm_json_free(req->body_json);
+
   ctorm_pair_free(req->locals);
 
-  ctorm_url_free(req->queries);
+  ctorm_query_free(req->queries);
   ctorm_pair_free(req->params);
 
   ctorm_headers_free(req->headers);
@@ -231,7 +238,7 @@ char *ctorm_req_query(ctorm_req_t *req, char *name) {
     return NULL;
   }
 
-  return ctorm_url_get(req->queries, name);
+  return ctorm_query_get(req->queries, name);
 }
 
 char *ctorm_req_param(ctorm_req_t *req, char *name) {
@@ -260,10 +267,13 @@ void *ctorm_req_local(ctorm_req_t *req, char *name, char *value) {
   return NULL == local ? NULL : local->value;
 }
 
-ctorm_url_t *ctorm_req_form(ctorm_req_t *req) {
-  char        *type = ctorm_req_get(req, "content-type");
-  ctorm_url_t *form = NULL;
-  int64_t      size = 0;
+ctorm_query_t *ctorm_req_form(ctorm_req_t *req) {
+  if (NULL != req->body_form)
+    return req->body_form;
+
+  char          *type = ctorm_req_get(req, "content-type");
+  ctorm_query_t *form = NULL;
+  int64_t        size = 0;
 
   if (!cu_startswith(type, "application/x-www-form-urlencoded")) {
     errno = CTORM_ERR_BAD_LOCAL_PTR;
@@ -281,14 +291,17 @@ ctorm_url_t *ctorm_req_form(ctorm_req_t *req) {
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()
 
-  if ((form = ctorm_url_parse(data, size)) == NULL)
+  if ((form = ctorm_query_parse(data, size)) == NULL)
     return NULL;
 
-  return form;
+  return (req->body_form = form);
 }
 
 cJSON *ctorm_req_json(ctorm_req_t *req) {
 #if CTORM_JSON_SUPPORT
+  if (NULL != req->body_json)
+    return req->body_json;
+
   char   *type = ctorm_req_get(req, "content-type");
   int64_t size = 0;
 
@@ -308,7 +321,7 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()
 
-  return ctorm_json_parse(data);
+  return (req->body_json = ctorm_json_decode(data));
 #else
   errno = CTORM_ERR_NO_JSON_SUPPORT;
   return NULL;
@@ -406,7 +419,7 @@ bool ctorm_req_persist(ctorm_req_t *req) {
   if (!ctorm_req_is_valid(req))
     return false;
 
-  const char *con = ctorm_req_get(req, "connection");
+  char *con = ctorm_req_get(req, "connection");
 
   if (NULL != con && cu_streq(con, "close"))
     return false;

@@ -167,7 +167,7 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
 
   // parse the host to get the addrinfo structure
   if (!ctorm_socket_parse_host(host, &info)) {
-    debug("failed to parse the host: %s", ctorm_geterror());
+    debug("failed to parse the host: %s", ctorm_error());
     goto end;
   }
 
@@ -198,7 +198,7 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
   // new connection handler loop
   while (app->running) {
     if (con == NULL && (con = ctorm_conn_new()) == NULL) {
-      debug("failed to create a new connection: %s", ctorm_geterror());
+      debug("failed to create a new connection: %s", ctorm_error());
       goto end;
     }
 

@@ -178,11 +178,16 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
     return false;
   }
 
+  struct sigaction sa;
+
   // if signal handling is enabled, add app to the signal list
   if (app->config->handle_signal) {
     if (NULL == _ctorm_signal_head) {
       _ctorm_signal_head = app;
-      signal(SIGINT, __ctorm_signal_handler);
+      sigemptyset(&sa.sa_mask);
+      sa.sa_handler = __ctorm_signal_handler;
+      sa.sa_flags   = 0;
+      sigaction(SIGINT, &sa, NULL);
     }
 
     else {
@@ -214,8 +219,11 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
     pthread_mutex_unlock(&_ctorm_signal_mutex);
 
     // remove the signal handler if the list is empty
-    if (NULL == _ctorm_signal_head)
-      signal(SIGINT, SIG_DFL);
+    if (NULL == _ctorm_signal_head) {
+      sa.sa_handler = SIG_DFL;
+      sa.sa_flags   = 0;
+      sigaction(SIGINT, &sa, NULL);
+    }
   }
 
   return ret;
@@ -240,8 +248,8 @@ bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
     return false;
   }
 
-  cu_str_set(app->static_path, path);
-  cu_str_set(app->static_dir, dir);
+  cu_str_set(&app->static_path, path);
+  cu_str_set(&app->static_dir, dir);
 
   return true;
 }
@@ -365,7 +373,7 @@ bool __ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
     }
 
     // compare the route name with the request name
-    if (!cu_strcmp_until(route_pos, req_pos, '/'))
+    if (!cu_strcmpu(route_pos, req_pos, '/'))
       goto end;
   }
 
@@ -401,14 +409,14 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
     return;
 
   // if not check if we have a static route configured
-  while (!cu_str_is_empty(app->static_path) &&
-         !cu_str_is_empty(app->static_dir) && CTORM_HTTP_GET == req->method) {
+  while (!cu_str_empty(app->static_path) && !cu_str_empty(app->static_dir) &&
+         CTORM_HTTP_GET == req->method) {
     // if so, check if this request can be handled with the static route
     uint64_t path_len = cu_strlen(req->path), static_fp_len = 0, sub_len = 0;
     char    *path_ptr = req->path;
 
     // static request path will be longer than the static route path
-    if (path_len <= app->static_path.len)
+    if (path_len <= cu_str_len(app->static_path))
       break;
 
     // get the position of the sub static directory path

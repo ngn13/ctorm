@@ -1,16 +1,13 @@
-#include "encoding.h"
-#include "util.h"
+#include "enc/json.h"
 
 #if CTORM_JSON_SUPPORT
 
-cJSON *ctorm_json_parse(char *data) {
+cJSON *ctorm_json_decode(char *data) {
   return NULL == data ? NULL : cJSON_Parse(data);
 }
 
-char *ctorm_json_dump(cJSON *json, uint64_t *size) {
-  char *res = cJSON_Print(json);
-  *size     = NULL == res ? 0 : cu_strlen(res);
-  return res;
+char *ctorm_json_encode(cJSON *json) {
+  return NULL == json ? NULL : cJSON_Print(json);
 }
 
 void ctorm_json_free(cJSON *json) {
@@ -20,12 +17,12 @@ void ctorm_json_free(cJSON *json) {
 
 #else
 
-cJSON *ctorm_json_parse(char *data) {
+cJSON *ctorm_json_decode(char *data) {
   errno = NoJSONSupport;
   return NULL;
 }
 
-char *ctorm_json_dump(cJSON *json, uint64_t *size) {
+char *ctorm_json_encode(cJSON *json) {
   errno = NoJSONSupport;
   return NULL;
 }
