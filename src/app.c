@@ -73,7 +73,7 @@ void __ctorm_signal_handler(int sig) {
     if (self != cur->thread)
       continue;
 
-    debug("signal handler got called, stopping the app %p", cur);
+    debug("stopping the app %p", cur);
     ctorm_app_stop(cur);
   }
 
@@ -136,10 +136,6 @@ void ctorm_app_free(ctorm_app_t *app) {
   if (NULL == app)
     return;
 
-  /*int stdout_cp = dup(1);
-  close(1);
-  dup2(stdout_cp, 1);*/
-
   // free the application pool
   if (NULL != app->pool) {
     ctorm_pool_stop(app->pool);
@@ -198,6 +194,10 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
     }
   }
 
+  // save the current thread before starting the server
+  app->thread = pthread_self();
+
+  // start the web server and wait until it's done
   app->running = true;
   bool ret     = ctorm_socket_start(app, host);
   app->running = false;
