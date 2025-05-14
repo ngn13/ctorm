@@ -11,10 +11,8 @@ typedef struct {
 #ifndef CTORM_EXPORT
 
 // cu_str_t stuff
-#define cu_str_init(s)  bzero(&(s), sizeof(cu_str_t))
-#define cu_str(s)       ((s).buf)
-#define cu_str_len(s)   ((uint64_t)(s).len)
-#define cu_str_empty(s) (NULL == (s).buf || 0 == (s).len)
+#define cu_str_empty(s) (NULL == (s)->buf || 0 == (s)->len)
+#define cu_str_clear(s) bzero((s), sizeof(cu_str_t))
 
 // char stuff
 #define cu_is_digit(c) ((c) >= '0' && (c) <= '9')
@@ -33,7 +31,6 @@ typedef struct {
   }
 
 int32_t cu_str_set(cu_str_t *str, char *buf);
-bool    cu_str_clear(cu_str_t *str);
 bool    cu_str_free(cu_str_t *str);
 int32_t cu_str_append(cu_str_t *str, char *buf, int32_t size);
 int32_t cu_str_add(cu_str_t *str, char c);

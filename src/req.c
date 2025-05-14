@@ -1,5 +1,6 @@
 #include "enc/json.h"
 #include "enc/query.h"
+
 #include "headers.h"
 #include "error.h"
 
@@ -7,6 +8,7 @@
 #include "pair.h"
 #include "util.h"
 
+#include "uri.h"
 #include "req.h"
 #include "log.h"
 
@@ -16,6 +18,10 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define REQ_TRANSFER_ENCODING "transfer-encoding"
+#define REQ_CONTENT_LENGTH    "content-length"
+#define REQ_HOST              "host"
 
 #define req_debug(f, ...)                                                      \
   debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD                    \
@@ -60,7 +66,7 @@ int64_t _req_recv_alloc(ctorm_req_t *req, char **buf, int64_t max, char del) {
   for (; max > indx && req_recv(&cur, 1, MSG_WAITALL) > 0; indx++) {
     // no need to append to the buffer if we reach the end
     if (cur == del)
-      return ++indx;
+      return indx;
 
     // allocate/reallocate the buffer
     if (NULL == *buf) // size == 0
@@ -95,13 +101,13 @@ int32_t _req_recv_char(ctorm_req_t *req, char *c) {
 void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con) {
   bzero(req, sizeof(*req));
 
-  // request stuff (not related to HTTP)
+  // request stuff (not HTTP related)
   req->con    = con;
   req->cancel = false;
 
-  // HTTP method and version
-  req->method  = -1;
-  req->version = -1;
+  // default stuff
+  req->version = CTORM_HTTP_1_1;
+  req->code    = 400; // bad request
 
   // headers and body
   ctorm_headers_init(&req->headers);
@@ -109,10 +115,7 @@ void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con) {
 }
 
 void ctorm_req_free(ctorm_req_t *req) {
-  if (ctorm_req_is_valid(req)) {
-    // get the request body size
-    ctorm_req_body_size(req);
-
+  if (!ctorm_http_code_is_error(req->code)) {
     // receive rest of the body from the connection
     for (char c = 0; req->body_size > 0; req->body_size--)
       if (req_recv_char(&c) != 1)
@@ -135,30 +138,86 @@ void ctorm_req_free(ctorm_req_t *req) {
 
 // 5.3.1. origin-form
 bool _ctorm_req_parse_origin(ctorm_req_t *req) {
-  cu_unused(req);
-  // TODO: implement
-  return false;
+  ctorm_uri_t uri;
+  ctorm_uri_init(&uri);
+
+  if (NULL == ctorm_uri_parse_path(&uri, req->target)) {
+    req_debug("failed to parse: %s", ctorm_error());
+    return false;
+  }
+
+  // save all the URI fields
+  req->path    = uri.path;
+  req->queries = uri.query;
+
+  // remove the used fields to prevent them from being freed
+  uri.path  = NULL;
+  uri.query = NULL;
+
+  ctorm_uri_free(&uri);
+  return true;
 }
 
 // 5.3.2. absolute-form
 bool _ctorm_req_parse_absolute(ctorm_req_t *req) {
-  cu_unused(req);
-  // TODO: implement
-  return false;
+  ctorm_uri_t uri;
+  ctorm_uri_init(&uri);
+
+  // parse the absolute URI
+  if (!ctorm_uri_parse(&uri, req->target)) {
+    req_debug("failed to parse: %s", ctorm_error());
+    return false;
+  }
+
+  req->host    = uri.host;
+  req->path    = uri.path;
+  req->queries = uri.query;
+
+  uri.host  = NULL;
+  uri.path  = NULL;
+  uri.query = NULL;
+
+  ctorm_uri_free(&uri);
+  return true;
 }
 
 // 5.3.3. authority-form
 bool _ctorm_req_parse_authority(ctorm_req_t *req) {
-  cu_unused(req);
-  // TODO: implement
-  return false;
+  if (CTORM_HTTP_CONNECT != req->method)
+    return false;
+
+  ctorm_uri_t uri;
+  ctorm_uri_init(&uri);
+
+  // only parse the authority component
+  if (!ctorm_uri_parse_auth(&uri, req->target)) {
+    req_debug("failed to parse: %s", ctorm_error());
+    return false;
+  }
+
+  // this format should not include any userinfo
+  if (NULL != uri.userinfo) {
+    ctorm_uri_free(&uri);
+    return false;
+  }
+
+  req->host = uri.host;
+  uri.host  = NULL;
+
+  ctorm_uri_free(&uri);
+  return true;
 }
 
 // 5.3.4. asterisk-form
 bool _ctorm_req_parse_asterisk(ctorm_req_t *req) {
-  cu_unused(req);
-  // TODO: implement
-  return false;
+  if (CTORM_HTTP_OPTIONS != req->method)
+    return false;
+
+  if (!cu_streq(req->target, "*"))
+    return false;
+
+  req->path = strdup("*");
+  return true;
 }
 
 bool ctorm_req_recv(ctorm_req_t *req) {
@@ -176,7 +235,7 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     return false;
   }
 
-  if ((req->method = ctorm_http_method(http_method)) < 0) {
+  if ((req->method = ctorm_http_method(http_method)) == 0) {
     req_debug("received an invalid HTTP method: %s", http_method);
     return false;
   }
@@ -223,13 +282,114 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     return false;
   }
 
-  if ((req->version = ctorm_http_version(http_version)) < 0) {
+  if ((req->version = ctorm_http_version(http_version)) == 0) {
     req_debug("received an invalid HTTP version: %s", http_version);
     return false;
   }
 
-  // TODO: receive all the headers
-  return false;
+  char *name = NULL, *value = NULL;
+  char  c = 0;
+
+  while (req_recv(&c, 1, MSG_PEEK) == 1 && c != '\r') {
+    // receive the header name
+    if ((size = req_recv_alloc(&name, ctorm_http_header_name_max, ':')) < 0) {
+      req_debug("failed to receive the HTTP header name");
+      return false;
+    }
+
+    if (!ctorm_http_is_valid_header_name(name, size)) {
+      req_debug("invalid HTTP header name");
+      free(name);
+      return false;
+    }
+
+    // receive the optional whitespace
+    if (req_recv(&c, 1, MSG_PEEK) != 1) {
+      req_debug("failed to receive the HTTP header OWS");
+      free(name);
+      return false;
+    }
+
+    // OWS = *( SP / HTAB )
+    if ((' ' == c || '\t' == c) && req_recv(&c, 1, MSG_WAITALL) != 1) {
+      req_debug("failed to skip the HTTP header OWS");
+      free(name);
+      return false;
+    }
+
+    // receive the header value
+    if ((size = req_recv_alloc(&value, ctorm_http_header_value_max, '\r')) <
+        0) {
+      req_debug("failed to receive the HTTP header value");
+      free(name);
+      return false;
+    }
+
+    if (req_recv_char(NULL) != '\n') {
+      req_debug("failed to receive the CRLF for the HTTP header");
+      free(name);
+      free(value);
+      return false;
+    }
+
+    // remove the trailing OWS
+    if (' ' == value[size - 1] || '\t' == value[size - 1])
+      value[size - 1] = 0;
+
+    if (!ctorm_http_is_valid_header_value(value, size)) {
+      req_debug("invalid HTTP header value");
+      free(name);
+      free(value);
+      return false;
+    }
+
+    // add the new headers to the request
+    ctorm_headers_set(req->headers, name, value, true);
+    name = value = NULL;
+  }
+
+  if (req_recv_char(NULL) != '\r' || req_recv_char(NULL) != '\n') {
+    req_debug("failed to receive the CRLF after the headers");
+    req->code = 400;
+    return false;
+  }
+
+  char *content_len  = ctorm_req_get(req, REQ_CONTENT_LENGTH);
+  char *transfer_enc = ctorm_req_get(req, REQ_TRANSFER_ENCODING);
+  char *host         = ctorm_req_get(req, REQ_HOST);
+
+  // if no host is specified in the URI, read it from the host header
+  if (NULL == req->host && NULL != host)
+    req->host = strdup(host);
+
+  if (NULL == req->host) {
+    req_debug("missing request host");
+    return false;
+  }
+
+  if ((NULL != content_len || NULL != transfer_enc) &&
+      !ctorm_http_method_allows_req_body(req->method)) {
+    req_debug("request contains a body but it's not allowed");
+    return false;
+  }
+
+  if (NULL != transfer_enc) {
+    req_debug("transfer encoding is not supported");
+    req->code = 501;
+    return false;
+  }
+
+  if (NULL == content_len || (req->body_size = atol(content_len)) < 0)
+    req->body_size = 0;
+
+  if (0 == req->body_size && ctorm_http_method_needs_req_body(req->method)) {
+    req_debug("missing or empty request body");
+    req->code = 400;
+    return false;
+  }
+
+  req->code = 200;
+  return true;
 }
 
 char *ctorm_req_query(ctorm_req_t *req, char *name) {
@@ -271,16 +431,15 @@ ctorm_query_t *ctorm_req_form(ctorm_req_t *req) {
   if (NULL != req->body_form)
     return req->body_form;
 
-  char          *type = ctorm_req_get(req, "content-type");
-  ctorm_query_t *form = NULL;
-  int64_t        size = 0;
+  char   *type = ctorm_req_get(req, "content-type");
+  int64_t size = 0;
 
   if (!cu_startswith(type, "application/x-www-form-urlencoded")) {
-    errno = CTORM_ERR_BAD_LOCAL_PTR;
+    errno = CTORM_ERR_BAD_CONTENT_TYPE;
     return NULL;
   }
 
-  if ((size = ctorm_req_body_size(req)) <= 0) {
+  if ((size = req->body_size) <= 0) {
     errno = CTORM_ERR_EMPTY_BODY;
     return NULL;
   }
@@ -291,10 +450,8 @@ ctorm_query_t *ctorm_req_form(ctorm_req_t *req) {
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()
 
-  if ((form = ctorm_query_parse(data, size)) == NULL)
-    return NULL;
-
-  return (req->body_form = form);
+  // errno is set by ctorm_query_parse() if the it fails
+  return req->body_form = ctorm_query_parse(data, size);
 }
 
 cJSON *ctorm_req_json(ctorm_req_t *req) {
@@ -310,7 +467,7 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
     return NULL;
   }
 
-  if ((size = ctorm_req_body_size(req)) <= 0) {
+  if ((size = req->body_size) <= 0) {
     errno = CTORM_ERR_EMPTY_BODY;
     return NULL;
   }
@@ -321,7 +478,8 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()
 
-  return (req->body_json = ctorm_json_decode(data));
+  // errno is set by ctorm_json_decode() if the it fails
+  return req->body_json = ctorm_json_decode(data);
 #else
   errno = CTORM_ERR_NO_JSON_SUPPORT;
   return NULL;
@@ -329,9 +487,9 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
 }
 
 const char *ctorm_req_method(ctorm_req_t *req) {
-  if (ctorm_req_is_valid(req))
-    return ctorm_http_method_name(req->method);
-  return NULL;
+  if (ctorm_http_code_is_error(req->code))
+    return NULL;
+  return ctorm_http_method_name(req->method);
 }
 
 char *ctorm_req_get(ctorm_req_t *req, char *name) {
@@ -343,28 +501,6 @@ char *ctorm_req_get(ctorm_req_t *req, char *name) {
   return ctorm_headers_get(req->headers, name);
 }
 
-int64_t ctorm_req_body_size(ctorm_req_t *req) {
-  if (req->body_size >= 0)
-    return req->body_size;
-
-  if (!ctorm_http_method_allows_req_body(req->method)) {
-    req->body_size = 0;
-    return 0;
-  }
-
-  char *len = ctorm_req_get(req, "content-length");
-
-  if (NULL == len) {
-    req->body_size = 0;
-    return 0;
-  }
-
-  if ((req->body_size = atol(len)) < 0)
-    req->body_size = 0;
-
-  return req->body_size;
-}
-
 int64_t ctorm_req_body(ctorm_req_t *req, char *buffer, int64_t size) {
   if (NULL == buffer || size <= 0) {
     errno = CTORM_ERR_BAD_BUFFER;
@@ -374,7 +510,7 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buffer, int64_t size) {
   // receive all the headers so we can receive the body next
   ctorm_req_get(req, NULL);
 
-  if (size >= ctorm_req_body_size(req))
+  if (size >= req->body_size)
     size = req->body_size;
   req->body_size -= size;
 
@@ -416,7 +552,7 @@ char *ctorm_req_ip(ctorm_req_t *req, char *_ipbuf) {
 }
 
 bool ctorm_req_persist(ctorm_req_t *req) {
-  if (!ctorm_req_is_valid(req))
+  if (ctorm_http_code_is_error(req->code))
     return false;
 
   char *con = ctorm_req_get(req, "connection");

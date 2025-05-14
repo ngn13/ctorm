@@ -104,12 +104,19 @@ cu_strcmpu:
 
 // check if a given byte (si) is present in a string (rdi)
 cu_contains:
-  // compare the chars, return true if char matches
-  cmpb (%rdi), %al
-  je .L__cu_ret_true
+  mov %rsi, %rax
 
-  // move to the next char
-  inc %rdi
+  .L__cu_contains_loop:
+    // check if we reached the NULL termination char
+    cmpb $0, (%rdi)
+    je .L__cu_ret_false
+
+    // compare the chars, return true if char matches
+    cmpb (%rdi), %al
+    je .L__cu_ret_true
+
+    // move to the next char
+    inc %rdi
 
   // if not matches, loop
-  jmp cu_contains
+  jmp .L__cu_contains_loop

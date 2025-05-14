@@ -43,15 +43,15 @@
 ctorm_app_t    *_ctorm_signal_head  = NULL;
 pthread_mutex_t _ctorm_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define __ctorm_check_app_ptr()                                                \
+#define app_check_ptr(ret)                                                     \
   do {                                                                         \
     if (NULL == app) {                                                         \
       errno = CTORM_ERR_BAD_APP_PTR;                                           \
-      return false;                                                            \
+      return ret;                                                              \
     }                                                                          \
   } while (0)
 
-void __ctorm_signal_handler(int sig) {
+void _app_signal_handler(int sig) {
   cu_unused(sig);
 
   if (NULL == _ctorm_signal_head)
@@ -166,11 +166,11 @@ void ctorm_app_free(ctorm_app_t *app) {
   free(app);
 }
 
-bool ctorm_app_run(ctorm_app_t *app, const char *host) {
-  __ctorm_check_app_ptr();
+bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
+  app_check_ptr(false);
 
-  if (NULL == host) {
-    errno = CTORM_ERR_BAD_HOST_PTR;
+  if (NULL == addr) {
+    errno = CTORM_ERR_BAD_ADDR_PTR;
     return false;
   }
 
@@ -181,7 +181,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
     if (NULL == _ctorm_signal_head) {
       _ctorm_signal_head = app;
       sigemptyset(&sa.sa_mask);
-      sa.sa_handler = __ctorm_signal_handler;
+      sa.sa_handler = _app_signal_handler;
       sa.sa_flags   = 0;
       sigaction(SIGINT, &sa, NULL);
     }
@@ -199,7 +199,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
 
   // start the web server and wait until it's done
   app->running = true;
-  bool ret     = ctorm_socket_start(app, host);
+  bool ret     = ctorm_socket_start(app, (char *)addr);
   app->running = false;
 
   // if signal handling is enabled, remove app from the signal list
@@ -230,7 +230,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *host) {
 }
 
 bool ctorm_app_stop(ctorm_app_t *app) {
-  __ctorm_check_app_ptr();
+  app_check_ptr(false);
 
   app->running = false;
   return true;
@@ -241,7 +241,7 @@ bool ctorm_app_local(ctorm_app_t *app, char *name, void *value) {
 }
 
 bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
-  __ctorm_check_app_ptr();
+  app_check_ptr(false);
 
   if (*path != '/') {
     errno = CTORM_ERR_BAD_PATH;
@@ -250,13 +250,12 @@ bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
 
   cu_str_set(&app->static_path, path);
   cu_str_set(&app->static_dir, dir);
-
   return true;
 }
 
 bool ctorm_app_add(ctorm_app_t *app, ctorm_http_method_t method, char *path,
     ctorm_route_t handler) {
-  __ctorm_check_app_ptr();
+  app_check_ptr(false);
 
   if (*path != '/') {
     errno = CTORM_ERR_BAD_PATH;
@@ -409,20 +408,20 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
     return;
 
   // if not check if we have a static route configured
-  while (!cu_str_empty(app->static_path) && !cu_str_empty(app->static_dir) &&
+  while (!cu_str_empty(&app->static_path) && !cu_str_empty(&app->static_dir) &&
          CTORM_HTTP_GET == req->method) {
     // if so, check if this request can be handled with the static route
     uint64_t path_len = cu_strlen(req->path), static_fp_len = 0, sub_len = 0;
     char    *path_ptr = req->path;
 
     // static request path will be longer than the static route path
-    if (path_len <= cu_str_len(app->static_path))
+    if (path_len <= (uint64_t)app->static_path.len)
       break;
 
     // get the position of the sub static directory path
-    if (path_ptr[app->static_path.len - 1] == '/')
+    if ('/' == path_ptr[app->static_path.len - 1])
       sub_len = app->static_path.len;
-    else if (path_ptr[app->static_path.len] == '/')
+    else if ('/' == path_ptr[app->static_path.len])
       sub_len = app->static_path.len + 1;
     else
       break;
@@ -432,7 +431,7 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
       break;
 
     // compare the start of the path
-    if (!cu_startswith(req->path, cu_str(app->static_path)))
+    if (!cu_startswith(req->path, app->static_path.buf))
       break;
 
     // this is just to prevent a potential file disclosure attack
@@ -443,8 +442,7 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
     static_fp_len = app->static_dir.len + 1 + path_len + 1;
     char static_fp[static_fp_len];
 
-    snprintf(
-        static_fp, static_fp_len, "%s/%s", cu_str(app->static_dir), path_ptr);
+    snprintf(static_fp, static_fp_len, "%s/%s", app->static_dir.buf, path_ptr);
 
     if (!ctorm_res_file(res, static_fp))
       break;

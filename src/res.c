@@ -1,5 +1,6 @@
 #include "enc/json.h"
 #include "error.h"
+#include "http.h"
 #include "util.h"
 #include "res.h"
 #include "log.h"
@@ -63,7 +64,6 @@ void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con) {
   res->code      = 200;
 
   ctorm_headers_init(&res->headers);
-  ctorm_headers_set(res->headers, "connection", "close", false);
   ctorm_headers_set(res->headers, "server", "ctorm", false);
 
   struct tm *gmt;
@@ -84,7 +84,7 @@ void ctorm_res_free(ctorm_res_t *res) {
 }
 
 bool ctorm_res_code(ctorm_res_t *res, uint16_t code) {
-  if (code > CTORM_HTTP_CODE_MAX || code < CTORM_HTTP_CODE_MIN) {
+  if (!ctorm_http_code_is_valid(code)) {
     errno = CTORM_ERR_BAD_RESPONSE_CODE;
     return false;
   }
@@ -287,6 +287,9 @@ bool ctorm_res_send(ctorm_res_t *res) {
     res_send_fmt("HTTP/1.1 %hu", res->code);
     break;
   }
+
+  // send the newline
+  res_send_str("\r\n");
 
   // send response headers
   ctorm_headers_start(&pos);

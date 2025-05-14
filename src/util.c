@@ -18,15 +18,6 @@ int32_t cu_str_set(cu_str_t *str, char *buf) {
   return str->len = str->size = cu_strlen(buf);
 }
 
-bool cu_str_clear(cu_str_t *str) {
-  if (NULL == str)
-    return false;
-
-  bzero(str->buf, str->size);
-  str->len = 0;
-  return true;
-}
-
 bool cu_str_free(cu_str_t *str) {
   if (NULL == str)
     return false;

@@ -22,7 +22,6 @@ typedef enum {
    * for the target resource.  GET is the primary mechanism of information
    * retrieval and the focus of almost all performance optimizations."
 
-   * Supported    : yes
    * Defined in   : HTTP/1.0, HTTP/1.1
    * Request body : not allowed
    * Response body: allowed
@@ -32,7 +31,7 @@ typedef enum {
    *       a body. This is also the case for ctorm.
 
   */
-  CTORM_HTTP_GET,
+  CTORM_HTTP_GET = 1,
 
   /*!
 
@@ -43,7 +42,6 @@ typedef enum {
    * message body in the response (i.e., the response terminates at the end of
    * the header section)."
 
-   * Supported    : yes
    * Defined in   : HTTP/1.0, HTTP/1.1
    * Request body : not allowed
    * Response body: not allowed
@@ -64,7 +62,6 @@ typedef enum {
    * representation enclosed in the request according to the resource's own
    * specific semantics"
 
-   * Supported    : yes
    * Defined in   : HTTP/1.0, HTTP/1.1
    * Request body : required
    * Response body: allowed
@@ -81,7 +78,6 @@ typedef enum {
    * or replaced with the state defined by the representation enclosed in the
    * request message payload"
 
-   * Supported    : yes
    * Defined in   : HTTP/1.0 (as an addition), HTTP/1.1
    * Request body : required
    * Response body: allowed
@@ -97,7 +93,6 @@ typedef enum {
    * "The DELETE method requests that the origin server remove the association
    * between the target resource and its current functionality."
 
-   * Supported    : yes
    * Defined in   : HTTP/1.0 (as an addition), HTTP/1.1
    * Request body : allowed
    * Response body: allowed
@@ -113,7 +108,6 @@ typedef enum {
    * "The CONNECT method requests that the recipient establish a tunnel to the
    * destination origin server..."
 
-   * Supported    : no
    * Defined in   : HTTP/1.1
    * Request body : not allowed
    * Response body: not allowed
@@ -130,7 +124,6 @@ typedef enum {
    * available for the target resource, at either the origin server or an
    * intervening intermediary."
 
-   * Supported    : yes
    * Defined in   : HTTP/1.1
    * Request body : allowed
    * Response body: allowed
@@ -148,7 +141,6 @@ typedef enum {
    * message received, excluding some fields described below, back to the client
    * as the message body of a 200 (OK) response..."
 
-   * Supported    : yes
    * Defined in   : HTTP/1.1
    * Request body : not allowed
    * Response body: required
@@ -165,16 +157,32 @@ typedef enum {
 
 */
 typedef enum {
-  CTORM_HTTP_1_0, /// HTTP/1.0 (RFC 1945)
-  CTORM_HTTP_1_1, /// HTTP/1.1 (RFC 7230, 7231)
+  CTORM_HTTP_1_0 = 1, /// HTTP/1.0 (RFC 1945)
+  CTORM_HTTP_1_1,     /// HTTP/1.1 (RFC 7230, 7231)
 } ctorm_http_version_t;
 
+/// HTTP response code type
+typedef uint16_t ctorm_http_code_t;
+
 #ifndef CTORM_EXPORT
+
+// describes a single HTTP request method
+struct ctorm_http_method_desc {
+  const char *name;
+
+  bool allows_req_body;
+  bool allows_res_body;
+
+  bool requires_req_body;
+  bool requires_res_body;
+};
+
+// list of HTTP methods, indexed by ctorm_http_method_t
+extern struct ctorm_http_method_desc ctorm_http_methods[];
 
 // static values calculated at compile time
 #define CTORM_HTTP_VERSION_LEN 8   // "HTTP/x.x"
 #define CTORM_HTTP_METHOD_MAX  7   // "OPTIONS" (or "CONNECT")
-#define CTORM_HTTP_HOST_MAX    261 // 255 + 5 + 1 (hostname + port + ":")
 #define CTORM_HTTP_CODE_MIN    100 // min response code
 #define CTORM_HTTP_CODE_MAX    599 // max response code
 
@@ -186,6 +194,12 @@ extern uint64_t ctorm_http_header_value_max; // max HTTP header value length
 // initializes & calculates all the dynamic values
 void ctorm_http_load();
 
+// macros to check the HTTP response codes
+#define ctorm_http_code_is_valid(code)                                         \
+  ((code) >= CTORM_HTTP_CODE_MIN && (code) <= CTORM_HTTP_CODE_MAX)
+#define ctorm_http_code_is_error(code)                                         \
+  ((code) >= 400 && CTORM_HTTP_CODE_MAX >= (code))
+
 // get version/method from the string representation of it
 ctorm_http_version_t ctorm_http_version(char *version);
 ctorm_http_method_t  ctorm_http_method(char *method);
@@ -196,14 +210,17 @@ ctorm_http_method_t  ctorm_http_method(char *method);
  * should make sure it's valid, ideally by obtaining it with ctorm_http_method()
 
 */
-const char *ctorm_http_method_name(ctorm_http_method_t method);
-bool        ctorm_http_method_supported(ctorm_http_method_t method);
+#define ctorm_http_method_name(method) (ctorm_http_methods[(method) - 1].name)
 
-bool ctorm_http_method_allows_req_body(ctorm_http_method_t method);
-bool ctorm_http_method_allows_res_body(ctorm_http_method_t method);
+#define ctorm_http_method_allows_req_body(method)                              \
+  (ctorm_http_methods[(method) - 1].allows_req_body)
+#define ctorm_http_method_allows_res_body(method)                              \
+  (ctorm_http_methods[(method) - 1].allows_res_body)
 
-bool ctorm_http_method_needs_req_body(ctorm_http_method_t method);
-bool ctorm_http_method_needs_res_body(ctorm_http_method_t method);
+#define ctorm_http_method_needs_req_body(method)                               \
+  (ctorm_http_methods[(method) - 1].requires_req_body)
+#define ctorm_http_method_needs_res_body(method)                               \
+  (ctorm_http_methods[(method) - 1].requires_res_body)
 
 bool ctorm_http_is_valid_header_name(char *name, uint64_t size);
 bool ctorm_http_is_valid_header_value(char *value, uint64_t size);

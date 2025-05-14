@@ -1,6 +1,7 @@
 #include "conn.h"
 #include "error.h"
 
+#include "http.h"
 #include "log.h"
 #include "app.h"
 #include "req.h"
@@ -10,10 +11,12 @@
 #include <unistd.h>
 #include <errno.h>
 
-// macros for the request mutex
+// request thread lock macro
 #define conn_lock(c)                                                           \
   if (((ctorm_app_t *)c->app)->config->lock_request)                           \
   pthread_mutex_lock(&((ctorm_app_t *)c->app)->mutex)
+
+// request thread unlock macro
 #define conn_unlock(c)                                                         \
   if (((ctorm_app_t *)c->app)->config->lock_request)                           \
   pthread_mutex_unlock(&((ctorm_app_t *)c->app)->mutex)
@@ -67,32 +70,27 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
       ptime = clock();
 
     // receive the HTTP request
-    if (!(ret = ctorm_req_recv(&req))) {
-      conn_debug("received a bad request");
-      res.code = 400; // bad request
-      goto respond;
-    }
-
-    conn_debug("received a valid request");
+    ret         = ctorm_req_recv(&req);
     res.version = req.version;
+    res.code    = req.code;
 
-    /*
+    // route the request if we successfuly received a HTTP request
+    if (ret) {
+      /*
 
-    * we lock the request mutex of the app before actually routing it, this
-    * means only one request can be routed in a given time, however this lock
-    * can be disabled with the lock_request configuration option
+       * we lock the request mutex of the app before actually routing it, this
+       * means only one request can be routed in a given time, however this lock
+       * can be disabled with the lock_request configuration option
 
-    */
-    conn_lock(con);
-    ctorm_app_route(app, &req, &res);
-    conn_unlock(con);
-
-  respond:
-    // no need to waste time on a non-existent request
-    if (!ctorm_req_is_valid(&req)) {
-      persist = false;
-      goto next;
+      */
+      conn_lock(con);
+      ctorm_app_route(app, &req, &res);
+      conn_unlock(con);
     }
+
+    // debug print if we failed to receive a HTTP request
+    else
+      conn_debug("received an invalid HTTP request");
 
     persist = ctorm_req_persist(&req);
     conn_debug("sending a %d response", res.code);
@@ -104,7 +102,7 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
     }
 
     // finish process time measurement and log the request
-    if (!app->config->disable_logging && ret) {
+    if (ret && !app->config->disable_logging) {
       ptime = (clock() - ptime) / (CLOCKS_PER_SEC / 1000000);
       conn_lock(con);
       log(&req, &res, ptime);

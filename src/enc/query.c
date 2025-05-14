@@ -1,12 +1,16 @@
 #include "enc/query.h"
 #include "enc/percent.h"
 
+#include "error.h"
 #include "pair.h"
 #include "util.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define QUERY_KEY_MAX   (256)
+#define QUERY_VALUE_MAX (1024)
 
 ctorm_query_t *ctorm_query_parse(char *data, uint64_t size) {
   if (NULL == data)
@@ -16,13 +20,24 @@ ctorm_query_t *ctorm_query_parse(char *data, uint64_t size) {
     size = cu_strlen(data);
 
   ctorm_query_t *query  = NULL;
-  bool           is_key = true, ignore_val = false;
-  cu_str_t       buf;
+  bool           is_key = true;
+  cu_str_t       cur;
 
-  // initialize the buffer
-  cu_str_init(buf);
+  // clear the string structure
+  cu_str_clear(&cur);
 
   for (; size > 0; size--, data++) {
+    // check the size of the current string buffer
+    if (is_key && cur.len > QUERY_KEY_MAX) {
+      errno = CTORM_ERR_QUERY_KEY_TOO_LARGE;
+      goto fail;
+    }
+
+    if (!is_key && cur.len > QUERY_VALUE_MAX) {
+      errno = CTORM_ERR_QUERY_VALUE_TOO_LARGE;
+      goto fail;
+    }
+
     /*
 
      * key=value
@@ -30,60 +45,67 @@ ctorm_query_t *ctorm_query_parse(char *data, uint64_t size) {
      * at this position we should add a new pair, as we have read the entire key
      * into the buffer
 
-     * how ever it possible that the data just starts with '=' so we check indx
-     * to make sure we don't add a pair with an empty key
+     * however it is possible that the data just starts with '=' so we also
+     * check if the buffer is empty to make sure we don't add a pair with an
+     * empty key
 
    */
-    if (*data == '=' && is_key) {
-      // if the value is empty, ignore it
-      if (!(ignore_val = cu_str_empty(buf))) {
-        ctorm_percent_decode(cu_str(buf), cu_str_len(buf));
-        ctorm_pair_add(&query, cu_str(buf), NULL); // create a new pair
-        cu_str_init(buf); // reset the buffer (without freeing)
-      }
+    if (*data == '=' && is_key && !cu_str_empty(&cur)) {
+      // percent decode the current string buffer and create a new pair
+      cur.len = ctorm_percent_decode(cur.buf, cur.len);
+      ctorm_pair_add(&query, cur.buf, NULL);
 
-      is_key = false; // we are no longer reading the key
+      cu_str_clear(&cur);
+      is_key = false;
       continue;
     }
 
-    /*
-
-     * key=value&other_key=other_value
-     *          ^
-     * this is our current position if the following condition succeeds in that
-     * case, we have the query value in the buffer, we should add it to the last
-     * pair
-
-    */
-    if (!is_key && *data == '&')
-      goto url_value_add;
-
-    // otherwise just keep appending to the current buffer
-    cu_str_add(&buf, *data);
+    if ((*data != '&' && size != 1) || is_key) {
+      cu_str_add(&cur, *data);
+      continue;
+    }
 
     /*
 
      * key=value\0
      *         ^
-     * this is our position if the following condition fails, in that case we
-     * read the entire value and we should add it to the last pair
+
+     * at this position we should the 'e' before moving on and adding the value
+     * to the last pair
 
     */
-    if (size != 1)
+    if (*data != '&' && !is_key)
+      cu_str_add(&cur, *data);
+
+    /*
+
+     * key=value&other_key=other_value
+     *          ^
+
+     * at this point we have the entire value in the string buffer, we can just
+     * add the value to the last pair, associating it with the last key we added
+
+    */
+    if (cu_str_empty(&cur))
       continue;
 
-  url_value_add:
-    if (!ignore_val) {
-      ctorm_percent_decode(cu_str(buf), cu_str_len(buf));
-      query->value = cu_str(buf);
-      cu_str_init(buf);
-    }
+    // percent decode the query value
+    cur.len = ctorm_percent_decode(cur.buf, cur.len);
 
+    // store it in the last pair
+    query->value = cur.buf;
+
+    cu_str_clear(&cur);
     is_key = true;
   }
 
-  cu_str_free(&buf);
+  cu_str_free(&cur);
   return query;
+
+fail:
+  cu_str_free(&cur);
+  ctorm_query_free(query);
+  return NULL;
 }
 
 char *ctorm_query_get(ctorm_query_t *query, char *name) {
@@ -93,6 +115,9 @@ char *ctorm_query_get(ctorm_query_t *query, char *name) {
 }
 
 void ctorm_query_free(ctorm_query_t *query) {
+  if (NULL == query)
+    return;
+
   ctorm_pair_next(query, cur) {
     free(cur->key);
     free(cur->value);

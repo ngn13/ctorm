@@ -3,6 +3,7 @@
 
 #include "conn.h"
 #include "pool.h"
+#include "uri.h"
 #include "util.h"
 #include "log.h"
 
@@ -18,85 +19,29 @@
 #include <netdb.h>
 #include <errno.h>
 
-bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
-  bool     is_reading_ipv6 = false, is_reading_port = false;
-  char     hostname[UINT8_MAX + 1], hostport[6];
-  uint16_t indx = 0;
-
-  // clear the buffers to make sure everything is NULL terminated
-  bzero(hostname, sizeof(hostname));
-  bzero(hostport, sizeof(hostport));
-
-  for (; *host != 0; host++) {
-    if (*host == '[' && !is_reading_ipv6) {
-      // [::1]:80
-      // ^
-      is_reading_ipv6 = true;
-      continue;
-    }
-
-    if (*host == ']' && is_reading_ipv6) {
-      // [::1]:80
-      //     ^
-      is_reading_ipv6 = false;
-      continue;
-    }
-
-    if (is_reading_port && !cu_is_digit(*host)) {
-      errno = CTORM_ERR_BAD_PORT;
-      return false;
-    }
-
-    if (!is_reading_ipv6 && *host == ':') {
-      // [::1]:80
-      //      ^
-      is_reading_port = true;
-      indx            = 0;
-      continue;
-    }
-
-    if (is_reading_port && indx >= sizeof(hostport)) {
-      errno = CTORM_ERR_PORT_TOO_LARGE;
-      return false;
-    }
-
-    else if (!is_reading_port && indx >= sizeof(hostname)) {
-      errno = CTORM_ERR_HOSTNAME_TOO_LARGE;
-      return false;
-    }
-
-    if (is_reading_port)
-      hostport[indx++] = *host;
-    else
-      hostname[indx++] = *host;
-  }
-
-  if (*hostname == 0) {
-    errno = CTORM_ERR_BAD_HOSTNAME;
-    return false;
-  }
-
+bool ctorm_socket_resolve(char *addr, struct addrinfo *info) {
   struct addrinfo *hostinfo = NULL, *cur = NULL;
-  int              port = 0;
+  ctorm_uri_t      uri;
 
-  // convert host port to integer
-  if (*hostport != 0 && (port = atoi(hostport)) <= 0 && port > UINT16_MAX) {
-    errno = CTORM_ERR_BAD_PORT;
-    return false;
-  }
+  ctorm_uri_init(&uri);
+
+  if (NULL == ctorm_uri_parse_host(&uri, addr))
+    return false; // errno set by ctorm_uri_parse_host()
 
   // resolve the host name
-  if (getaddrinfo(hostname, NULL, NULL, &hostinfo) != 0 || NULL == info)
-    return false; // errno set by getaddrinfo
+  if (getaddrinfo(uri.host, NULL, NULL, &hostinfo) != 0 || NULL == info) {
+    ctorm_uri_free(&uri);
+    return false; // errno set by getaddrinfo()
+  }
 
   for (cur = hostinfo; cur != NULL; cur = cur->ai_next) {
     if (AF_INET == cur->ai_family) {
-      ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(port);
+      ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(uri.port);
       break;
     }
 
     else if (AF_INET6 == cur->ai_family) {
-      ((struct sockaddr_in6 *)cur->ai_addr)->sin6_port = htons(port);
+      ((struct sockaddr_in6 *)cur->ai_addr)->sin6_port = htons(uri.port);
       break;
     }
   }
@@ -107,6 +52,7 @@ bool ctorm_socket_parse_host(const char *host, struct addrinfo *info) {
 
   // free the host addrinfo
   freeaddrinfo(hostinfo);
+  ctorm_uri_free(&uri);
 
   return true;
 }
@@ -158,7 +104,7 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
   return true;
 }
 
-bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
+bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
   struct addrinfo info;
   socklen_t       addrlen = 0;
   int             sockfd = -1, flag = 1;
@@ -166,8 +112,8 @@ bool ctorm_socket_start(ctorm_app_t *app, const char *host) {
   bool            ret = false;
 
   // parse the host to get the addrinfo structure
-  if (!ctorm_socket_parse_host(host, &info)) {
-    debug("failed to parse the host: %s", ctorm_error());
+  if (!ctorm_socket_resolve(addr, &info)) {
+    debug("failed to resolve the address: %s", ctorm_error());
     goto end;
   }
 

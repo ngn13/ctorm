@@ -23,9 +23,10 @@
 
 */
 typedef struct {
-  ctorm_conn_t *con;    /// socket connection
-  ctorm_pair_t *locals; /// local variables to pass along with the request
-  bool          cancel; /// is the request cancelled?
+  ctorm_conn_t     *con;    /// socket connection
+  ctorm_pair_t     *locals; /// local variables to pass along with the request
+  bool              cancel; /// is the request cancelled?
+  ctorm_http_code_t code;   /// default HTTP response code for this request
 
   ctorm_http_method_t  method;  /// HTTP method (GET, POST, PUT etc.)
   ctorm_http_version_t version; /// HTTP version number (HTTP/1.1 etc.)
@@ -45,11 +46,6 @@ typedef struct {
 
 #ifndef CTORM_EXPORT
 
-// check if the request is valid
-#define ctorm_req_is_valid(req)                                                \
-  ((req)->version >= 0 && (req)->method >= 0 && NULL != (req)->target &&       \
-      NULL != (req)->path)
-
 void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con); // init HTTP request
 void ctorm_req_free(ctorm_req_t *req);                    // free a HTTP request
 bool ctorm_req_recv(ctorm_req_t *req); // receive the HTTP request
@@ -68,7 +64,7 @@ const char *ctorm_req_method(ctorm_req_t *req);
 
 /*!
 
- * Get the value for an URL query
+ * Get the value associated with a provided URI query name
 
  * @param[in] req: HTTP request
  * @param[in] name: Query name
@@ -125,16 +121,6 @@ char *ctorm_req_get(ctorm_req_t *req, char *header);
 
 */
 int64_t ctorm_req_body(ctorm_req_t *req, char *buf, int64_t size);
-
-/*!
-
- * Get the HTTP request body size in bytes
-
- * @param[in] req: HTTP request
- * @return    Size of the body in bytes
-
-*/
-int64_t ctorm_req_body_size(ctorm_req_t *req);
 
 /*!
 

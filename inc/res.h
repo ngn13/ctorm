@@ -23,7 +23,7 @@
 typedef struct {
   ctorm_conn_t *con; /// socket connection
 
-  uint16_t             code;    /// HTTP response code
+  ctorm_http_code_t    code;    /// HTTP response code
   ctorm_http_version_t version; /// HTTP version
   ctorm_headers_t      headers; /// HTTP headers
 
