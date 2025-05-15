@@ -4,6 +4,7 @@
 #include "error.h"
 #include "pair.h"
 #include "util.h"
+#include "log.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -93,13 +94,18 @@ ctorm_query_t *ctorm_query_parse(char *data, uint64_t size) {
     cur.len = ctorm_percent_decode(cur.buf, cur.len);
 
     // store it in the last pair
-    query->value = cur.buf;
+    if (NULL != query)
+      query->value = cur.buf;
 
     cu_str_clear(&cur);
     is_key = true;
   }
 
   cu_str_free(&cur);
+
+  if (NULL == query)
+    errno = CTORM_ERR_EMPTY_QUERY;
+
   return query;
 
 fail:

@@ -33,7 +33,7 @@
         time,                                                                  \
         res->code,                                                             \
         ctorm_req_method(req),                                                 \
-        req->target);                                                          \
+        req->path);                                                            \
   } while (0)
 
 void ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t ptime) {

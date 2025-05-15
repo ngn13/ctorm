@@ -7,7 +7,7 @@
 #include <errno.h>
 
 ctorm_pair_t *ctorm_pair_add(ctorm_pair_t **head, char *key, char *value) {
-  if (NULL == key) {
+  if (NULL == head || NULL == key) {
     errno = EINVAL;
     return NULL;
   }
@@ -20,16 +20,11 @@ ctorm_pair_t *ctorm_pair_add(ctorm_pair_t **head, char *key, char *value) {
   }
 
   bzero(new, sizeof(ctorm_pair_t));
-
-  if (NULL != head) {
-    new->next = *head;
-    *head     = new;
-  }
-
   new->key   = key;
   new->value = value;
+  new->next  = *head;
 
-  return new;
+  return *head = new;
 }
 
 ctorm_pair_t *ctorm_pair_find(ctorm_pair_t *head, char *key) {

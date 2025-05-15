@@ -66,30 +66,30 @@ void DELETE_user_delete(ctorm_req_t *req, ctorm_res_t *res) {
     return;
   }
 
-  while (NULL != cur) {
-    if (strcmp(cur->name, name) != 0) {
-      prev = cur;
-      cur  = cur->next;
-      continue;
-    }
+  for (; NULL != cur; prev = cur, cur = cur->next)
+    if (strcmp(cur->name, name) == 0)
+      break;
 
-    if (NULL == prev)
-      users = cur->next;
-    else
-      prev->next = cur->next;
-
-    free(cur);
-    RES_BODY("success!");
+  if (NULL == cur) {
+    RES_CODE(404);
+    RES_BODY("user not found");
     return;
   }
 
-  RES_CODE(404);
-  RES_BODY("user not found");
+  if (NULL == prev)
+    users = cur->next;
+  else
+    prev->next = cur->next;
+
+  free(cur->name);
+  free(cur);
+
+  RES_BODY("success!");
 }
 
 void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
-  cJSON *name = NULL, *age = NULL;
-  cJSON *json = REQ_JSON();
+  const cJSON *name = NULL, *age = NULL;
+  cJSON       *json = REQ_JSON();
 
   if (NULL == json) {
     RES_CODE(400);
@@ -109,31 +109,22 @@ void POST_user_add(ctorm_req_t *req, ctorm_res_t *res) {
   }
 
   user_t *user = malloc(sizeof(user_t));
-  user->name   = cJSON_GetStringValue(name);
-  user->age    = cJSON_GetNumberValue(age);
+  bzero(user, sizeof(*user));
 
-  if (NULL == users) {
-    users = user;
-    RES_BODY("success!");
-    return;
-  }
+  user->name = strdup(cJSON_GetStringValue(name));
+  user->age  = cJSON_GetNumberValue(age);
 
-  user_t *cur = users;
-  while (NULL != cur) {
-    if (NULL == cur->next) {
-      cur->next = user;
-      break;
-    }
-    cur = cur->next;
-  }
+  if (NULL != users)
+    user->next = users;
 
+  users = user;
   RES_BODY("success!");
 }
 
 int main() {
   users       = malloc(sizeof(user_t));
   users->next = NULL;
-  users->name = "John";
+  users->name = strdup("John");
   users->age  = 23;
 
   ctorm_config_t config;

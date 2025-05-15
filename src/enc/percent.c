@@ -25,8 +25,8 @@ uint64_t ctorm_percent_decode(char *data, uint64_t size) {
     if (*cur == '%' && size > 2) {
       sscanf(cur + 1, "%02hhx", &val);
       *pos = val;
-      cur += 3;
-      size -= 3;
+      cur += 2;
+      size -= 2;
       continue;
     }
 

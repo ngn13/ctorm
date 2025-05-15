@@ -183,6 +183,7 @@ extern struct ctorm_http_method_desc ctorm_http_methods[];
 // static values calculated at compile time
 #define CTORM_HTTP_VERSION_LEN 8   // "HTTP/x.x"
 #define CTORM_HTTP_METHOD_MAX  7   // "OPTIONS" (or "CONNECT")
+#define CTORM_HTTP_HEADER_MAX  128 // max header count
 #define CTORM_HTTP_CODE_MIN    100 // min response code
 #define CTORM_HTTP_CODE_MAX    599 // max response code
 

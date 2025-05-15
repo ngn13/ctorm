@@ -62,6 +62,7 @@ struct ctorm_error_desc _ctorm_err_descs[] = {
     {CTORM_ERR_NO_READ_PERM,          "missing read permission"               },
     {CTORM_ERR_NO_JSON_SUPPORT,       "library not compiled with JSON support"},
     {CTORM_ERR_EMPTY_BODY,            "body is empty"                         },
+    {CTORM_ERR_EMPTY_QUERY,           "query does not contain any values"     },
 
     {CTORM_ERR_UNKNOWN,               "unknown error"                         },
     {0,                               NULL                                    }

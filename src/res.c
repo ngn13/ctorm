@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <errno.h>
@@ -306,12 +307,12 @@ bool ctorm_res_send(ctorm_res_t *res) {
     char   read_buff[50];
 
     while ((read_size = read(res->body_fd, read_buff, sizeof(read_buff))) > 0)
-      res_send(read_buff, read_size, 0);
+      res_send(read_buff, read_size, MSG_NOSIGNAL);
   }
 
   // if a body is specified, send it
   else if (res->body_size > 0)
-    res_send(res->body, res->body_size, 0);
+    res_send(res->body, res->body_size, MSG_NOSIGNAL);
 
   return true;
 }

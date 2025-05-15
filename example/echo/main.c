@@ -30,8 +30,6 @@ void POST_form(ctorm_req_t *req, ctorm_res_t *res) {
   RES_FMT("message: %s", msg);
 
   RES_SET("cool", "yes");
-
-  ctorm_query_free(form);
 }
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {

@@ -9,7 +9,7 @@ struct ctorm_header {
   struct ctorm_header *next;
   char                *name;
   char                *value;
-  bool                 alloced;
+  bool                 allocated;
 };
 
 typedef struct {

@@ -21,6 +21,7 @@
 
 #define REQ_TRANSFER_ENCODING "transfer-encoding"
 #define REQ_CONTENT_LENGTH    "content-length"
+#define REQ_CONTENT_TYPE      "content-type"
 #define REQ_HOST              "host"
 
 #define req_debug(f, ...)                                                      \
@@ -287,10 +288,18 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     return false;
   }
 
-  char *name = NULL, *value = NULL;
-  char  c = 0;
+  char   *name = NULL, *value = NULL;
+  uint8_t count = 0;
+  char    c     = 0;
 
   while (req_recv(&c, 1, MSG_PEEK) == 1 && c != '\r') {
+    // check the counter
+    if (count >= CTORM_HTTP_HEADER_MAX) {
+      req_debug("too many headers");
+      req->code = 413; // too large
+      return false;
+    }
+
     // receive the header name
     if ((size = req_recv_alloc(&name, ctorm_http_header_name_max, ':')) < 0) {
       req_debug("failed to receive the HTTP header name");
@@ -346,6 +355,9 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     // add the new headers to the request
     ctorm_headers_set(req->headers, name, value, true);
     name = value = NULL;
+
+    // increase the header counter
+    count++;
   }
 
   if (req_recv_char(NULL) != '\r' || req_recv_char(NULL) != '\n') {
@@ -431,10 +443,11 @@ ctorm_query_t *ctorm_req_form(ctorm_req_t *req) {
   if (NULL != req->body_form)
     return req->body_form;
 
-  char   *type = ctorm_req_get(req, "content-type");
+  char   *type = ctorm_req_get(req, REQ_CONTENT_TYPE);
   int64_t size = 0;
 
-  if (!cu_startswith(type, "application/x-www-form-urlencoded")) {
+  if (NULL == type ||
+      !cu_startswith(type, "application/x-www-form-urlencoded")) {
     errno = CTORM_ERR_BAD_CONTENT_TYPE;
     return NULL;
   }
@@ -459,7 +472,7 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
   if (NULL != req->body_json)
     return req->body_json;
 
-  char   *type = ctorm_req_get(req, "content-type");
+  char   *type = ctorm_req_get(req, REQ_CONTENT_TYPE);
   int64_t size = 0;
 
   if (!cu_startswith(type, "application/json")) {
@@ -472,8 +485,9 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
     return NULL;
   }
 
+  // receive all the data to provide to ctorm_json_decode()
   char data[size + 1];
-  bzero(data, size);
+  bzero(data, size + 1);
 
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()
@@ -507,10 +521,7 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buffer, int64_t size) {
     return -1;
   }
 
-  // receive all the headers so we can receive the body next
-  ctorm_req_get(req, NULL);
-
-  if (size >= req->body_size)
+  if (size > req->body_size)
     size = req->body_size;
   req->body_size -= size;
 
