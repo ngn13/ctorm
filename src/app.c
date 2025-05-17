@@ -114,7 +114,7 @@ ctorm_app_t *ctorm_app_new(ctorm_config_t *config) {
   app->config        = config;
   app->running       = false;
 
-  if (NULL == (app->pool = ctorm_pool_init(config->pool_size))) {
+  if (NULL == (app->pool = ctorm_pool_new(config->pool_size))) {
     errno = CTORM_ERR_POOL_FAIL;
     goto fail;
   }
@@ -138,9 +138,9 @@ void ctorm_app_free(ctorm_app_t *app) {
   if (NULL == app)
     return;
 
-  // free the application pool
+  // free the server's thread pool
   if (NULL != app->pool) {
-    ctorm_pool_stop(app->pool);
+    ctorm_pool_free(app->pool);
     app->pool = NULL;
   }
 
