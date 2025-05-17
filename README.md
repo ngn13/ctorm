@@ -10,12 +10,13 @@
 # ctorm | simple web framework for C
 
 ![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml)
-![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/docker.yml?label=tests)
+![](https://img.shields.io/github/actions/workflow/status/ngn13/ctorm/test.yml?label=tests)
 ![](https://img.shields.io/github/v/tag/ngn13/ctorm?label=version)
 ![](https://img.shields.io/github/license/ngn13/ctorm)
 
-ctorm is a multi-threaded, simple web server framework for `HTTP/1.1`. It offers
-an easy API for general web server applications.
+ctorm is a multi-threaded, simple web server microframework for `HTTP/1.1`,
+inspired by [Express](https://expressjs.com/),
+[Fiber](https://github.com/gofiber/fiber) and similar HTTP frameworks.
 
 > [!WARNING] This software is pretty much in alpha state. I don't suggest you
 > use ctorm on production, however it can be used to build simple web
@@ -23,12 +24,13 @@ an easy API for general web server applications.
 
 ### Features
 
-- Wildcard routes
-- Middleware support
-- URL queries (parameters)
-- URL encoded body parsing
+- Express-like HTTP routes
+- Multi-thread support (multiple servers in one program)
+- URL queries and parameters
+- Form encoded body parsing
 - JSON support with [cJSON](https://github.com/DaveGamble/cJSON)
-- Handling 404 (all) routes
+- Wildcard routes
+- Default (all) route
 - Sending files and static file serving
 
 ### Installation

@@ -8,7 +8,7 @@ from sys import argv
 # hence the name "pressure"
 
 
-def __send_req(url: str) -> bool:
+def request(url: str) -> bool:
     try:
         r = get(url)
         if r.status_code != 200:
@@ -21,10 +21,11 @@ def __send_req(url: str) -> bool:
         return False
 
 
-def send_req(id: int, rc: int, url: str) -> None:
+def thread(id: int, rc: int, url: str) -> None:
     for _ in range(rc):
-        if not __send_req(url):
+        if not request(url):
             print("thread %d failed" % id)
+            break
 
 
 if __name__ == "__main__":
@@ -49,7 +50,7 @@ if __name__ == "__main__":
         print("creating thread %d" % i)
         threads.append(
             Thread(
-                target=send_req,
+                target=thread,
                 args=(
                     i,
                     req_count,

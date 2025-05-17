@@ -14,12 +14,12 @@
 // request thread lock macro
 #define conn_lock(c)                                                           \
   if (((ctorm_app_t *)c->app)->config->lock_request)                           \
-  pthread_mutex_lock(&((ctorm_app_t *)c->app)->mutex)
+  pthread_mutex_lock(&((ctorm_app_t *)c->app)->req_mutex)
 
 // request thread unlock macro
 #define conn_unlock(c)                                                         \
   if (((ctorm_app_t *)c->app)->config->lock_request)                           \
-  pthread_mutex_unlock(&((ctorm_app_t *)c->app)->mutex)
+  pthread_mutex_unlock(&((ctorm_app_t *)c->app)->req_mutex)
 
 // a neat debug macro
 #define conn_debug(f, ...)                                                     \
@@ -63,7 +63,7 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
 
     // if disabled, remove the server header from the response
     if (!app->config->server_header)
-      ctorm_res_set(&res, "server", "ctorm");
+      ctorm_res_del(&res, CTORM_HTTP_SERVER);
 
     // if not disabled, save the current time to calculate the process time
     if (!app->config->disable_logging)

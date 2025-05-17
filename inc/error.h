@@ -1,4 +1,6 @@
 #pragma once
+#include "app.h"
+
 #include <stdint.h>
 #include <errno.h>
 
@@ -58,6 +60,9 @@ typedef enum {
   CTORM_ERR_MUTEX_FAIL,
   CTORM_ERR_SEEK_FAIL,
   CTORM_ERR_JSON_FAIL,
+  CTORM_ERR_RESOLVE_FAIL,
+  CTORM_ERR_SOCKET_FAIL,
+  CTORM_ERR_BIND_FAIL,
 
   CTORM_ERR_NOT_EXISTS,
   CTORM_ERR_NO_READ_PERM,
@@ -75,7 +80,16 @@ typedef enum {
  * @return    Error description
 
 */
-const char *ctorm_error_from(int error);
+const char *ctorm_error_str(int error);
+
+/*!
+
+ * @brief     Get details about the current errno
+ * @param[in] app: @ref ctorm_app_t related to the error
+ * @return    Description for the detail errno
+
+*/
+const char *ctorm_error_details(ctorm_app_t *app);
 
 /*!
 
@@ -83,4 +97,20 @@ const char *ctorm_error_from(int error);
  * @return Description for the current errno
 
 */
-#define ctorm_error() ctorm_error_from(errno)
+#define ctorm_error() ctorm_error_str(errno)
+
+/*!
+
+ * @brief  Get details about the current errno, macro for @ref
+ *         ctorm_error_details
+ * @return Description for the detail errno
+
+*/
+#define ctorm_details() ctorm_error_details(app)
+
+#ifndef CTORM_EXPORT
+
+void ctorm_error_set(ctorm_app_t *app, int error);
+void ctorm_error_clear(ctorm_app_t *app);
+
+#endif

@@ -1,4 +1,5 @@
 #include "error.h"
+#include "app.h"
 
 #include <pthread.h>
 #include <string.h>
@@ -57,6 +58,9 @@ struct ctorm_error_desc _ctorm_err_descs[] = {
     {CTORM_ERR_READ_FAIL,             "failed to read the file"               },
     {CTORM_ERR_MUTEX_FAIL,            "failed to initialize thread mutex"     },
     {CTORM_ERR_JSON_FAIL,             "cJSON failed, use cJSON_GetErrorPtr()" },
+    {CTORM_ERR_RESOLVE_FAIL,          "failed to resolve the address"         },
+    {CTORM_ERR_SOCKET_FAIL,           "failed to create socket"               },
+    {CTORM_ERR_BIND_FAIL,             "failed to bind the socket"             },
 
     {CTORM_ERR_NOT_EXISTS,            "file does not exist"                   },
     {CTORM_ERR_NO_READ_PERM,          "missing read permission"               },
@@ -68,12 +72,39 @@ struct ctorm_error_desc _ctorm_err_descs[] = {
     {0,                               NULL                                    }
 };
 
-const char *ctorm_error_from(int code) {
+const char *ctorm_error_str(int code) {
   struct ctorm_error_desc *desc = &_ctorm_err_descs[0];
+
+  if (code == 0)
+    return "no error";
 
   for (; desc->str != NULL; desc++)
     if (desc->code == code)
       return desc->str;
 
   return strerror(code);
+}
+
+const char *ctorm_error_details(ctorm_app_t *app) {
+  return app->error == 0 ? "no details" : ctorm_error_str(app->error);
+}
+
+void ctorm_error_set(ctorm_app_t *app, int error) {
+  // save the current errno
+  pthread_mutex_lock(&app->mod_mutex);
+  app->error = errno;
+  pthread_mutex_unlock(&app->mod_mutex);
+
+  // set the new errno
+  errno = error;
+}
+
+void ctorm_error_clear(ctorm_app_t *app) {
+  // clear the saved errno
+  pthread_mutex_lock(&app->mod_mutex);
+  app->error = 0;
+  pthread_mutex_unlock(&app->mod_mutex);
+
+  // clear the current errno
+  errno = 0;
 }

@@ -19,11 +19,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define REQ_TRANSFER_ENCODING "transfer-encoding"
-#define REQ_CONTENT_LENGTH    "content-length"
-#define REQ_CONTENT_TYPE      "content-type"
-#define REQ_HOST              "host"
-
 #define req_debug(f, ...)                                                      \
   debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD                    \
         " request " FG_CYAN "0x%p" FG_RESET ") " f,                            \
@@ -366,9 +361,9 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     return false;
   }
 
-  char *content_len  = ctorm_req_get(req, REQ_CONTENT_LENGTH);
-  char *transfer_enc = ctorm_req_get(req, REQ_TRANSFER_ENCODING);
-  char *host         = ctorm_req_get(req, REQ_HOST);
+  char *content_len  = ctorm_req_get(req, CTORM_HTTP_CONTENT_LENGTH);
+  char *transfer_enc = ctorm_req_get(req, CTORM_HTTP_TRANSFER_ENCODING);
+  char *host         = ctorm_req_get(req, CTORM_HTTP_HOST);
 
   // if no host is specified in the URI, read it from the host header
   if (NULL == req->host && NULL != host)
@@ -443,7 +438,7 @@ ctorm_query_t *ctorm_req_form(ctorm_req_t *req) {
   if (NULL != req->body_form)
     return req->body_form;
 
-  char   *type = ctorm_req_get(req, REQ_CONTENT_TYPE);
+  char   *type = ctorm_req_get(req, CTORM_HTTP_CONTENT_TYPE);
   int64_t size = 0;
 
   if (NULL == type ||
@@ -472,7 +467,7 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
   if (NULL != req->body_json)
     return req->body_json;
 
-  char   *type = ctorm_req_get(req, REQ_CONTENT_TYPE);
+  char   *type = ctorm_req_get(req, CTORM_HTTP_CONTENT_TYPE);
   int64_t size = 0;
 
   if (!cu_startswith(type, "application/json")) {

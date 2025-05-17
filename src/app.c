@@ -74,7 +74,7 @@ void _app_signal_handler(int sig) {
       continue;
 
     debug("stopping the app %p", cur);
-    ctorm_app_stop(cur);
+    cur->running = false;
   }
 
   // loop is complete, unlock the app list
@@ -119,7 +119,9 @@ ctorm_app_t *ctorm_app_new(ctorm_config_t *config) {
     goto fail;
   }
 
-  if (config->lock_request && pthread_mutex_init(&app->mutex, NULL) != 0) {
+  if ((config->lock_request &&
+          pthread_mutex_init(&app->req_mutex, NULL) != 0) ||
+      pthread_mutex_init(&app->mod_mutex, NULL) != 0) {
     errno = CTORM_ERR_MUTEX_FAIL;
     goto fail;
   }
@@ -151,10 +153,12 @@ void ctorm_app_free(ctorm_app_t *app) {
     free(prev);
   }
 
+  pthread_mutex_destroy(&app->mod_mutex);
+
   if (NULL != app->config) {
     // destroy the request mutex
     if (app->config->lock_request)
-      pthread_mutex_destroy(&app->mutex);
+      pthread_mutex_destroy(&app->req_mutex);
 
     // free the configuration if it's default
     if (app->is_default_config)
@@ -175,6 +179,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
   }
 
   struct sigaction sa;
+  bool             ret = false;
 
   // if signal handling is enabled, add app to the signal list
   if (app->config->handle_signal) {
@@ -199,15 +204,15 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
 
   // start the web server and wait until it's done
   app->running = true;
-  bool ret     = ctorm_socket_start(app, (char *)addr);
+  ret          = ctorm_socket_start(app, (char *)addr);
   app->running = false;
 
   // if signal handling is enabled, remove app from the signal list
   if (app->config->handle_signal) {
-    ctorm_app_t *cur = NULL, *prev = NULL;
+    ctorm_app_t *cur = _ctorm_signal_head, *prev = NULL;
 
     // find the app in the list
-    for (; cur != NULL && cur != app; cur = app->next)
+    for (; cur != NULL && cur != app; cur = cur->next)
       prev = cur;
 
     // remove the app from the list
@@ -232,7 +237,11 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
 bool ctorm_app_stop(ctorm_app_t *app) {
   app_check_ptr(false);
 
-  app->running = false;
+  if (app->config->handle_signal)
+    pthread_kill(app->thread, SIGINT);
+  else
+    app->running = false;
+
   return true;
 }
 
@@ -291,7 +300,7 @@ void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler) {
     app->default_route = handler;
 }
 
-uint64_t __ctorm_path_count_names(char *path) {
+uint64_t _ctorm_path_count_names(char *path) {
   uint64_t count = 0;
 
   for (; *path != 0; path++)
@@ -301,16 +310,16 @@ uint64_t __ctorm_path_count_names(char *path) {
   return count + 1;
 }
 
-char *__ctorm_path_next_name(char *path) {
+char *_ctorm_path_next_name(char *path) {
   for (; *path != 0; path++)
     if (*path == '/')
       break;
   return path;
 }
 
-#define __ctorm_path_is_name_end(name) (*(name) == '/' || *(name) == 0)
+#define ctorm_path_is_name_end(name) (*(name) == '/' || *(name) == 0)
 
-bool __ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
+bool _ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
   // check if the request method and route method matches
   if (!ctorm_routemap_is_all(route) && route->method != req->method)
     return false;
@@ -329,8 +338,8 @@ bool __ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
     return true;
 
   // check if both paths have same amount of names (path components)
-  if (__ctorm_path_count_names(route_pos) !=
-      (count = __ctorm_path_count_names(req_pos)))
+  if (_ctorm_path_count_names(route_pos) !=
+      (count = _ctorm_path_count_names(req_pos)))
     return false;
 
   char *key = NULL, *value = NULL;
@@ -347,16 +356,16 @@ bool __ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
   */
   // clang-format off
   for (; count > 0; count--,
-      route_pos = __ctorm_path_next_name(route_pos) + 1,
-      req_pos   = __ctorm_path_next_name(req_pos) + 1) {
+      route_pos = _ctorm_path_next_name(route_pos) + 1,
+      req_pos   = _ctorm_path_next_name(req_pos) + 1) {
     // clang-format on
 
     // if the name is '*' then it's a wildcard route
-    if (*route_pos == '*' && __ctorm_path_is_name_end(route_pos + 1))
+    if (*route_pos == '*' && ctorm_path_is_name_end(route_pos + 1))
       continue;
 
     // if the name starts with ':' then it's a URL parameter
-    if (*route_pos == ':' && !__ctorm_path_is_name_end(route_pos + 1)) {
+    if (*route_pos == ':' && !ctorm_path_is_name_end(route_pos + 1)) {
       // duplicate the parameter name and the value and add it to the request
       if (NULL == (key = strdup(++route_pos)) ||
           NULL == (value = strdup(req_pos))) {
@@ -364,8 +373,8 @@ bool __ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
         goto end;
       }
 
-      *__ctorm_path_next_name(key)   = 0;
-      *__ctorm_path_next_name(value) = 0;
+      *_ctorm_path_next_name(key)   = 0;
+      *_ctorm_path_next_name(value) = 0;
 
       ctorm_pair_add(&req->params, key, value);
       continue;
@@ -397,7 +406,7 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
 
   // call the routes, stop if a route cancels the request
   for (cur = app->routes; !req->cancel && cur != NULL; cur = cur->next) {
-    if (__ctorm_app_route_matches(cur, req)) {
+    if (_ctorm_app_route_matches(cur, req)) {
       cur->handler(req, res);
       found_route = true;
     }

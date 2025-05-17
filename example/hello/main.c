@@ -22,8 +22,10 @@ int main() {
   GET(app, "/", GET_index);
 
   // run the app
-  if (!ctorm_app_run(app, "0.0.0.0:8080"))
+  if (!ctorm_app_run(app, "0.0.0.0:8080")) {
     ctorm_fail("failed to start the app: %s", ctorm_error());
+    ctorm_fail("details: %s", ctorm_details());
+  }
 
   // clean up
   ctorm_app_free(app);

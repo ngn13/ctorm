@@ -14,6 +14,7 @@
 
 #include "req.h"
 #include "res.h"
+#include <pthread.h>
 
 #ifdef CTORM_EXPORT
 
@@ -45,9 +46,11 @@ struct ctorm_routemap {
 
 typedef struct ctorm_app {
   bool running; // is the app running?
+  int  error;   // last error the app encountered
 
-  pthread_t       thread; // thread the app is running in
-  pthread_mutex_t mutex;  // mutex locked before modifying the app
+  pthread_t       thread;    // thread the app is running in
+  pthread_mutex_t req_mutex; // locked before processing a request
+  pthread_mutex_t mod_mutex; // locked before modifying the app
 
   // routes
   ctorm_route_t          default_route;
@@ -91,12 +94,12 @@ ctorm_app_t *ctorm_app_new(ctorm_config_t *config);
  * ctorm_app_stop
 
  * @param[in] app:  ctorm server application
- * @param[in] host: Host address that the web server should start on
+ * @param[in] addr: Host address that the web server should start on
  * @return          Returns false if an error occurs, you can obtain the error
  *                  from the errno
 
 */
-bool ctorm_app_run(ctorm_app_t *app, const char *host);
+bool ctorm_app_run(ctorm_app_t *app, const char *addr);
 
 /*!
 

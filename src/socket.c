@@ -4,7 +4,6 @@
 #include "conn.h"
 #include "pool.h"
 #include "uri.h"
-#include "util.h"
 #include "log.h"
 
 #include <netinet/tcp.h>
@@ -70,7 +69,7 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
 
   */
   if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &flag, sizeof(flag)) < 0) {
-    errno = CTORM_ERR_SOCKET_OPT_FAIL;
+    ctorm_error_set(app, CTORM_ERR_SOCKET_OPT_FAIL);
     return false;
   }
 
@@ -82,7 +81,7 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
 
   */
   if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag)) < 0) {
-    errno = CTORM_ERR_SOCKET_OPT_FAIL;
+    ctorm_error_set(app, CTORM_ERR_SOCKET_OPT_FAIL);
     return false;
   }
 
@@ -105,53 +104,59 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
 }
 
 bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
-  struct addrinfo info;
-  socklen_t       addrlen = 0;
-  int             sockfd = -1, flag = 1;
   ctorm_conn_t   *con = NULL;
+  struct addrinfo info;
+  socklen_t       len  = 0;
+  int             flag = 1, sock = -1;
   bool            ret = false;
 
   // parse the host to get the addrinfo structure
   if (!ctorm_socket_resolve(addr, &info)) {
     debug("failed to resolve the address: %s", ctorm_error());
+    ctorm_error_set(app, CTORM_ERR_RESOLVE_FAIL);
     goto end;
   }
 
   // create a new TCP socket
-  if ((sockfd = socket(info.ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+  if ((sock = socket(info.ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     debug("failed to create socket: %s", strerror(errno));
+    ctorm_error_set(app, CTORM_ERR_SOCKET_FAIL);
     goto end;
   }
 
+  debug("created socket %d for %p", sock, app);
+
   // prevent EADDRINUSE
-  if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
+  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
     debug("failed to set the REUSEADDR: %s", strerror(errno));
-    errno = CTORM_ERR_SOCKET_OPT_FAIL;
+    ctorm_error_set(app, CTORM_ERR_SOCKET_OPT_FAIL);
     goto end;
   }
 
   // bind and listen on the provided host
-  if (bind(sockfd, info.ai_addr, info.ai_addrlen) != 0) {
+  if (bind(sock, info.ai_addr, info.ai_addrlen) < 0) {
     debug("failed to bind the socket: %s", strerror(errno));
+    ctorm_error_set(app, CTORM_ERR_BIND_FAIL);
     goto end;
   }
 
-  if (listen(sockfd, app->config->max_connections) != 0) {
+  if (listen(sock, app->config->max_connections) < 0) {
     debug("failed to listen socket: %s", strerror(errno));
+    ctorm_error_set(app, CTORM_ERR_LISTEN_FAIL);
     goto end;
   }
 
   // new connection handler loop
   while (app->running) {
-    if (con == NULL && (con = ctorm_conn_new()) == NULL) {
+    if (NULL == con && (con = ctorm_conn_new()) == NULL) {
       debug("failed to create a new connection: %s", ctorm_error());
-      goto end;
+      goto end; // errno set by ctorm_conn_new
     }
 
-    addrlen  = sizeof(con->addr);
+    len      = sizeof(con->addr);
     con->app = app;
 
-    if ((con->socket = accept(sockfd, &con->addr, &addrlen)) <= 0) {
+    if ((con->socket = accept(sock, &con->addr, &len)) <= 0) {
       if (errno == EINTR) {
         debug("accept got interrupted");
         break;
@@ -161,39 +166,34 @@ bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
       goto end;
     }
 
-    debug("accepted a new connection (con: %p, socket %d)", con, con->socket);
+    debug("accepted new connection with socket %d: %p", con->socket, con);
 
     if (!ctorm_socket_set_opts(app, con->socket)) {
-      error("failed to setsockopt for connection (con: %p, socket %d): %s",
-          con,
-          con->socket,
-          strerror(errno));
+      debug("setsockopt failed for %p: %s", con, strerror(errno));
       errno = CTORM_ERR_SOCKET_OPT_FAIL;
       goto end;
     }
 
-    debug("creating a thread for connection (con: %p, socket %d)",
-        con,
-        con->socket);
-    ctorm_pool_add(app->pool, (func_t)ctorm_conn_handle, (void *)con);
+    debug("adding %p to the thread pool", con);
+    ctorm_pool_add(
+        app->pool, (ctorm_work_func_t)ctorm_conn_handle, (void *)con);
 
     con = NULL;
   }
 
   // app is no longer running
   debug("stopping the connection handler");
+  ctorm_error_clear(app);
   ret = true;
 
 end:
-  // close the socket
-  if (sockfd > 0)
-    close(sockfd);
+  // close the server socket
+  if (sock != -1)
+    close(sock);
 
   // free the unused connection structure
-  if (NULL != con) {
-    debug("freeing unused connection (%p)", con);
+  if (NULL != con)
     ctorm_conn_free(con);
-  }
 
   return ret;
 }

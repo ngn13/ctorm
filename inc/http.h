@@ -180,6 +180,14 @@ struct ctorm_http_method_desc {
 // list of HTTP methods, indexed by ctorm_http_method_t
 extern struct ctorm_http_method_desc ctorm_http_methods[];
 
+// commonly used HTTP headers
+#define CTORM_HTTP_HOST              "host"
+#define CTORM_HTTP_TRANSFER_ENCODING "transfer-encoding"
+#define CTORM_HTTP_CONTENT_LENGTH    "content-length"
+#define CTORM_HTTP_CONTENT_TYPE      "content-type"
+#define CTORM_HTTP_DATE              "date"
+#define CTORM_HTTP_SERVER            "server"
+
 // static values calculated at compile time
 #define CTORM_HTTP_VERSION_LEN 8   // "HTTP/x.x"
 #define CTORM_HTTP_METHOD_MAX  7   // "OPTIONS" (or "CONNECT")

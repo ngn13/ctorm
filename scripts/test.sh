@@ -7,6 +7,7 @@ examples=(
   "params"
   "locals"
   "middleware"
+  "multithread"
 )
 index="${1}"
 
@@ -14,9 +15,11 @@ function run_example(){
   echo "${1}: testing..."
 
   ./dist/example_${1} &
-  ./scripts/test_${1}.sh
+  sleep 1
 
+  ./scripts/test_${1}.sh
   res=$?
+
   kill -9 $!
 
   if [ $res -ne 0 ]; then

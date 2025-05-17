@@ -1,20 +1,21 @@
 #include "enc/json.h"
 #include "error.h"
+
 #include "http.h"
 #include "util.h"
+
 #include "res.h"
 #include "log.h"
 
+#include <sys/socket.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <unistd.h>
 
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
-
 #include <time.h>
 
 #define res_debug(f, ...)                                                      \
@@ -65,7 +66,7 @@ void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con) {
   res->code      = 200;
 
   ctorm_headers_init(&res->headers);
-  ctorm_headers_set(res->headers, "server", "ctorm", false);
+  ctorm_headers_set(res->headers, CTORM_HTTP_SERVER, "ctorm", false);
 
   struct tm *gmt;
   time_t     raw;
@@ -76,7 +77,7 @@ void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con) {
   char date[50];
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
   strftime(date, 50, "%a, %d %b %Y %H:%M:%S GMT", gmt);
-  ctorm_res_set(res, "date", date);
+  ctorm_res_set(res, CTORM_HTTP_DATE, date);
 }
 
 void ctorm_res_free(ctorm_res_t *res) {
@@ -178,15 +179,17 @@ bool ctorm_res_file(ctorm_res_t *res, char *path) {
 
   // HACK: maybe a structure that stores extensions and types would be better
   if (cu_endswith(path, ".html"))
-    ctorm_res_set(res, "content-type", "text/html; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/html; charset=utf-8");
   else if (cu_endswith(path, ".json"))
-    ctorm_res_set(res, "content-type", "application/json; charset=utf-8");
+    ctorm_res_set(
+        res, CTORM_HTTP_CONTENT_TYPE, "application/json; charset=utf-8");
   else if (cu_endswith(path, ".css"))
-    ctorm_res_set(res, "content-type", "text/css; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/css; charset=utf-8");
   else if (cu_endswith(path, ".js"))
-    ctorm_res_set(res, "content-type", "text/javascript; charset=utf-8");
+    ctorm_res_set(
+        res, CTORM_HTTP_CONTENT_TYPE, "text/javascript; charset=utf-8");
   else
-    ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/plain; charset=utf-8");
 
   return true;
 }
@@ -210,7 +213,7 @@ int ctorm_res_fmt(ctorm_res_t *res, const char *fmt, ...) {
 
   ret = vsnprintf(res->body, res->body_size + 1, fmt, argscp);
 
-  ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
+  ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/plain; charset=utf-8");
 
   va_end(args);
   va_end(argscp);
@@ -231,7 +234,7 @@ int ctorm_res_add(ctorm_res_t *res, const char *fmt, ...) {
   va_copy(argscp, args);
 
   if (NULL == res->body || res->body_size <= 0) {
-    ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/plain; charset=utf-8");
     vsize     = vsnprintf(NULL, 0, fmt, args);
     res->body = malloc(res->body_size + vsize + 1);
   } else {
@@ -262,7 +265,8 @@ bool ctorm_res_json(ctorm_res_t *res, cJSON *json) {
 
   res->body_size = cu_strlen(res->body);
 
-  ctorm_res_set(res, "content-type", "application/json; charset=utf-8");
+  ctorm_res_set(
+      res, CTORM_HTTP_CONTENT_TYPE, "application/json; charset=utf-8");
   return true;
 }
 
