@@ -200,7 +200,7 @@ extern uint64_t ctorm_http_header_name_max;  // max HTTP header name length
 extern uint64_t ctorm_http_header_value_max; // max HTTP header value length
 
 // initializes & calculates all the dynamic values
-void ctorm_http_load();
+void ctorm_http_load(void);
 
 // macros to check the HTTP response codes
 #define ctorm_http_code_is_valid(code)                                         \

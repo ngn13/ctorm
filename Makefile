@@ -99,7 +99,7 @@ check:
 	black -l 80 --check scripts/*.py
 
 lint:
-	clang-tidy --warnings-as-errors --config= $(CSRCS) $(HDRS)
+	clang-tidy --warnings-as-errors --config= $(CSRCS) $(HDRS) -- $(INCLUDE)
 
 clean:
 	rm -rf $(DISTDIR)

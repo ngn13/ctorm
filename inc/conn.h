@@ -14,7 +14,7 @@ typedef struct {
 
 #ifndef CTORM_EXPORT
 
-ctorm_conn_t *ctorm_conn_new();
+ctorm_conn_t *ctorm_conn_new(void);
 void          ctorm_conn_free(ctorm_conn_t *con);
 
 void ctorm_conn_handle(ctorm_conn_t *con);

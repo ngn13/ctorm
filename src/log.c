@@ -67,9 +67,7 @@ void ctorm_info(const char *msg, ...) {
 }
 
 void ctorm_debug(const char *msg, ...) {
-  if (CTORM_DEBUG == 0)
-    return;
-
+#if CTORM_DEBUG
   va_list args;
   va_start(args, msg);
 
@@ -78,6 +76,7 @@ void ctorm_debug(const char *msg, ...) {
   fprintf(stdout, "\n");
 
   va_end(args);
+#endif
 }
 
 void ctorm_fail(const char *msg, ...) {
