@@ -1,12 +1,11 @@
 #include "headers.h"
 #include "error.h"
 #include "util.h"
-#include "log.h"
 
 #include <string.h>
 #include <stdlib.h>
 
-uint64_t _headers_hasher(const char *data) {
+uint64_t _ctorm_headers_hasher(const char *data) {
   uint64_t sum = 0;
 
   for (; *data != 0; data++)
@@ -15,10 +14,7 @@ uint64_t _headers_hasher(const char *data) {
   return sum;
 }
 
-#define headers_hash(k) (_headers_hasher(k) % HEADER_TABLE_SIZE)
-#define headers_list(k) (&(headers[headers_hash(k)]))
-
-void _headers_free_single(struct ctorm_header *header) {
+void _ctorm_headers_free_single(struct ctorm_header *header) {
   if (header->allocated) {
     free(header->name);
     free(header->value);
@@ -27,14 +23,17 @@ void _headers_free_single(struct ctorm_header *header) {
   free(header);
 }
 
-void _headers_free_list(struct ctorm_header *cur) {
+void _ctorm_headers_free_list(struct ctorm_header *cur) {
   struct ctorm_header *next = cur;
 
   while (NULL != (cur = next)) {
     next = cur->next;
-    _headers_free_single(cur);
+    _ctorm_headers_free_single(cur);
   }
 }
+
+#define headers_hash(k) (_ctorm_headers_hasher(k) % HEADER_TABLE_SIZE)
+#define headers_list(k) (&(headers[headers_hash(k)]))
 
 bool ctorm_headers_cmp(const char *s1, const char *s2) {
   while (*s1 != 0 && *s2 != 0) {
@@ -49,7 +48,7 @@ bool ctorm_headers_cmp(const char *s1, const char *s2) {
 
 void ctorm_headers_free(ctorm_headers_t headers) {
   for (uint8_t i = 0; i < HEADER_TABLE_SIZE; i++)
-    _headers_free_list(headers[i]);
+    _ctorm_headers_free_list(headers[i]);
 }
 
 bool ctorm_headers_next(ctorm_headers_t headers, ctorm_header_pos_t *pos) {
@@ -115,7 +114,7 @@ void ctorm_headers_del(ctorm_headers_t headers, char *name) {
   if (NULL == (cur = *head))
     return;
 
-  while (cur != NULL) {
+  while (NULL != cur) {
     if (ctorm_headers_cmp(cur->name, name))
       break;
 
@@ -123,10 +122,13 @@ void ctorm_headers_del(ctorm_headers_t headers, char *name) {
     cur = cur->next;
   }
 
+  if (NULL == cur)
+    return;
+
   if (NULL == pre)
     *head = cur->next;
   else
     pre->next = cur->next;
 
-  _headers_free_single(cur);
+  _ctorm_headers_free_single(cur);
 }

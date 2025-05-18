@@ -61,7 +61,7 @@ void ctorm_uri_free(ctorm_uri_t *uri) {
   free(uri->fragment);
 
   // clear the ctorm_uri_t structure
-  bzero(uri, sizeof(*uri));
+  memset(uri, 0, sizeof(*uri));
 }
 
 bool ctorm_uri_parse(ctorm_uri_t *uri, char *str) {
@@ -109,10 +109,10 @@ bool ctorm_uri_parse(ctorm_uri_t *uri, char *str) {
   str++;
 
   if (cu_startswith(str, "//") &&
-      NULL == (str = ctorm_uri_parse_auth(uri, str += 2)))
+      NULL == (str = ctorm_uri_parse_auth(uri, str + 2)))
     goto fail; // errno set by ctorm_uri_parse_auth()
 
-  if (NULL == (str = ctorm_uri_parse_path(uri, str)))
+  if (NULL == ctorm_uri_parse_path(uri, str))
     goto fail; // errno set by ctorm_uri_parse_path()
 
   return true;
@@ -223,7 +223,7 @@ char *ctorm_uri_parse_host(ctorm_uri_t *uri, char *addr) {
   char port[URI_PORT_MAX + 1];
   int  indx = 0, num = 0;
 
-  bzero(port, sizeof(port));
+  memset(port, 0, sizeof(port));
 
   for (addr++; *addr != 0 && *addr != '/'; addr++) {
     if (indx >= URI_PORT_MAX) {

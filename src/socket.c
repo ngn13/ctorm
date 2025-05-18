@@ -21,6 +21,7 @@
 bool ctorm_socket_resolve(char *addr, struct addrinfo *info) {
   struct addrinfo *hostinfo = NULL, *cur = NULL;
   ctorm_uri_t      uri;
+  bool             ret = false;
 
   ctorm_uri_init(&uri);
 
@@ -33,7 +34,7 @@ bool ctorm_socket_resolve(char *addr, struct addrinfo *info) {
     return false; // errno set by getaddrinfo()
   }
 
-  for (cur = hostinfo; cur != NULL; cur = cur->ai_next) {
+  for (cur = hostinfo; NULL != cur; cur = cur->ai_next) {
     if (AF_INET == cur->ai_family) {
       ((struct sockaddr_in *)cur->ai_addr)->sin_port = htons(uri.port);
       break;
@@ -46,20 +47,24 @@ bool ctorm_socket_resolve(char *addr, struct addrinfo *info) {
   }
 
   // copy the addrinfo for the host to the provided info structure
-  if (NULL != cur)
+  if (NULL != cur) {
     memcpy(info, cur, sizeof(*cur));
+    ret = true;
+  }
 
   // free the host addrinfo
   freeaddrinfo(hostinfo);
   ctorm_uri_free(&uri);
 
-  return true;
+  return ret;
 }
 
 bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
   struct timeval timeout;
-  bzero(&timeout, sizeof(timeout));
-  int flag = 1;
+  int            flag = 1;
+
+  // clear the timeout structure
+  memset(&timeout, 0, sizeof(timeout));
 
   /*
 
@@ -156,7 +161,7 @@ bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
     len      = sizeof(con->addr);
     con->app = app;
 
-    if ((con->socket = accept(sock, &con->addr, &len)) <= 0) {
+    if ((con->socket = accept(sock, &con->addr, &len)) < 0) {
       if (errno == EINTR) {
         debug("accept got interrupted");
         break;

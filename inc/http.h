@@ -8,8 +8,7 @@
  * @brief HTTP methods
 
  * This enum stores different types of HTTP request methods as defined in the
- * section "4. Request Methods" of RFC 7231. Only method that is not implemented
- * is the CONNECT method as it's practically useless in a library like ctorm.
+ * section "4. Request Methods" of RFC 7231.
 
 */
 typedef enum {
@@ -31,7 +30,7 @@ typedef enum {
    *       a body. This is also the case for ctorm.
 
   */
-  CTORM_HTTP_GET = 1,
+  CTORM_HTTP_GET,
 
   /*!
 
@@ -157,8 +156,8 @@ typedef enum {
 
 */
 typedef enum {
-  CTORM_HTTP_1_0 = 1, /// HTTP/1.0 (RFC 1945)
-  CTORM_HTTP_1_1,     /// HTTP/1.1 (RFC 7230, 7231)
+  CTORM_HTTP_1_0, /// HTTP/1.0 (RFC 1945)
+  CTORM_HTTP_1_1, /// HTTP/1.1 (RFC 7230, 7231)
 } ctorm_http_version_t;
 
 /// HTTP response code type
@@ -210,8 +209,8 @@ void ctorm_http_load();
   ((code) >= 400 && CTORM_HTTP_CODE_MAX >= (code))
 
 // get version/method from the string representation of it
-ctorm_http_version_t ctorm_http_version(char *version);
-ctorm_http_method_t  ctorm_http_method(char *method);
+bool ctorm_http_version(char *buf, ctorm_http_version_t *version);
+bool ctorm_http_method(char *buf, ctorm_http_method_t *method);
 
 /*
 

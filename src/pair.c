@@ -12,14 +12,13 @@ ctorm_pair_t *ctorm_pair_add(ctorm_pair_t **head, char *key, char *value) {
     return NULL;
   }
 
-  ctorm_pair_t *new = malloc(sizeof(ctorm_pair_t));
+  ctorm_pair_t *new = calloc(1, sizeof(ctorm_pair_t));
 
   if (NULL == new) {
     errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
 
-  bzero(new, sizeof(ctorm_pair_t));
   new->key   = key;
   new->value = value;
   new->next  = *head;

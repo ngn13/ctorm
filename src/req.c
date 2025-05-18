@@ -28,7 +28,8 @@
 
 #define req_recv(b, s, f) ctorm_conn_recv(req->con, b, s, f)
 
-int64_t _req_recv_until(ctorm_req_t *req, char *buf, int64_t max, char del) {
+int64_t _ctorm_req_recv_until(
+    ctorm_req_t *req, char *buf, int64_t max, char del) {
   int64_t indx = 0;
   char    cur  = 0;
 
@@ -51,11 +52,12 @@ int64_t _req_recv_until(ctorm_req_t *req, char *buf, int64_t max, char del) {
   }
 
   // we reached the max length, reset the buffer and return -1 for failure
-  bzero(buf, max);
+  memset(buf, 0, max);
   return -1;
 }
 
-int64_t _req_recv_alloc(ctorm_req_t *req, char **buf, int64_t max, char del) {
+int64_t _ctorm_req_recv_alloc(
+    ctorm_req_t *req, char **buf, int64_t max, char del) {
   int64_t indx = 0, size = 0;
   char    cur = 0;
 
@@ -81,7 +83,7 @@ int64_t _req_recv_alloc(ctorm_req_t *req, char **buf, int64_t max, char del) {
   return -1;
 }
 
-int32_t _req_recv_char(ctorm_req_t *req, char *c) {
+int32_t _ctorm_req_recv_char(ctorm_req_t *req, char *c) {
   if (NULL != c)
     return req_recv(c, 1, MSG_WAITALL) == 1 ? 1 : -1;
 
@@ -90,12 +92,12 @@ int32_t _req_recv_char(ctorm_req_t *req, char *c) {
   return tc;
 }
 
-#define req_recv_until(buf, max, del) _req_recv_until(req, buf, max, del)
-#define req_recv_alloc(buf, max, del) _req_recv_alloc(req, buf, max, del)
-#define req_recv_char(char)           _req_recv_char(req, char)
+#define req_recv_until(buf, max, del) _ctorm_req_recv_until(req, buf, max, del)
+#define req_recv_alloc(buf, max, del) _ctorm_req_recv_alloc(req, buf, max, del)
+#define req_recv_char(char)           _ctorm_req_recv_char(req, char)
 
 void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con) {
-  bzero(req, sizeof(*req));
+  memset(req, 0, sizeof(*req));
 
   // request stuff (not HTTP related)
   req->con    = con;
@@ -222,8 +224,8 @@ bool ctorm_req_recv(ctorm_req_t *req) {
   int64_t size = 0;
 
   // clear the method and the version buffer
-  bzero(http_method, sizeof(http_method));
-  bzero(http_version, sizeof(http_version));
+  memset(http_method, 0, sizeof(http_method));
+  memset(http_version, 0, sizeof(http_version));
 
   // receive the method from the request line
   if (req_recv_until(http_method, sizeof(http_method), ' ') < 0) {
@@ -231,7 +233,7 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     return false;
   }
 
-  if ((req->method = ctorm_http_method(http_method)) == 0) {
+  if (!ctorm_http_method(http_method, &req->method)) {
     req_debug("received an invalid HTTP method: %s", http_method);
     return false;
   }
@@ -278,7 +280,7 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     return false;
   }
 
-  if ((req->version = ctorm_http_version(http_version)) == 0) {
+  if (!ctorm_http_version(http_version, &req->version)) {
     req_debug("received an invalid HTTP version: %s", http_version);
     return false;
   }
@@ -296,7 +298,7 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     }
 
     // receive the header name
-    if ((size = req_recv_alloc(&name, ctorm_http_header_name_max, ':')) < 0) {
+    if ((size = req_recv_alloc(&name, ctorm_http_header_name_max, ':')) <= 0) {
       req_debug("failed to receive the HTTP header name");
       return false;
     }
@@ -322,7 +324,7 @@ bool ctorm_req_recv(ctorm_req_t *req) {
     }
 
     // receive the header value
-    if ((size = req_recv_alloc(&value, ctorm_http_header_value_max, '\r')) <
+    if ((size = req_recv_alloc(&value, ctorm_http_header_value_max, '\r')) <=
         0) {
       req_debug("failed to receive the HTTP header value");
       free(name);
@@ -453,7 +455,7 @@ ctorm_query_t *ctorm_req_form(ctorm_req_t *req) {
   }
 
   char data[size];
-  bzero(data, size);
+  memset(data, 0, size);
 
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()
@@ -482,7 +484,7 @@ cJSON *ctorm_req_json(ctorm_req_t *req) {
 
   // receive all the data to provide to ctorm_json_decode()
   char data[size + 1];
-  bzero(data, size + 1);
+  memset(data, 0, size + 1);
 
   if (ctorm_req_body(req, data, size) != size)
     return NULL; // errno set by ctorm_req_body()

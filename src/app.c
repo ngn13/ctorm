@@ -18,15 +18,16 @@
 
 */
 
+#include "socket.h"
 #include "error.h"
+
 #include "http.h"
 #include "pair.h"
-#include "req.h"
-#include "socket.h"
-
 #include "pool.h"
 #include "util.h"
 
+#include "req.h"
+#include "res.h"
 #include "app.h"
 #include "log.h"
 
@@ -51,7 +52,7 @@ pthread_mutex_t _ctorm_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
     }                                                                          \
   } while (0)
 
-void _app_signal_handler(int sig) {
+void _ctorm_app_signal_handler(int sig) {
   cu_unused(sig);
 
   if (NULL == _ctorm_signal_head)
@@ -81,7 +82,7 @@ void _app_signal_handler(int sig) {
   pthread_mutex_unlock(&_ctorm_signal_mutex);
 }
 
-void __ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
+void _ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
   cu_unused(req);
   ctorm_res_set(res, "content-type", "text");
   ctorm_res_body(res, "not found", 0);
@@ -89,15 +90,12 @@ void __ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
 }
 
 ctorm_app_t *ctorm_app_new(ctorm_config_t *config) {
-  ctorm_app_t *app = malloc(sizeof(ctorm_app_t));
+  ctorm_app_t *app = calloc(1, sizeof(ctorm_app_t));
 
   if (NULL == app) {
     errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
-
-  // clear the app structure
-  bzero(app, sizeof(ctorm_app_t));
 
   if (NULL == config) {
     if (NULL == (config = ctorm_config_new(NULL)))
@@ -110,7 +108,7 @@ ctorm_app_t *ctorm_app_new(ctorm_config_t *config) {
   else if (!ctorm_config_check(config))
     goto fail;
 
-  app->default_route = __ctorm_default_handler;
+  app->default_route = _ctorm_default_handler;
   app->config        = config;
   app->running       = false;
 
@@ -186,7 +184,7 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
     if (NULL == _ctorm_signal_head) {
       _ctorm_signal_head = app;
       sigemptyset(&sa.sa_mask);
-      sa.sa_handler = _app_signal_handler;
+      sa.sa_handler = _ctorm_app_signal_handler;
       sa.sa_flags   = 0;
       sigaction(SIGINT, &sa, NULL);
     }
@@ -369,6 +367,10 @@ bool _ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
       // duplicate the parameter name and the value and add it to the request
       if (NULL == (key = strdup(++route_pos)) ||
           NULL == (value = strdup(req_pos))) {
+        free(key);
+        free(value);
+        key = value = NULL;
+
         errno = CTORM_ERR_ALLOC_FAIL;
         goto end;
       }
@@ -405,7 +407,7 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
       ctorm_req_local(req, local->key, local->value);
 
   // call the routes, stop if a route cancels the request
-  for (cur = app->routes; !req->cancel && cur != NULL; cur = cur->next) {
+  for (cur = app->routes; !req->cancel && NULL != cur; cur = cur->next) {
     if (_ctorm_app_route_matches(cur, req)) {
       cur->handler(req, res);
       found_route = true;

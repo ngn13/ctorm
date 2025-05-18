@@ -8,15 +8,12 @@
 
 ctorm_config_t *ctorm_config_new(ctorm_config_t *config) {
   if (NULL == config)
-    config = malloc(sizeof(*config));
+    config = calloc(1, sizeof(*config));
 
   if (NULL == config) {
     errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
-
-  // clear the config
-  bzero(config, sizeof(*config));
 
   // set the default values
   config->max_connections = 1000;

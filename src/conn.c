@@ -28,14 +28,13 @@
       ##__VA_ARGS__)
 
 ctorm_conn_t *ctorm_conn_new() {
-  ctorm_conn_t *con = malloc(sizeof(ctorm_conn_t));
+  ctorm_conn_t *con = calloc(1, sizeof(ctorm_conn_t));
 
   if (NULL == con) {
     errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
 
-  bzero(con, sizeof(*con));
   return con;
 }
 

@@ -12,7 +12,7 @@ typedef struct {
 
 // cu_str_t stuff
 #define cu_str_empty(s) (NULL == (s)->buf || 0 == (s)->len)
-#define cu_str_clear(s) bzero((s), sizeof(cu_str_t))
+#define cu_str_clear(s) memset((s), 0, sizeof(cu_str_t))
 
 // char stuff
 #define cu_is_digit(c) ((c) >= '0' && (c) <= '9')
@@ -21,9 +21,9 @@ typedef struct {
 #define cu_lower(c) (c | 32)
 
 // other stuff
-#define __cu_macro_to_str(x) #x
-#define cu_macro_to_str(x)   __cu_macro_to_str(x)
-#define cu_unused(p)         (void)p
+#define _cu_macro_to_str(x) #x
+#define cu_macro_to_str(x)  _cu_macro_to_str(x)
+#define cu_unused(p)        (void)p
 #define cu_null_check(p, e, r)                                                 \
   if (NULL == (p)) {                                                           \
     errno = e;                                                                 \

@@ -98,6 +98,9 @@ check:
 	clang-format -n --Werror -style=file $(CSRCS) $(HDRS) example/*/*.c
 	black -l 80 --check scripts/*.py
 
+lint:
+	clang-tidy --warnings-as-errors --config= $(CSRCS) $(HDRS)
+
 clean:
 	rm -rf $(DISTDIR)
 
@@ -113,4 +116,4 @@ test:
 	make example
 	./scripts/test.sh
 
-.PHONY: install uninstall docs format check clean example test
+.PHONY: install uninstall docs format check lint clean example test

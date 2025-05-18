@@ -27,7 +27,7 @@
 
 #define res_send(b, s, f) ctorm_conn_send(res->con, b, s, f)
 
-bool _res_send_str(ctorm_res_t *res, char *str) {
+bool _ctorm_res_send_str(ctorm_res_t *res, char *str) {
   if (NULL == str)
     return true;
 
@@ -37,7 +37,7 @@ bool _res_send_str(ctorm_res_t *res, char *str) {
   return false;
 }
 
-void _res_send_fmt(ctorm_res_t *res, char *fmt, ...) {
+void _ctorm_res_send_fmt(ctorm_res_t *res, char *fmt, ...) {
   int     size = 0;
   va_list args, args_cp;
 
@@ -49,17 +49,18 @@ void _res_send_fmt(ctorm_res_t *res, char *fmt, ...) {
   vsnprintf(buf, size, fmt, args_cp);
 
   res_send(buf, size - 1, MSG_NOSIGNAL);
+
   va_end(args);
+  va_end(args_cp);
 }
 
-#define res_send_str(str)      _res_send_str(res, str)
-#define res_send_fmt(fmt, ...) _res_send_fmt(res, fmt, ##__VA_ARGS__)
+#define res_send_str(str)      _ctorm_res_send_str(res, str)
+#define res_send_fmt(fmt, ...) _ctorm_res_send_fmt(res, fmt, ##__VA_ARGS__)
 
 void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con) {
-  bzero(res, sizeof(*res));
+  memset(res, 0, sizeof(*res));
 
   res->con       = con;
-  res->version   = -1;
   res->body_size = 0;
   res->body      = NULL;
   res->body_fd   = -1;
@@ -133,9 +134,16 @@ uint64_t ctorm_res_body(ctorm_res_t *res, char *data, uint64_t size) {
   if (size <= 0)
     res->body_size = cu_strlen(data);
 
-  res->body = malloc(res->body_size);
-  memcpy(res->body, data, res->body_size);
+  if (res->body_size <= 0)
+    return 0;
 
+  if (NULL == (res->body = malloc(res->body_size))) {
+    errno          = CTORM_ERR_ALLOC_FAIL;
+    res->body_size = 0;
+    return 0;
+  }
+
+  memcpy(res->body, data, res->body_size);
   return res->body_size;
 }
 

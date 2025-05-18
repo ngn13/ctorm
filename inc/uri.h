@@ -10,7 +10,7 @@ typedef struct {
 #ifndef CTORM_EXPORT
 #include <stdbool.h>
 
-#define ctorm_uri_init(uri) bzero((uri), sizeof(ctorm_uri_t))
+#define ctorm_uri_init(uri) memset((uri), 0, sizeof(ctorm_uri_t))
 void ctorm_uri_free(ctorm_uri_t *uri);
 
 bool  ctorm_uri_parse(ctorm_uri_t *uri, char *str);

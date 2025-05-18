@@ -47,29 +47,37 @@ void ctorm_http_load() {
   _ctorm_http_loaded = true;
 }
 
-ctorm_http_version_t ctorm_http_version(char *version) {
-  if (NULL == version)
-    return 0;
+bool ctorm_http_version(char *buf, ctorm_http_version_t *version) {
+  if (NULL == buf || NULL == version)
+    return false;
 
-  if (cu_streq(version, "HTTP/1.1"))
-    return CTORM_HTTP_1_1;
-  else if (cu_streq(version, "HTTP/1.0"))
-    return CTORM_HTTP_1_0;
+  if (cu_streq(buf, "HTTP/1.1")) {
+    *version = CTORM_HTTP_1_1;
+    return true;
+  }
 
-  return 0;
+  else if (cu_streq(buf, "HTTP/1.0")) {
+    *version = CTORM_HTTP_1_0;
+    return true;
+  }
+
+  return false;
 }
 
-ctorm_http_method_t ctorm_http_method(char *method) {
-  if (NULL == method)
-    return 0;
+bool ctorm_http_method(char *buf, ctorm_http_method_t *method) {
+  if (NULL == buf || NULL == method)
+    return false;
 
   struct ctorm_http_method_desc *desc = &ctorm_http_methods[0];
 
-  for (; NULL != desc->name; desc++)
-    if (cu_streq((char *)desc->name, method))
-      return desc - &ctorm_http_methods[0] + 1;
+  for (; NULL != desc->name; desc++) {
+    if (cu_streq((char *)desc->name, buf)) {
+      *method = desc - &ctorm_http_methods[0] + 1;
+      return true;
+    }
+  }
 
-  return 0;
+  return false;
 }
 
 bool ctorm_http_is_valid_header_name(char *name, uint64_t size) {
