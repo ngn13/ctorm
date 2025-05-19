@@ -14,7 +14,6 @@ if(!ctorm_app_run(app, argv[1])){
         ctorm_fail("you specified an invalid host address");
     else
         ctorm_fail("something else went wrong: %d", errno);
-    return EXIT_FAILURE;
 }
 ```
 
@@ -25,10 +24,8 @@ See [errors.h](../inc/error.h) for the full list of error codes.
 To get the string description of an error, you can use `ctorm_error`:
 
 ```c
-if(!ctorm_app_run(app, "0.0.0.0:8080")){
+if(!ctorm_app_run(app, "0.0.0.0:8080"))
     ctorm_fail("something went wrong: %s", ctorm_error());
-    return EXIT_FAILURE;
-}
 ```
 
 Or you can get the description of a specific error code:
@@ -47,7 +44,6 @@ error, which is essentially the saved, previous `errno`, you can use the
 if (!ctorm_app_run(app, "0.0.0.0:8080")) {
     ctorm_fail("failed to start the app: %s", ctorm_error());
     ctorm_fail("details: %s", ctorm_details());
-    return EXIT_FAILURE;
 }
 ```
 

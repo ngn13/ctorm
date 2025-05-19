@@ -129,6 +129,5 @@ If you want to pass a variable to all the routes, you can use locals:
 ctorm_app_local(app, "config", &config);
 ```
 
-To access the local from a route or the middleware handler, you can use
-`REQ_LOCAL` or `ctorm_req_local`. See the [request documentation](req.md) for
-more information.
+To access the local from a route, you can use `REQ_LOCAL` or `ctorm_req_local`.
+See the [request documentation](req.md) for more information.

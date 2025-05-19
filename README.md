@@ -103,7 +103,7 @@ make install
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
   // send the "Hello world!" message
-  RES_SEND("Hello world!");
+  RES_BODY("Hello world!");
 }
 
 int main() {
