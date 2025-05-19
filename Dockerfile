@@ -1,4 +1,5 @@
 FROM debian
+ARG TARGETARCH
 
 RUN apt update && \
     apt install --no-install-recommends -y \
@@ -10,7 +11,7 @@ COPY src      ./src
 COPY inc      ./inc
 COPY Makefile ./
 
-RUN make
+RUN make ARCH=$TARGETARCH
 RUN make install
 
 WORKDIR /

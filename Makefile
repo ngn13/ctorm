@@ -23,7 +23,7 @@ export MANDIR
 CSRCS  = $(shell find src/ -type f -name '*.c')
 ifeq ($(ARCH), x86_64)
   SSRCS  = $(shell find src/amd64 -type f -name '*.S')
-else ifeq ($(ARCH), i386)
+else ifeq ($(ARCH),$(filter $(ARCH),i386 386))
   SSRCS  = $(shell find src/i386 -type f -name '*.S')
 else
   $(error unsupported architecture: $(ARCH))
