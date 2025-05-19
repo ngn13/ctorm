@@ -8,8 +8,9 @@
 /*!
 
  * @file
- * @brief Header file that contains all the application, request
- *        and response macros
+ * @brief Header file that contains all the application, request and response
+ *        macros. Do not include any other file to use the ctorm library in your
+ *        application.
 
  * @section LICENSE
  * This program is free software: you can redistribute it and/or modify
@@ -28,355 +29,174 @@
 */
 
 #pragma once
-
 #define CTORM_EXPORT
 
 #include "app.h"
 #include "req.h"
 #include "res.h"
 #include "log.h"
-#include "errors.h"
+#include "error.h"
 
 /*!
 
- * Create a route that will handle all HTTP method requests
- * for a given path
+ * Create a route that will handle all HTTP method requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define ALL(app, path, func) ctorm_app_add(app, NULL, false, path, func)
+#define ALL(app, path, func) ctorm_app_add(app, -1, path, func)
 
 /*!
 
- * Create a route that will handle all HTTP GET requests
- * for a given path
+ * Create a route that will handle all HTTP GET requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define GET(app, path, func) ctorm_app_add(app, "GET", false, path, func)
+#define GET(app, path, func) ctorm_app_add(app, CTORM_HTTP_GET, path, func)
 
 /*!
 
- * Create a route that will handle all HTTP PUT requests
- * for a given path
+ * Create a route that will handle all HTTP HEAD requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define PUT(app, path, func) ctorm_app_add(app, "PUT", false, path, func)
+#define HEAD(app, path, func) ctorm_app_add(app, CTORM_HTTP_HEAD, path, func)
 
 /*!
 
- * Create a route that will handle all HTTP HEAD requests
- * for a given path
+ * Create a route that will handle all HTTP POST requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define HEAD(app, path, func) ctorm_app_add(app, "HEAD", false, path, func)
+#define POST(app, path, func) ctorm_app_add(app, CTORM_HTTP_POST, path, func)
 
 /*!
 
- * Create a route that will handle all HTTP POST requests
- * for a given path
+ * Create a route that will handle all HTTP PUT requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define POST(app, path, func) ctorm_app_add(app, "POST", false, path, func)
+#define PUT(app, path, func) ctorm_app_add(app, CTORM_HTTP_PUT, path, func)
 
 /*!
 
- * Create a route that will handle all HTTP DELETE requests
- * for a given path
+ * Create a route that will handle all HTTP DELETE requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define DELETE(app, path, func) ctorm_app_add(app, "DELETE", false, path, func)
+#define DELETE(app, path, func)                                                \
+  ctorm_app_add(app, CTORM_HTTP_DELETE, path, func)
 
 /*!
 
- * Create a route that will handle all HTTP OPTIONS requests
- * for a given path
+ * Create a route that will handle all HTTP OPTIONS requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Route path
- * @param[in] func Route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define OPTIONS(app, path, func) ctorm_app_add(app, "OPTIONS", false, path, func)
+#define OPTIONS(app, path, func)                                               \
+  ctorm_app_add(app, CTORM_HTTP_OPTIONS, path, func)
 
 /*!
 
- * Create a middleware that will handle all HTTP method requests
- * for a given path
+ * Create a route that will handle all HTTP TRACE requests for a given path
 
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
-
-*/
-#define MIDDLEWARE_ALL(app, path, func) ctorm_app_add(app, NULL, true, path, func)
-
-/*!
-
- * Create a middleware that will handle all HTTP GET requests
- * for a given path
-
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
+ * @param[in] app:  Web server created with @ref ctorm_app_new
+ * @param[in] path: Route path
+ * @param[in] func: Route handler function, see @ref ctorm_route_t
 
 */
-#define MIDDLEWARE_GET(app, path, func) ctorm_app_add(app, "GET", true, path, func)
+#define TRACE(app, path, func) ctorm_app_add(app, CTORM_HTTP_TRACE, path, func)
 
-/*!
-
- * Create a middleware that will handle all HTTP PUT requests
- * for a given path
-
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
-
-*/
-#define MIDDLEWARE_PUT(app, path, func) ctorm_app_add(app, "PUT", true, path, func)
-
-/*!
-
- * Create a middleware that will handle all HTTP HEAD requests
- * for a given path
-
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
-
-*/
-#define MIDDLEWARE_HEAD(app, path, func) ctorm_app_add(app, "HEAD", true, path, func)
-
-/*!
-
- * Create a middleware that will handle all HTTP POST requests
- * for a given path
-
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
-
-*/
-#define MIDDLEWARE_POST(app, path, func) ctorm_app_add(app, "POST", true, path, func)
-
-/*!
-
- * Create a middleware that will handle all HTTP DELETE requests
- * for a given path
-
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
-
-*/
-#define MIDDLEWARE_DELETE(app, path, func) ctorm_app_add(app, "DELETE", true, path, func)
-
-/*!
-
- * Create a middleware that will handle all HTTP OPTIONS requests
- * for a given path
-
- * @param[in] app  ctorm web server application
- * @param[in] path Middleware route path
- * @param[in] func Middleware route handler function, see @ref ctorm_route_t
-
-*/
-#define MIDDLEWARE_OPTIONS(app, path, func) ctorm_app_add(app, "OPTIONS", true, path, func)
-
-/*!
-
- * Get request method name
- * @return HTTP method name ("GET", "POST" etc.)
-
-*/
+//! Macro for @ref ctorm_req_method
 #define REQ_METHOD() ctorm_req_method(req)
 
-/*!
-
- * Get request body size
- * @return Unread request body size, 0 if all the body
- *         is read or the request does not have a body
-
-*/
-#define REQ_BODY_SIZE() ctorm_req_body_size(req)
-
-/*!
-
- * Read specific amount of bytes from the request body into a
- * specified buffer, if there are less bytes left in the request body
- * than the specified amount of bytes, then this function will read less
- * bytes into the buffer than the specified amount
-
- * @param[in] buffer Character buffer
- * @param[in] size   Amount of bytes to copy into the buffer
- * @return Amount of read bytes
-
-*/
+//! Macro for @ref ctorm_req_body
 #define REQ_BODY(buffer, size) ctorm_req_body(req, buffer, size)
 
-/*!
-
- * Get a request header value by name
- * @param[in] header Header name
- * @return Header value
-
-*/
+//! Macro for @ref ctorm_req_get
 #define REQ_GET(header) ctorm_req_get(req, header)
 
-/*!
-
- * Get URL query value by name
- * @param[in] query URL query name
- * @return Query value
-
-*/
+//! Macro for @ref ctorm_req_query
 #define REQ_QUERY(query) ctorm_req_query(req, query)
 
-/*!
-
- * Get URL parameter value by name
- * @param[in] param URL parameter name
- * @return Parameter value
-
-*/
+//! Macro for @ref ctorm_req_param
 #define REQ_PARAM(param) ctorm_req_param(req, param)
 
-/*!
+//! Macro for @ref ctorm_req_local
+#define REQ_LOCAL(name, value) ctorm_req_local(req, name, value)
 
- * Get or set a local
- * @param[in] name Local name
- * @param[in] ...  Local value
- * @return Local value
-
-*/
-#define REQ_LOCAL(local, ...) ctorm_req_local(req, local, ##__VA_ARGS__, NULL)
-
-/*!
-
- * Parse URL form encoded request body
- * @return URL decoded body structure
-
-*/
+//! Macro for @ref ctorm_req_form
 #define REQ_FORM() ctorm_req_form(req)
 
-/*!
-
- * Parse JSON encoded request body
- * @return JSON decoded body structure
-
-*/
+//! Macro for @ref ctorm_req_json
 #define REQ_JSON() ctorm_req_json(req)
 
-/*!
+//! Macro for @ref ctorm_req_ip
+#define REQ_IP(buf) ctorm_req_ip(req, buf)
 
- * Cancel a HTTP request so it doesn't get processed by
- * the next middlewares and routes
+//! Macro for @ref ctorm_req_addr
+#define REQ_ADDR() ctorm_req_addr(req)
 
-*/
+//! Cancel a HTTP request so it doesn't get processed by the next routes
 #define REQ_CANCEL() (req->cancel = true)
 
-/*!
+//! Get the HTTP request body size
+#define REQ_BODY_SIZE() (req->body_size < 0 ? 0 : req->body_size)
 
- * Set HTTP response code
- * @param[in] _code HTTP response code
-
-*/
-#define RES_CODE(_code) (res->code = _code)
+//! Macro for @ref ctorm_res_code
+#define RES_CODE(code) ctorm_res_code(res, code)
 
 /*!
 
- * Copy NULL terminated character buffer to the
- * response body
- * @param[in] str NULL terminated character buffer
+ * Copy NULL terminated character buffer to the response body. Same as calling
+ * @ref ctorm_res_body with 0 as the size
+
+ * @param[in] str: NULL terminated character buffer
+ * @return    Amount of copied bytes
 
 */
-#define RES_SEND(str) ctorm_res_send(res, str, 0)
+#define RES_BODY(str) ctorm_res_body(res, str, 0)
 
-/*!
+//! Macro for @ref ctorm_res_file
+#define RES_FILE(path) ctorm_res_file(res, path)
 
- * Copy a file contents to the response body
- * @param[in] path File path
-
-*/
-#define RES_SENDFILE(path) ctorm_res_sendfile(res, path)
-
-/*!
-
- * Set HTTP response header
- * @param[in] header HTTP header name
- * @param[in] value  HTTP header value
-
-*/
+//! Macro for @ref ctorm_res_set
 #define RES_SET(header, value) ctorm_res_set(res, header, value)
 
-/*!
-
- * Remove a HTTP response header by name
- * @param[in] header HTTP header name
-
-*/
+//! Macro for @ref ctorm_res_del
 #define RES_DEL(header) ctorm_res_del(res, header)
 
-/*!
-
- * Decode JSON body and copy it to the response body
- * @param[in] json JSON encoded data structure
-
-*/
+//! Macro for @ref ctorm_res_json
 #define RES_JSON(json) ctorm_res_json(res, json)
 
-/*!
-
- * Clear (empty) the response body
-
-*/
+//! Macro for @ref ctorm_res_clear
 #define RES_CLEAR() ctorm_res_clear(res)
 
-/*!
-
- * Set response body to a formatted string
- * @param[in] fmt Format string
- * @param[in] ... Arguments for the format string
-
-*/
+//! Macro for @ref ctorm_res_fmt
 #define RES_FMT(fmt, ...) ctorm_res_fmt(res, fmt, __VA_ARGS__)
 
-/*!
-
- * Append formatted string to the response body
- * @param[in] fmt Format string
- * @return Format string arguments
-
-*/
+//! Macro for @ref ctorm_res_add
 #define RES_ADD(fmt, ...) ctorm_res_add(res, fmt, __VA_ARGS__)
 
-/*!
-
- * Redirect response to another URL using the location
- * header
- * @param[in] url Redirect URL
-
-*/
-#define RES_REDIRECT(url) ctorm_res_redirect(res, url)
+//! Macro for @ref ctorm_res_redirect
+#define RES_REDIRECT(uri) ctorm_res_redirect(res, uri)

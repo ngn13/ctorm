@@ -1,71 +1,126 @@
 #include "http.h"
 #include "util.h"
+#include "log.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 
-method_map_t http_method_map[] = {
-    {.code = METHOD_GET,     .name = "GET",     .body = false},
-    {.code = METHOD_POST,    .name = "POST",    .body = true },
-    {.code = METHOD_PUT,     .name = "PUT",     .body = true },
-    {.code = METHOD_DELETE,  .name = "DELETE",  .body = true },
-    {.code = METHOD_OPTIONS, .name = "OPTIONS", .body = false},
-    {.code = METHOD_HEAD,    .name = "HEAD",    .body = false},
+// list of HTTP request method descriptions */
+struct ctorm_http_method_desc ctorm_http_methods[] = {
+    // ------ | ----------- | ----------- |
+    // HTTP   | allows body | require bdy |
+    // method | req  | res  | req  | res  |
+    // ------ | ---- | ---- | ---- | ---- |
+    {"GET",     false, true,  false, false},
+    {"HEAD",    false, false, false, false},
+    {"POST",    true,  true,  true,  false},
+    {"PUT",     true,  true,  true,  false},
+    {"DELETE",  true,  true,  false, false},
+    {"CONNECT", false, false, false, false},
+    {"OPTIONS", true,  true,  false, false},
+    {"TRACE",   false, true,  false, true },
+    // NULL entry marks the end of the list
+    {NULL,      false, false, false, false},
 };
 
-const char *http_versions[] = {"HTTP/1.1", "HTTP/1.0"};
+#define CTORM_HTTP_METHOD_COUNT                                                \
+  (sizeof(ctorm_http_methods) / sizeof(ctorm_http_methods[0]))
 
-http_static_t http_static;
+// is ctorm_http_load() ever called
+bool _ctorm_http_loaded = false;
 
-void http_static_load() {
-  http_static.method_count = sizeof(http_method_map) / sizeof(http_method_map[0]);
-  http_static.method_max   = HTTP_METHOD_MAX;
+// all the dynamic values
+uint32_t ctorm_http_target_max       = 0;
+uint32_t ctorm_http_header_name_max  = 0;
+uint32_t ctorm_http_header_value_max = 0;
 
-  http_static.version_count = sizeof(http_versions) / sizeof(char *);
-  http_static.version_len   = cu_strlen((char *)http_versions[0]);
+void ctorm_http_load() {
+  // check if ctorm_http_load() is already called
+  if (_ctorm_http_loaded)
+    return;
 
-  http_static.header_max = getpagesize();
-  http_static.body_max   = getpagesize();
-  http_static.path_max   = 2000;
+  ctorm_http_target_max       = getpagesize();
+  ctorm_http_header_name_max  = getpagesize();
+  ctorm_http_header_value_max = getpagesize() * 4;
 
-  http_static.res_code_min = 100; // 100 Continue
-  http_static.res_code_max = 511; // 511 Network Authentication Required
+  // all the dynamic HTTP are now loaded
+  _ctorm_http_loaded = true;
+}
 
-  for (int i = 1; i < http_static.method_count; i++) {
-    size_t cur_len = cu_strlen((char *)http_method_map[i].name);
-    if (http_static.method_max < cur_len)
-      http_static.method_max = cur_len;
+bool ctorm_http_version(char *buf, ctorm_http_version_t *version) {
+  if (NULL == buf || NULL == version)
+    return false;
+
+  if (cu_streq(buf, "HTTP/1.1")) {
+    *version = CTORM_HTTP_1_1;
+    return true;
   }
-}
 
-method_t http_method_id(char *name) {
-  if (NULL == name)
-    return -1;
+  else if (cu_streq(buf, "HTTP/1.0")) {
+    *version = CTORM_HTTP_1_0;
+    return true;
+  }
 
-  for (int i = 0; i < http_static.method_count; i++)
-    if (cu_streq(http_method_map[i].name, name))
-      return http_method_map[i].code;
-
-  return -1;
-}
-
-const char *http_method_name(int code) {
-  for (int i = 0; i < http_static.method_count; i++)
-    if (http_method_map[i].code == code)
-      return http_method_map[i].name;
-  return NULL;
-}
-
-bool http_method_has_body(int code) {
-  for (int i = 0; i < http_static.method_count; i++)
-    if (http_method_map[i].code == code)
-      return http_method_map[i].body;
   return false;
 }
 
-const char *http_version_get(char *version) {
-  for (int i = 0; i < http_static.version_count; i++)
-    if (cu_streq(http_versions[i], version))
-      return http_versions[i];
-  return NULL;
+bool ctorm_http_method(char *buf, ctorm_http_method_t *method) {
+  if (NULL == buf || NULL == method)
+    return false;
+
+  struct ctorm_http_method_desc *desc = &ctorm_http_methods[0];
+
+  for (; NULL != desc->name; desc++) {
+    if (cu_streq((char *)desc->name, buf)) {
+      *method = desc - &ctorm_http_methods[0];
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool ctorm_http_is_valid_header_name(char *name, uint32_t size) {
+  if (size > ctorm_http_header_name_max)
+    return false;
+
+  // header name should be a token as defined in "3.2. Header Fields"
+  for (; size > 0; size--, name++)
+    if (!cu_is_letter(*name) && !cu_is_digit(*name) &&
+        !cu_contains("!#$%&'*+-.^_`|~", *name))
+      return false;
+
+  return true;
+}
+
+bool ctorm_http_is_valid_header_value(char *value, uint32_t size) {
+  if (size > ctorm_http_header_value_max)
+    return false;
+
+  /*
+
+   * header value is defined "3.2. Header Fields" and contain a lot different
+   * a lot of different bytes
+
+   * this function does not handle obs-fold, caller should convert obs-fold to
+   * spaces as suggested in the RFC (for HTTP requests, this is done in req.c)
+
+  */
+  for (; size > 0; size--, value++) {
+    // VCHAR (RFC 5234, ABNF)
+    if ((uint8_t)*value >= 0x21 && (uint8_t)*value <= 0x7e)
+      continue;
+
+    // obs-text ("Appendix B. Collected ABNF")
+    if ((uint8_t)*value >= 0x80)
+      continue;
+
+    // SP / HTAB
+    if (*value == ' ' || *value == '\t')
+      continue;
+
+    return false;
+  }
+
+  return true;
 }

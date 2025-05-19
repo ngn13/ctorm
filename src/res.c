@@ -1,13 +1,13 @@
-#include "headers.h"
+#include "enc/json.h"
+#include "error.h"
 
-#include "errors.h"
+#include "http.h"
 #include "util.h"
+
 #include "res.h"
 #include "log.h"
 
 #include <sys/socket.h>
-#include <sys/stat.h>
-
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,18 +15,29 @@
 
 #include <errno.h>
 #include <stdio.h>
-
 #include <fcntl.h>
 #include <time.h>
 
-#define rdebug(f, ...)                                                                                                 \
-  debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD " Response " FG_CYAN "0x%p" FG_RESET ") " f,               \
-      res->con->socket,                                                                                                \
-      res,                                                                                                             \
+#define res_debug(f, ...)                                                      \
+  debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD                    \
+        " response " FG_CYAN "0x%p" FG_RESET ") " f,                           \
+      res->con->socket,                                                        \
+      res,                                                                     \
       ##__VA_ARGS__)
-#define rsend(b, s, f) connection_send(res->con, b, s, f)
 
-void __rprintf(ctorm_res_t *res, char *fmt, ...) {
+#define res_send(b, s, f) ctorm_conn_send(res->con, b, s, f)
+
+bool _ctorm_res_send_str(ctorm_res_t *res, char *str) {
+  if (NULL == str)
+    return true;
+
+  for (; *str != 0; str++)
+    res_send(str, 1, MSG_NOSIGNAL);
+
+  return false;
+}
+
+void _ctorm_res_send_fmt(ctorm_res_t *res, char *fmt, ...) {
   int     size = 0;
   va_list args, args_cp;
 
@@ -37,27 +48,26 @@ void __rprintf(ctorm_res_t *res, char *fmt, ...) {
   char buf[size];
   vsnprintf(buf, size, fmt, args_cp);
 
-  rsend(buf, size - 1, MSG_NOSIGNAL);
+  res_send(buf, size - 1, MSG_NOSIGNAL);
+
   va_end(args);
+  va_end(args_cp);
 }
 
-#define rprintf(f, ...) __rprintf(res, f, ##__VA_ARGS__)
-// #define rprintf(f, ...) dprintf(res->con->socket, f, ##__VA_ARGS__)
+#define res_send_str(str)      _ctorm_res_send_str(res, str)
+#define res_send_fmt(fmt, ...) _ctorm_res_send_fmt(res, fmt, ##__VA_ARGS__)
 
-void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
-  bzero(res, sizeof(*res));
+void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con) {
+  memset(res, 0, sizeof(*res));
 
   res->con       = con;
-  res->version   = NULL;
-  res->bodysize  = 0;
+  res->body_size = 0;
   res->body      = NULL;
-  res->bodyfd    = -1;
+  res->body_fd   = -1;
   res->code      = 200;
-  res->completed = false;
 
   ctorm_headers_init(&res->headers);
-  ctorm_headers_set(res->headers, "server", "ctorm", false);
-  ctorm_headers_set(res->headers, "connection", "close", false);
+  ctorm_headers_set(res->headers, CTORM_HTTP_SERVER, "ctorm", false);
 
   struct tm *gmt;
   time_t     raw;
@@ -68,7 +78,7 @@ void ctorm_res_init(ctorm_res_t *res, connection_t *con) {
   char date[50];
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
   strftime(date, 50, "%a, %d %b %Y %H:%M:%S GMT", gmt);
-  ctorm_res_set(res, "date", date);
+  ctorm_res_set(res, CTORM_HTTP_DATE, date);
 }
 
 void ctorm_res_free(ctorm_res_t *res) {
@@ -76,16 +86,26 @@ void ctorm_res_free(ctorm_res_t *res) {
   ctorm_res_clear(res);
 }
 
+bool ctorm_res_code(ctorm_res_t *res, uint16_t code) {
+  if (!ctorm_http_code_is_valid(code)) {
+    errno = CTORM_ERR_BAD_RESPONSE_CODE;
+    return false;
+  }
+
+  res->code = code;
+  return true;
+}
+
 void ctorm_res_set(ctorm_res_t *res, char *name, char *value) {
   if (NULL == name || NULL == value)
-    errno = BadHeaderPointer;
+    errno = CTORM_ERR_BAD_HEADER_PTR;
   else
     ctorm_headers_set(res->headers, strdup(name), strdup(value), true);
 }
 
 void ctorm_res_del(ctorm_res_t *res, char *name) {
   if (NULL == name) {
-    errno = BadHeaderPointer;
+    errno = CTORM_ERR_BAD_HEADER_PTR;
     return;
   }
 
@@ -95,46 +115,54 @@ void ctorm_res_del(ctorm_res_t *res, char *name) {
 void ctorm_res_clear(ctorm_res_t *res) {
   free(res->body);
 
-  if (res->bodyfd > 0)
-    close(res->bodyfd);
+  if (res->body_fd > 0)
+    close(res->body_fd);
 
-  res->body     = NULL;
-  res->bodyfd   = -1;
-  res->bodysize = 0;
+  res->body      = NULL;
+  res->body_fd   = -1;
+  res->body_size = 0;
 }
 
-void ctorm_res_send(ctorm_res_t *res, char *data, uint64_t size) {
+uint32_t ctorm_res_body(ctorm_res_t *res, char *data, uint32_t size) {
   if (NULL == data) {
-    errno = BadDataPointer;
-    return;
+    errno = CTORM_ERR_BAD_DATA_PTR;
+    return 0;
   }
 
   ctorm_res_clear(res);
 
   if (size <= 0)
-    res->bodysize = cu_strlen(data);
+    res->body_size = cu_strlen(data);
 
-  res->body = malloc(res->bodysize);
-  memcpy(res->body, data, res->bodysize);
+  if (res->body_size <= 0)
+    return 0;
+
+  if (NULL == (res->body = malloc(res->body_size))) {
+    errno          = CTORM_ERR_ALLOC_FAIL;
+    res->body_size = 0;
+    return 0;
+  }
+
+  memcpy(res->body, data, res->body_size);
+  return res->body_size;
 }
 
-bool ctorm_res_sendfile(ctorm_res_t *res, char *path) {
+bool ctorm_res_file(ctorm_res_t *res, char *path) {
   if (NULL == path) {
-    errno = BadPathPointer;
+    errno = CTORM_ERR_BAD_PATH_PTR;
     return false;
   }
 
-  struct stat buf;
   ctorm_res_clear(res);
 
-  if ((res->bodyfd = open(path, O_RDONLY)) < 0) {
+  if ((res->body_fd = open(path, O_RDONLY)) < 0) {
     switch (errno) {
     case ENOENT:
-      errno = FileNotExists;
+      errno = CTORM_ERR_NOT_EXISTS;
       break;
 
     case EPERM:
-      errno = BadReadPerm;
+      errno = CTORM_ERR_NO_READ_PERM;
       break;
     }
 
@@ -142,48 +170,58 @@ bool ctorm_res_sendfile(ctorm_res_t *res, char *path) {
     return false;
   }
 
-  if (fstat(res->bodyfd, &buf) != 0) {
-    errno = SizeFail;
+  // get the current and the end offset
+  off_t cur = lseek(res->body_fd, 0, SEEK_CUR);
+  off_t end = lseek(res->body_fd, 0, SEEK_END);
+
+  if (cur < 0 || end < 0 || lseek(res->body_fd, cur, SEEK_SET) < 0) {
+    errno = CTORM_ERR_SEEK_FAIL;
+
+    close(res->body_fd);
+    res->body_fd = -1;
+
     return false;
   }
 
-  res->bodysize = buf.st_size;
+  res->body_size = end - cur;
 
   // HACK: maybe a structure that stores extensions and types would be better
   if (cu_endswith(path, ".html"))
-    ctorm_res_set(res, "content-type", "text/html; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/html; charset=utf-8");
   else if (cu_endswith(path, ".json"))
-    ctorm_res_set(res, "content-type", "application/json; charset=utf-8");
+    ctorm_res_set(
+        res, CTORM_HTTP_CONTENT_TYPE, "application/json; charset=utf-8");
   else if (cu_endswith(path, ".css"))
-    ctorm_res_set(res, "content-type", "text/css; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/css; charset=utf-8");
   else if (cu_endswith(path, ".js"))
-    ctorm_res_set(res, "content-type", "text/javascript; charset=utf-8");
+    ctorm_res_set(
+        res, CTORM_HTTP_CONTENT_TYPE, "text/javascript; charset=utf-8");
   else
-    ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/plain; charset=utf-8");
 
   return true;
 }
 
-bool ctorm_res_fmt(ctorm_res_t *res, const char *fmt, ...) {
+int ctorm_res_fmt(ctorm_res_t *res, const char *fmt, ...) {
   if (NULL == fmt) {
-    errno = BadFmtPointer;
-    return false;
+    errno = CTORM_ERR_BAD_FMT_PTR;
+    return -1;
   }
 
   va_list args, argscp;
-  bool    ret = false;
+  int     ret = -1;
 
   va_start(args, fmt);
   va_copy(argscp, args);
 
   ctorm_res_clear(res);
 
-  res->bodysize = vsnprintf(NULL, 0, fmt, args);
-  res->body     = malloc(res->bodysize + 1);
+  res->body_size = vsnprintf(NULL, 0, fmt, args);
+  res->body      = malloc(res->body_size + 1);
 
-  ret = vsnprintf(res->body, res->bodysize + 1, fmt, argscp) > 0;
+  ret = vsnprintf(res->body, res->body_size + 1, fmt, argscp);
 
-  ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
+  ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/plain; charset=utf-8");
 
   va_end(args);
   va_end(argscp);
@@ -191,30 +229,30 @@ bool ctorm_res_fmt(ctorm_res_t *res, const char *fmt, ...) {
   return ret;
 }
 
-bool ctorm_res_add(ctorm_res_t *res, const char *fmt, ...) {
+int ctorm_res_add(ctorm_res_t *res, const char *fmt, ...) {
   if (NULL == fmt) {
-    errno = BadFmtPointer;
-    return false;
+    errno = CTORM_ERR_BAD_FMT_PTR;
+    return -1;
   }
 
   va_list args, argscp;
-  bool    ret   = false;
-  int     vsize = 0;
+  int     ret = -1, vsize = 0;
 
   va_start(args, fmt);
   va_copy(argscp, args);
 
-  if (NULL == res->body || res->bodysize <= 0) {
-    ctorm_res_set(res, "content-type", "text/plain; charset=utf-8");
+  if (NULL == res->body || res->body_size <= 0) {
+    ctorm_res_set(res, CTORM_HTTP_CONTENT_TYPE, "text/plain; charset=utf-8");
     vsize     = vsnprintf(NULL, 0, fmt, args);
-    res->body = malloc(res->bodysize + vsize + 1);
+    res->body = malloc(res->body_size + vsize + 1);
   } else {
     vsize     = vsnprintf(NULL, 0, fmt, args);
-    res->body = realloc(res->body, res->bodysize + vsize);
+    res->body = realloc(res->body, res->body_size + vsize);
   }
 
-  ret = vsnprintf(res->body + res->bodysize, (res->bodysize + 1) + vsize, fmt, argscp) > 0;
-  res->bodysize += vsize;
+  ret = vsnprintf(
+      res->body + res->body_size, res->body_size + 1 + vsize, fmt, argscp);
+  res->body_size += vsize;
 
   va_end(args);
   va_end(argscp);
@@ -224,69 +262,69 @@ bool ctorm_res_add(ctorm_res_t *res, const char *fmt, ...) {
 
 bool ctorm_res_json(ctorm_res_t *res, cJSON *json) {
   if (NULL == json) {
-    errno = BadJsonPointer;
+    errno = CTORM_ERR_BAD_JSON_PTR;
     return false;
   }
 
   ctorm_res_clear(res);
 
-  if ((res->body = ctorm_json_dump(json, &res->bodysize)) == NULL)
+  if ((res->body = ctorm_json_encode(json)) == NULL)
     return false;
 
-  ctorm_res_set(res, "content-type", "application/json; charset=utf-8");
+  res->body_size = cu_strlen(res->body);
+
+  ctorm_res_set(
+      res, CTORM_HTTP_CONTENT_TYPE, "application/json; charset=utf-8");
   return true;
 }
 
-void ctorm_res_redirect(ctorm_res_t *res, char *url) {
-  if (NULL == url) {
-    errno = BadUrlPointer;
+void ctorm_res_redirect(ctorm_res_t *res, char *uri) {
+  if (NULL == uri) {
+    errno = CTORM_ERR_BAD_URI_PTR;
     return;
   }
 
   res->code = 301;
-  ctorm_res_set(res, "location", url);
+  ctorm_res_set(res, "location", uri);
 }
 
-bool ctorm_res_end(ctorm_res_t *res) {
-  if (res->completed) {
-    errno = ResponseAlreadySent;
-    return false;
-  }
-
+bool ctorm_res_send(ctorm_res_t *res) {
   ctorm_header_pos_t pos;
 
-  // fix the HTTP code if its invalid
-  if (res->code > http_static.res_code_max || res->code < http_static.res_code_min) {
-    errno = BadResponseCode;
-    return false;
+  switch (res->version) {
+  case CTORM_HTTP_1_0:
+    res_send_fmt("HTTP/1.0 %hu", res->code);
+    break;
+
+  case CTORM_HTTP_1_1:
+    res_send_fmt("HTTP/1.1 %hu", res->code);
+    break;
   }
 
-  // send the HTTP response
-  if (NULL == res->version)
-    rprintf("HTTP/1.1 %u\r\n", res->code);
-  else
-    rprintf("%s %u\r\n", res->version, res->code);
+  // send the newline
+  res_send_str("\r\n");
 
   // send response headers
   ctorm_headers_start(&pos);
 
   while (ctorm_headers_next(res->headers, &pos))
-    rprintf("%s: %s\r\n", pos.name, pos.value);
-  rprintf("content-length: %lu\r\n", res->bodysize);
-  rprintf("\r\n");
+    res_send_fmt("%s: %s\r\n", pos.name, pos.value);
 
-  // send the body
-  if (res->bodyfd > 0) {
+  res_send_fmt("content-length: %lu\r\n", res->body_size);
+  res_send_str("\r\n");
+
+  // if a file is specified read the body from file and send it
+  if (res->body_fd > 0) {
     size_t read_size = 0;
-    char   read_buf[50];
+    char   read_buff[50];
 
-    while ((read_size = read(res->bodyfd, read_buf, sizeof(read_buf))) > 0)
-      rsend(read_buf, read_size, 0);
+    while ((read_size = read(res->body_fd, read_buff, sizeof(read_buff))) > 0)
+      res_send(read_buff, read_size, MSG_NOSIGNAL);
   }
 
-  else if (res->bodysize > 0)
-    rsend(res->body, res->bodysize, 0);
+  // if a body is specified, send it
+  else if (res->body_size > 0)
+    res_send(res->body, res->body_size, MSG_NOSIGNAL);
 
-  res->completed = true;
   return true;
 }

@@ -1,13 +1,12 @@
 #include "headers.h"
-#include "errors.h"
+#include "error.h"
 #include "util.h"
 
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 
-uint64_t __ctorm_headers_hasher(const char *data) {
-  uint64_t sum = 0;
+uint32_t _ctorm_headers_hasher(const char *data) {
+  uint32_t sum = 0;
 
   for (; *data != 0; data++)
     sum += cu_lower(*data);
@@ -15,8 +14,26 @@ uint64_t __ctorm_headers_hasher(const char *data) {
   return sum;
 }
 
-#define __ctorm_headers_hash(k) (__ctorm_headers_hasher(k) % HEADER_TABLE_SIZE)
-#define __ctorm_headers_list(k) (&(headers[__ctorm_headers_hash(k)]))
+void _ctorm_headers_free_single(struct ctorm_header *header) {
+  if (header->allocated) {
+    free(header->name);
+    free(header->value);
+  }
+
+  free(header);
+}
+
+void _ctorm_headers_free_list(struct ctorm_header *cur) {
+  struct ctorm_header *next = cur;
+
+  while (NULL != (cur = next)) {
+    next = cur->next;
+    _ctorm_headers_free_single(cur);
+  }
+}
+
+#define headers_hash(k) (_ctorm_headers_hasher(k) % HEADER_TABLE_SIZE)
+#define headers_list(k) (&(headers[headers_hash(k)]))
 
 bool ctorm_headers_cmp(const char *s1, const char *s2) {
   while (*s1 != 0 && *s2 != 0) {
@@ -29,27 +46,9 @@ bool ctorm_headers_cmp(const char *s1, const char *s2) {
   return *s1 == 0 && *s2 == 0;
 }
 
-void __ctorm_headers_free_single(struct ctorm_header *header) {
-  if (header->alloced) {
-    free(header->name);
-    free(header->value);
-  }
-
-  free(header);
-}
-
-void __ctorm_headers_free_list(struct ctorm_header *cur) {
-  struct ctorm_header *next = cur;
-
-  while (NULL != (cur = next)) {
-    next = cur->next;
-    __ctorm_headers_free_single(cur);
-  }
-}
-
 void ctorm_headers_free(ctorm_headers_t headers) {
   for (uint8_t i = 0; i < HEADER_TABLE_SIZE; i++)
-    __ctorm_headers_free_list(headers[i]);
+    _ctorm_headers_free_list(headers[i]);
 }
 
 bool ctorm_headers_next(ctorm_headers_t headers, ctorm_header_pos_t *pos) {
@@ -77,67 +76,59 @@ next_node:
   return true;
 }
 
-bool __ctorm_headers_add(ctorm_headers_t headers, char *name, char *value, bool alloced) {
+bool ctorm_headers_set(
+    ctorm_headers_t headers, char *name, char *value, bool allocated) {
   struct ctorm_header *new = NULL, **head = NULL;
 
   if (NULL == (new = malloc(sizeof(struct ctorm_header)))) {
-    errno = AllocFailed;
+    errno = CTORM_ERR_ALLOC_FAIL;
     return false;
   }
 
-  new->alloced = alloced;
-  new->next    = NULL;
-  new->name    = name;
-  new->value   = value;
+  new->allocated = allocated;
+  new->next      = NULL;
+  new->name      = name;
+  new->value     = value;
 
-  if (NULL != *(head = __ctorm_headers_list(name)))
-    (*head)->next = new;
+  if (NULL != *(head = headers_list(name)))
+    new->next = *head;
 
   *head = new;
   return true;
 }
 
-bool ctorm_headers_set(ctorm_headers_t headers, char *name, char *value, bool alloced) {
-  struct ctorm_header **header = NULL;
+char *ctorm_headers_get(ctorm_headers_t headers, char *name) {
+  struct ctorm_header **head = headers_list(name), *cur = NULL;
 
-  if (*(header = __ctorm_headers_list(name)) == NULL)
-    return __ctorm_headers_add(headers, name, value, alloced);
-
-  if ((*header)->alloced) {
-    free((*header)->value);
-    free((*header)->name);
+  for (cur = *head; cur != NULL; cur = cur->next) {
+    if (ctorm_headers_cmp(cur->name, name))
+      return cur->value;
   }
 
-  (*header)->alloced = alloced;
-  (*header)->value   = value;
-  (*header)->name    = name;
-
-  return true;
+  return NULL;
 }
 
-char *ctorm_headers_get(ctorm_headers_t headers, char *name) {
-  struct ctorm_header **cur = __ctorm_headers_list(name);
-  return NULL == *cur ? NULL : (*cur)->value;
-}
-
-void ctorm_headers_del(ctorm_headers_t headers, char *key) {
-  struct ctorm_header **head = __ctorm_headers_list(key), *cur = NULL, *pre = NULL;
+void ctorm_headers_del(ctorm_headers_t headers, char *name) {
+  struct ctorm_header **head = headers_list(name), *cur = NULL, *pre = NULL;
 
   if (NULL == (cur = *head))
     return;
 
-  while (cur != NULL) {
-    if (ctorm_headers_cmp(key, cur->name))
+  while (NULL != cur) {
+    if (ctorm_headers_cmp(cur->name, name))
       break;
 
     pre = cur;
     cur = cur->next;
   }
 
+  if (NULL == cur)
+    return;
+
   if (NULL == pre)
     *head = cur->next;
   else
     pre->next = cur->next;
 
-  __ctorm_headers_free_single(cur);
+  _ctorm_headers_free_single(cur);
 }

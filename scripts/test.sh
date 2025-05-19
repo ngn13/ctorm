@@ -7,6 +7,7 @@ examples=(
   "params"
   "locals"
   "middleware"
+  "multithread"
 )
 index="${1}"
 
@@ -14,9 +15,11 @@ function run_example(){
   echo "${1}: testing..."
 
   ./dist/example_${1} &
-  ./scripts/test_${1}.sh
+  sleep 1
 
+  bash ./scripts/test_${1}.sh
   res=$?
+
   kill -9 $!
 
   if [ $res -ne 0 ]; then
@@ -36,12 +39,10 @@ if [ ! -z "${index}" ]; then
     exit 1
   fi
 
-  run_example "${examples[${index}]}"
-  exit 0
+  run_example "${examples[${index}]}" && exit 0
+  exit 1
 fi
 
 for example in "${examples[@]}"; do
-  if ! run_example "${example}"; then
-    exit 1
-  fi
+  run_example "${example}" || exit 1
 done

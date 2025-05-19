@@ -1,7 +1,7 @@
 #include <ctorm.h>
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
-  RES_SEND("hello world!");
+  RES_BODY("hello world!");
 }
 
 int main() {
@@ -22,8 +22,10 @@ int main() {
   GET(app, "/", GET_index);
 
   // run the app
-  if (!ctorm_app_run(app, "0.0.0.0:8080"))
-    ctorm_fail("failed to start the app: %s", ctorm_geterror());
+  if (!ctorm_app_run(app, "0.0.0.0:8080")) {
+    ctorm_fail("failed to start the app: %s", ctorm_error());
+    ctorm_fail("details: %s", ctorm_details());
+  }
 
   // clean up
   ctorm_app_free(app);

@@ -1,0 +1,74 @@
+---
+# "DeprecatedOrUnsafeBufferHandling" ignored because C11 "_s" functions are not
+# secure either
+
+# "gnu-zero-variadic-macro-arguments" ignored because we are using GNU99
+# standart
+
+# "clang-diagnostic-language-extension-token" is ignored because we need the
+# asm() extension token
+Checks: >-
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  readability-identifier-naming,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-diagnostic-gnu-zero-variadic-macro-arguments,
+  -clang-diagnostic-language-extension-token,
+CheckOptions:
+  # typedef
+  - key: readability-identifier-naming.TypedefCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.TypedefPrefix
+    value: 'ctorm_'
+  - key: readability-identifier-naming.TypedefIgnoredRegexp
+    value: '^_ctorm.*|^cu.*|^cJSON$'
+
+  # struct
+  - key: readability-identifier-naming.StructCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.StructPrefix
+    value: 'ctorm_'
+  - key: readability-identifier-naming.StructIgnoredRegexp
+    value: '^_ctorm.*|^cu.*'
+
+  # enum
+  - key: readability-identifier-naming.EnumCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.EnumPrefix
+    value: 'ctorm_'
+  - key: readability-identifier-naming.EnumIgnoredRegexp
+    value: '^_ctorm.*|^cu.*'
+
+  # function
+  - key: readability-identifier-naming.FunctionCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.FunctionPrefix
+    value: 'ctorm_'
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: '^_ctorm.*|^cu.*'
+
+  # global vars
+  - key: readability-identifier-naming.GlobalVariableCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.GlobalVariablePrefix
+    value: 'ctorm_'
+  - key: readability-identifier-naming.GlobalVariableIgnoredRegexp
+    value: '^_ctorm.*|^cu.*'
+WarningsAsErrors: '*'
+HeaderFileExtensions:
+  - ''
+  - h
+  - hh
+  - hpp
+  - hxx
+ImplementationFileExtensions:
+  - c
+  - cc
+  - cpp
+  - cxx
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: ''
+FormatStyle: file
+SystemHeaders: false
+...
+

@@ -1,39 +1,41 @@
+#include "app.h"
 #include <ctorm.h>
 #include <string.h>
 
 void GET_notfound(ctorm_req_t *req, ctorm_res_t *res) {
   RES_CODE(404);
-  RES_SENDFILE("./example/echo/html/404.html");
+  RES_FILE("./example/echo/html/404.html");
 }
 
 void POST_form(ctorm_req_t *req, ctorm_res_t *res) {
-  ctorm_url_t *form = NULL;
-  char        *msg  = NULL;
+  ctorm_query_t *form = NULL;
+  char          *msg  = NULL;
 
   if ((form = REQ_FORM()) == NULL) {
     RES_CODE(400);
-    ctorm_fail("failed to parse the form data: %s", ctorm_geterror());
-    return RES_SEND("bad body");
+    RES_BODY("bad body");
+
+    ctorm_fail("failed to parse the form data: %s", ctorm_error());
+    return;
   }
 
-  if (NULL == (msg = ctorm_url_get(form, "msg"))) {
+  if (NULL == (msg = ctorm_query_get(form, "msg"))) {
     RES_CODE(400);
-    ctorm_url_free(form);
+    RES_BODY("bad body");
+
     ctorm_fail("form data does not contain the message");
-    return RES_SEND("bad body");
+    return;
   }
 
   ctorm_info("message: %s", msg);
   RES_FMT("message: %s", msg);
 
   RES_SET("cool", "yes");
-
-  ctorm_url_free(form);
 }
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
-  if (!RES_SENDFILE("./example/echo/html/index.html"))
-    ctorm_fail("failed to send index.html: %s", ctorm_geterror());
+  if (!RES_FILE("./example/echo/html/index.html"))
+    ctorm_fail("failed to send index.html: %s", ctorm_error());
 }
 
 int main() {
@@ -52,11 +54,11 @@ int main() {
   ctorm_app_static(app, "/static", "./example/echo/static");
 
   // setup the non handled route handler
-  ctorm_app_all(app, GET_notfound);
+  ctorm_app_default(app, GET_notfound);
 
   // run the app
   if (!ctorm_app_run(app, "0.0.0.0:8081"))
-    ctorm_fail("failed to start the app: %s", ctorm_geterror());
+    ctorm_fail("failed to start the app: %s", ctorm_error());
 
   // clean up
   ctorm_app_free(app);

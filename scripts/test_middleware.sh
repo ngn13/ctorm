@@ -1,12 +1,10 @@
 #!/bin/bash
 
 test_users() {
-  users=$(curl --silent 'http://127.0.0.1:8084/users' | jq -r '.list[0]| "\(.name) \(.age)"')
+  users=$(curl --silent 'http://127.0.0.1:8084/users' | \
+    jq -r '.list[0]| "\(.name) \(.age)"')
 
-  if [[ "${users}" == "${1}" ]]; then
-    return 0
-  fi
-
+  [[ "${users}" == "${1}" ]] && return 0
   return 1
 }
 

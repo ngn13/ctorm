@@ -1,13 +1,7 @@
-/*!
-
- * @file
- * @brief Header file for the web server configuration functions and definitions
-
-*/
 #pragma once
-
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 
 /*!
 
@@ -21,19 +15,32 @@ typedef struct {
   int      max_connections; /// max parallel connection count
   bool     disable_logging; /// disables request logging and the banner
   bool     handle_signal;   /// disables SIGINT handler (which stops app_run())
-  bool     server_header;   /// disable sending the "Server: ctorm" header in the response
+  bool     server_header;   /// disable the "Server: ctorm" header
   bool     lock_request;    /// locks threads until the request handler returns
-  __time_t tcp_timeout;     /// sets the TCP socket timeout for sending and receiving
-  uint64_t pool_size;       /// app threadpool size
+  time_t   tcp_timeout; /// TCP socket timeout for sending and receiving data
+  uint32_t pool_size;   /// app threadpool size
 } ctorm_config_t;
 
 /*!
 
- * Initialize a new web server application configuration with the default values,
- * you should define a configuration using @ref ctorm_config_t type first and pass
- * it's address to this function
+ * Initializes the provided @ref ctorm_config_t configuration with the default
+ * values. If no configuration is specified, function allocates a new
+ * configuration and returns it. In this case you should free() this pointer
+ * after you are done with it
 
- * @param[out] config Pointer of the configuration to initialize
+ * @param[out] config: Pointer to the configuration to initialize
 
 */
-void ctorm_config_new(ctorm_config_t *config);
+ctorm_config_t *ctorm_config_new(ctorm_config_t *config);
+
+/*!
+
+ * Checks if the provided @ref ctorm_config_t configuration is valid. This
+ * function is also called by @ref ctorm_app_new, so you do not need to call
+ * this function if you intend to use the configuration for creating a web
+ * server.
+
+ * @param[in] config: Pointer to the configuration to check
+
+*/
+bool ctorm_config_check(ctorm_config_t *config);

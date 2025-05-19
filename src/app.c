@@ -18,18 +18,19 @@
 
 */
 
-#include "errors.h"
-#include "pair.h"
-#include "req.h"
 #include "socket.h"
+#include "error.h"
 
+#include "http.h"
+#include "pair.h"
 #include "pool.h"
 #include "util.h"
 
+#include "req.h"
+#include "res.h"
 #include "app.h"
 #include "log.h"
 
-#include <sys/types.h>
 #include <pthread.h>
 #include <stdbool.h>
 
@@ -38,87 +39,92 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include <errno.h>
 #include <stdio.h>
 
-#define __ctorm_check_app_ptr()                                                                                        \
-  do {                                                                                                                 \
-    if (NULL == app) {                                                                                                 \
-      errno = InvalidAppPointer;                                                                                       \
-      return false;                                                                                                    \
-    }                                                                                                                  \
+ctorm_app_t    *_ctorm_signal_head  = NULL;
+pthread_mutex_t _ctorm_signal_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+#define app_check_ptr(ret)                                                     \
+  do {                                                                         \
+    if (NULL == app) {                                                         \
+      errno = CTORM_ERR_BAD_APP_PTR;                                           \
+      return ret;                                                              \
+    }                                                                          \
   } while (0)
 
-ctorm_app_t *__ctorm_signal_app = NULL;
+void _ctorm_app_signal_handler(int sig) {
+  cu_unused(sig);
 
-void __ctorm_signal_handler(int sig) {
-  if (NULL == __ctorm_signal_app)
+  if (NULL == _ctorm_signal_head)
     return;
 
-  debug("signal handler got called, stopping the app");
-  ctorm_app_stop(__ctorm_signal_app);
+  pthread_t    self = pthread_self();
+  ctorm_app_t *cur  = _ctorm_signal_head;
+
+  /*
+
+   * we'll loop through the app list, lock it to make sure it's not modified by
+   * another thread while we loop through it
+
+  */
+  pthread_mutex_lock(&_ctorm_signal_mutex);
+
+  // stop all the apps in the current thread
+  for (; cur != NULL; cur = cur->next) {
+    if (self != cur->thread)
+      continue;
+
+    debug("stopping the app %p", cur);
+    cur->running = false;
+  }
+
+  // loop is complete, unlock the app list
+  pthread_mutex_unlock(&_ctorm_signal_mutex);
 }
 
-void __ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
+void _ctorm_default_handler(ctorm_req_t *req, ctorm_res_t *res) {
+  cu_unused(req);
   ctorm_res_set(res, "content-type", "text");
-  ctorm_res_send(res, "not found", 0);
-  res->code = 404;
+  ctorm_res_body(res, "not found", 0);
+  ctorm_res_code(res, 404);
 }
 
 ctorm_app_t *ctorm_app_new(ctorm_config_t *config) {
-  ctorm_app_t *app = malloc(sizeof(ctorm_app_t));
+  ctorm_app_t *app = calloc(1, sizeof(ctorm_app_t));
 
   if (NULL == app) {
-    errno = AllocFailed;
+    errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
 
-  bzero(app, sizeof(ctorm_app_t));
-
   if (NULL == config) {
-    if (NULL == (config = malloc(sizeof(ctorm_config_t)))) {
-      errno = AllocFailed;
-      goto fail;
-    }
+    if (NULL == (config = ctorm_config_new(NULL)))
+      goto fail; // errno set by ctorm_config_new()
+
     app->is_default_config = true;
     ctorm_config_new(config);
   }
 
-  app->config    = config;
-  app->all_route = __ctorm_default_handler;
-  app->running   = false;
+  else if (!ctorm_config_check(config))
+    goto fail;
 
-  if (config->tcp_timeout < 0) {
-    errno = BadTcpTimeout;
+  app->default_route = _ctorm_default_handler;
+  app->config        = config;
+  app->running       = false;
+
+  if (NULL == (app->pool = ctorm_pool_new(config->pool_size))) {
+    errno = CTORM_ERR_POOL_FAIL;
     goto fail;
   }
 
-  else if (config->tcp_timeout == 0)
-    warn("setting the TCP timeout to 0 may allow attackers to DoS your application");
-
-  if (config->max_connections <= 0) {
-    errno = BadMaxConnCount;
+  if ((config->lock_request &&
+          pthread_mutex_init(&app->req_mutex, NULL) != 0) ||
+      pthread_mutex_init(&app->mod_mutex, NULL) != 0) {
+    errno = CTORM_ERR_MUTEX_FAIL;
     goto fail;
   }
 
-  if (config->pool_size <= 0) {
-    errno = BadPoolSize;
-    goto fail;
-  }
-
-  if (NULL == (app->pool = ctorm_pool_init(config->pool_size))) {
-    errno = PoolFailed;
-    goto fail;
-  }
-
-  if (config->lock_request && pthread_mutex_init(&app->request_mutex, NULL) != 0) {
-    errno = MutexFail;
-    goto fail;
-  }
-
-  http_static_load();
-  setbuf(stdout, NULL);
+  ctorm_http_load();
   return app;
 
 fail:
@@ -130,42 +136,31 @@ void ctorm_app_free(ctorm_app_t *app) {
   if (NULL == app)
     return;
 
-  // reset stdout buffer
-  int stdout_cp = dup(1);
-  close(1);
-  dup2(stdout_cp, 1);
-
-  // free the application pool
+  // free the server's thread pool
   if (NULL != app->pool) {
-    ctorm_pool_stop(app->pool);
+    ctorm_pool_free(app->pool);
     app->pool = NULL;
   }
 
-  // destroy the request mutex
-  if (app->config->lock_request)
-    pthread_mutex_destroy(&app->request_mutex);
+  // free the routes
+  struct ctorm_route *prev = NULL;
 
-  // free the routes and middlewares
-  ctorm_routemap_t *cur = NULL, *prev = NULL;
-
-  for (cur = app->middleware_maps; cur != NULL;) {
-    prev = cur;
-    cur  = cur->next;
+  while (app->routes != NULL) {
+    prev        = app->routes;
+    app->routes = app->routes->next;
     free(prev);
   }
 
-  for (cur = app->route_maps; cur != NULL;) {
-    prev = cur;
-    cur  = cur->next;
-    free(prev);
-  }
+  pthread_mutex_destroy(&app->mod_mutex);
 
-  app->middleware_maps = NULL;
-  app->route_maps      = NULL;
+  if (NULL != app->config) {
+    // destroy the request mutex
+    if (app->config->lock_request)
+      pthread_mutex_destroy(&app->req_mutex);
 
-  // free the configuration
-  if (app->is_default_config) {
-    free(app->config);
+    // free the configuration if it's default
+    if (app->is_default_config)
+      free(app->config);
     app->config = NULL;
   }
 
@@ -173,42 +168,78 @@ void ctorm_app_free(ctorm_app_t *app) {
   free(app);
 }
 
-bool ctorm_app_run(ctorm_app_t *app, const char *host) {
-  __ctorm_check_app_ptr();
+bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
+  app_check_ptr(false);
 
-  if (NULL == host) {
-    errno = BadHost;
+  if (NULL == addr) {
+    errno = CTORM_ERR_BAD_ADDR_PTR;
     return false;
   }
 
   struct sigaction sa;
+  bool             ret = false;
 
+  // if signal handling is enabled, add app to the signal list
   if (app->config->handle_signal) {
-    __ctorm_signal_app = app;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_handler = __ctorm_signal_handler;
-    sa.sa_flags   = 0;
-    sigaction(SIGINT, &sa, NULL);
+    if (NULL == _ctorm_signal_head) {
+      _ctorm_signal_head = app;
+      sigemptyset(&sa.sa_mask);
+      sa.sa_handler = _ctorm_app_signal_handler;
+      sa.sa_flags   = 0;
+      sigaction(SIGINT, &sa, NULL);
+    }
+
+    else {
+      pthread_mutex_lock(&_ctorm_signal_mutex);
+      app->next          = _ctorm_signal_head;
+      _ctorm_signal_head = app;
+      pthread_mutex_unlock(&_ctorm_signal_mutex);
+    }
   }
 
+  // save the current thread before starting the server
+  app->thread = pthread_self();
+
+  // start the web server and wait until it's done
   app->running = true;
-  bool ret     = ctorm_socket_start(app, host);
+  ret          = ctorm_socket_start(app, (char *)addr);
   app->running = false;
 
+  // if signal handling is enabled, remove app from the signal list
   if (app->config->handle_signal) {
-    __ctorm_signal_app = NULL;
-    sa.sa_handler      = SIG_DFL;
-    sa.sa_flags        = 0;
-    sigaction(SIGINT, &sa, NULL);
+    ctorm_app_t *cur = _ctorm_signal_head, *prev = NULL;
+
+    // find the app in the list
+    for (; cur != NULL && cur != app; cur = cur->next)
+      prev = cur;
+
+    // remove the app from the list
+    pthread_mutex_lock(&_ctorm_signal_mutex);
+    if (NULL == prev)
+      _ctorm_signal_head = app->next;
+    else
+      prev->next = app->next;
+    pthread_mutex_unlock(&_ctorm_signal_mutex);
+
+    // remove the signal handler if the list is empty
+    if (NULL == _ctorm_signal_head) {
+      sa.sa_handler = SIG_DFL;
+      sa.sa_flags   = 0;
+      sigaction(SIGINT, &sa, NULL);
+    }
   }
 
   return ret;
 }
 
 bool ctorm_app_stop(ctorm_app_t *app) {
-  __ctorm_check_app_ptr();
+  app_check_ptr(false);
 
-  app->running = false;
+  if (app->config->handle_signal)
+    pthread_kill(app->thread, SIGINT);
+  else
+    app->running = false;
+
   return true;
 }
 
@@ -217,42 +248,41 @@ bool ctorm_app_local(ctorm_app_t *app, char *name, void *value) {
 }
 
 bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
-  __ctorm_check_app_ptr();
+  app_check_ptr(false);
 
   if (*path != '/') {
-    errno = BadPath;
+    errno = CTORM_ERR_BAD_PATH;
     return false;
   }
 
-  cu_str_set(app->static_path, path);
-  cu_str_set(app->static_dir, dir);
-
+  cu_str_set(&app->static_path, path);
+  cu_str_set(&app->static_dir, dir);
   return true;
 }
 
-bool ctorm_app_add(ctorm_app_t *app, char *method, bool is_middleware, char *path, ctorm_route_t handler) {
-  __ctorm_check_app_ptr();
+bool ctorm_app_add(
+    ctorm_app_t *app, int method, char *path, ctorm_route_t handler) {
+  app_check_ptr(false);
 
   if (*path != '/') {
-    errno = BadPath;
+    errno = CTORM_ERR_BAD_PATH;
     return false;
   }
 
-  ctorm_routemap_t *new = NULL, *cur = NULL, **maps = is_middleware ? &app->middleware_maps : &app->route_maps;
+  struct ctorm_route *new = NULL, *cur = NULL;
 
-  if ((new = malloc(sizeof(ctorm_routemap_t))) == NULL) {
-    errno = AllocFailed;
+  if ((new = calloc(1, sizeof(*new))) == NULL) {
+    errno = CTORM_ERR_ALLOC_FAIL;
     return false;
   }
 
-  new->method        = http_method_id(method);
-  new->is_middleware = is_middleware;
-  new->handler       = handler;
-  new->next          = NULL;
-  new->path          = path;
+  new->method  = method < 0 ? 0 : method;
+  new->all     = method < 0;
+  new->handler = handler;
+  new->path    = path;
 
-  if (NULL == (cur = *maps)) {
-    *maps = new;
+  if (NULL == (cur = app->routes)) {
+    app->routes = new;
     return true;
   }
 
@@ -263,12 +293,13 @@ bool ctorm_app_add(ctorm_app_t *app, char *method, bool is_middleware, char *pat
   return true;
 }
 
-void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler) {
-  app->all_route = handler;
+void ctorm_app_default(ctorm_app_t *app, ctorm_route_t handler) {
+  if (NULL != app && NULL != handler)
+    app->default_route = handler;
 }
 
-uint64_t __ctorm_path_count_names(char *path) {
-  uint64_t count = 0;
+uint32_t _ctorm_path_count_names(char *path) {
+  uint32_t count = 0;
 
   for (; *path != 0; path++)
     if (*path == '/' && *(path + 1) != 0)
@@ -277,23 +308,23 @@ uint64_t __ctorm_path_count_names(char *path) {
   return count + 1;
 }
 
-char *__ctorm_path_next_name(char *path) {
+char *_ctorm_path_next_name(char *path) {
   for (; *path != 0; path++)
     if (*path == '/')
       break;
   return path;
 }
 
-#define __ctorm_path_is_name_end(name) (*(name) == '/' || *(name) == 0)
+#define ctorm_path_is_name_end(name) (*(name) == '/' || *(name) == 0)
 
-bool __ctorm_app_route_matches(ctorm_routemap_t *route, ctorm_req_t *req) {
+bool _ctorm_app_route_matches(struct ctorm_route *route, ctorm_req_t *req) {
   // check if the request method and route method matches
-  if (!ctorm_routemap_is_all(route) && route->method != req->method)
+  if (!route->all && route->method != req->method)
     return false;
 
   // remove '/' from both names, and check if both are and index route
   char    *route_pos = route->path, *req_pos = req->path;
-  uint64_t count = 0;
+  uint32_t count = 0;
 
   if (*route_pos == '/')
     route_pos++;
@@ -305,36 +336,56 @@ bool __ctorm_app_route_matches(ctorm_routemap_t *route, ctorm_req_t *req) {
     return true;
 
   // check if both paths have same amount of names (path components)
-  if (__ctorm_path_count_names(route_pos) != (count = __ctorm_path_count_names(req_pos)))
+  if (_ctorm_path_count_names(route_pos) !=
+      (count = _ctorm_path_count_names(req_pos))) {
+    debug("count fail");
     return false;
+  }
 
   char *key = NULL, *value = NULL;
   bool  ret = false;
 
-  // now we need to invidiualy compare every name in the path
-  for (; count > 0;
-      count--, route_pos = __ctorm_path_next_name(route_pos) + 1, req_pos = __ctorm_path_next_name(req_pos) + 1) {
-    // if the name is '*' then it's a wildcard route
-    if (*route_pos == '*' && __ctorm_path_is_name_end(route_pos + 1))
+  /*
+
+   * now we need to individually compare every name in the path
+
+   * BUG: gh workflow uses clang-format 19.1.1 atm, which uses a different
+   *      formatting for this loop for some reason, so temporarily disable the
+   *      formatting here
+
+  */
+  // clang-format off
+  for (; count > 0; count--,
+      route_pos = _ctorm_path_next_name(route_pos) + 1,
+      req_pos   = _ctorm_path_next_name(req_pos) + 1) {
+    // clang-format on
+
+    // if the name is '%' then it's a wildcard route and should match anything
+    if (*route_pos == '%' && ctorm_path_is_name_end(route_pos + 1))
       continue;
 
-    // if the name starts with ':' then it's a param
-    if (*route_pos == ':' && !__ctorm_path_is_name_end(route_pos + 1)) {
-      // duplicate the param name and the value and add it to the request
-      if (NULL == (key = strdup(++route_pos)) || NULL == (value = strdup(req_pos))) {
-        errno = AllocFailed;
+    // if the name starts with ':' then it's a URL parameter
+    if (*route_pos == ':' && !ctorm_path_is_name_end(route_pos + 1)) {
+      // duplicate the parameter name and the value and add it to the request
+      if (NULL == (key = strdup(++route_pos)) ||
+          NULL == (value = strdup(req_pos))) {
+        free(key);
+        free(value);
+        key = value = NULL;
+
+        errno = CTORM_ERR_ALLOC_FAIL;
         goto end;
       }
 
-      *__ctorm_path_next_name(key)   = 0;
-      *__ctorm_path_next_name(value) = 0;
+      *_ctorm_path_next_name(key)   = 0;
+      *_ctorm_path_next_name(value) = 0;
 
       ctorm_pair_add(&req->params, key, value);
       continue;
     }
 
     // compare the route name with the request name
-    if (!cu_strcmp_until(route_pos, req_pos, '/'))
+    if (!cu_strcmpu(route_pos, req_pos, '/'))
       goto end;
   }
 
@@ -350,38 +401,40 @@ end:
 }
 
 void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
-  ctorm_routemap_t *cur = NULL;
+  struct ctorm_route *cur     = NULL;
+  bool                handled = false;
 
-  // copy the global locals to the request
-  ctorm_pair_next(app->locals, local) ctorm_req_local(req, local->key, local->value, NULL);
+  // copy the locals to the request
+  ctorm_pair_next(app->locals, local)
+      ctorm_req_local(req, local->key, local->value);
 
-  // call the middlewares, stop if a middleware cancels the request
-  for (cur = app->middleware_maps; !req->cancel && cur != NULL; cur = cur->next)
-    if (__ctorm_app_route_matches(cur, req))
+  // call the routes, stop if a route cancels the request
+  for (cur = app->routes; !req->cancel && NULL != cur; cur = cur->next) {
+    if (_ctorm_app_route_matches(cur, req)) {
       cur->handler(req, res);
+      handled = true;
+    }
+  }
 
-  if (req->cancel)
+  // if we found at least one matching route, then route is complete
+  if (handled)
     return;
 
-  // if the request is not cancelled, call all the routes
-  for (cur = app->route_maps; cur != NULL; cur = cur->next)
-    if (__ctorm_app_route_matches(cur, req))
-      return cur->handler(req, res);
-
   // if not check if we have a static route configured
-  while (!cu_str_is_empty(app->static_path) && !cu_str_is_empty(app->static_dir) && METHOD_GET == req->method) {
+  while (!cu_str_empty(&app->static_path) && !cu_str_empty(&app->static_dir) &&
+         CTORM_HTTP_GET == req->method) {
     // if so, check if this request can be handled with the static route
-    uint64_t path_len = cu_strlen(req->path), static_fp_len = 0, sub_len = 0;
+    uint32_t path_len = cu_strlen(req->path), static_fp_len = 0, sub_len = 0;
     char    *path_ptr = req->path;
 
     // static request path will be longer than the static route path
-    if (path_len <= app->static_path.len)
+    if (path_len <= (uint32_t)app->static_path.len)
       break;
 
     // get the position of the sub static directory path
-    if (path_ptr[app->static_path.len - 1] == '/')
+    if ('/' == path_ptr[app->static_path.len - 1])
       sub_len = app->static_path.len;
-    else if (path_ptr[app->static_path.len] == '/')
+    else if ('/' == path_ptr[app->static_path.len])
       sub_len = app->static_path.len + 1;
     else
       break;
@@ -391,10 +444,10 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
       break;
 
     // compare the start of the path
-    if (!cu_startswith(req->path, app->static_path.str))
+    if (!cu_startswith(req->path, app->static_path.buf))
       break;
 
-    // make sure there aint any sneaky LFIs
+    // this is just to prevent a potential file disclosure attack
     if (cu_contains(path_ptr, '\\') || strstr(path_ptr, "..") != NULL)
       break;
 
@@ -402,9 +455,9 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
     static_fp_len = app->static_dir.len + 1 + path_len + 1;
     char static_fp[static_fp_len];
 
-    snprintf(static_fp, static_fp_len, "%s/%s", app->static_dir.str, path_ptr);
+    snprintf(static_fp, static_fp_len, "%s/%s", app->static_dir.buf, path_ptr);
 
-    if (!ctorm_res_sendfile(res, static_fp))
+    if (!ctorm_res_file(res, static_fp))
       break;
 
     res->code = 200;
@@ -413,11 +466,11 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
 
   /*
 
-   * if the request can't be handled, call the all route
-   * which is the route that handles all the unhandled routes
+   * if the request can't be handled, call the all route which is the route that
+   * handles all the unhandled routes
 
-   * by default its the 404 route
+   * by default it's the 404 route
 
   */
-  return app->all_route(req, res);
+  app->default_route(req, res);
 }
