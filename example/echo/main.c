@@ -1,3 +1,4 @@
+#include "app.h"
 #include <ctorm.h>
 #include <string.h>
 
@@ -53,7 +54,7 @@ int main() {
   ctorm_app_static(app, "/static", "./example/echo/static");
 
   // setup the non handled route handler
-  ctorm_app_all(app, GET_notfound);
+  ctorm_app_default(app, GET_notfound);
 
   // run the app
   if (!ctorm_app_run(app, "0.0.0.0:8081"))
