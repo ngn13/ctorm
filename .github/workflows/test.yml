@@ -4,7 +4,7 @@ on:
   push:
     paths-ignore:
       - ".github/workflows/docker.yml"
-      - "docs/*"
+      - "docs/**"
       - ".clang-format"
       - "Dockerfile"
       - "Doxyfile"
@@ -16,7 +16,7 @@ on:
   pull_request:
     paths-ignore:
       - ".github/workflows/docker.yml"
-      - "docs/*"
+      - "docs/**"
       - ".clang-format"
       - "Dockerfile"
       - "Doxyfile"
