@@ -134,7 +134,7 @@ and the macros you will most likely gonna use:
 - [Request](docs/req.md)
 - [Response](docs/res.md)
 
-If you built and installed them during the [installation](#installation). You
+If you built and installed them during the [installation](#installation), you
 can also checkout the man pages for different functions, types and macros.
 
 ### Example applications
