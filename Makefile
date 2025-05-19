@@ -83,7 +83,7 @@ endif
 	install -Dm755  $(DISTDIR)/libctorm.so  $(DESTDIR)/$(PREFIX)/lib/libctorm.so
 	install -dm655  $(DESTDIR)/$(PREFIX)/include/ctorm
 	for header in $(HDRS); do \
-		install -m644  $$header $(DESTDIR)/$(PREFIX)/include/ctorm; \
+		install -Dm644  $$header $(DESTDIR)/$(PREFIX)/include/ctorm; \
 	done
 ifneq (,$(wildcard $(MANDIR)))
 	for man in $(MANDIR)/*; do \

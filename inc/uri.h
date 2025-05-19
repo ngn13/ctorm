@@ -1,5 +1,5 @@
 #pragma once
-#include "enc/query.h"
+#include "encoding.h"
 
 typedef struct {
   char          *scheme, *userinfo, *host, *path, *fragment;

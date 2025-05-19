@@ -6,11 +6,10 @@
 */
 #pragma once
 
-#include "enc/query.h"
-#include "enc/json.h"
+#include "encoding.h"
+#include "headers.h"
 
 #include "conn.h"
-#include "headers.h"
 #include "http.h"
 #include "pair.h"
 

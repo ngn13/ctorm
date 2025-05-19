@@ -1,7 +1,9 @@
-FROM ubuntu as build
+FROM debian
 
-RUN apt update
-RUN apt install -y gcc make libcjson-dev dumb-init
+RUN apt update && \
+    apt install --no-install-recommends -y \
+      build-essential libcjson-dev dumb-init && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR       /pkg
 COPY src      ./src

@@ -1,4 +1,4 @@
-#include "enc/json.h"
+#include "encoding.h"
 #include "error.h"
 
 #if CTORM_JSON_SUPPORT

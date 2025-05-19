@@ -1,6 +1,4 @@
-#include "enc/json.h"
-#include "enc/query.h"
-
+#include "encoding.h"
 #include "headers.h"
 #include "error.h"
 

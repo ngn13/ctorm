@@ -1,6 +1,6 @@
 #!/bin/bash
 
-curl -s 'http://127.0.0.1:8085/?name=test'
+curl -s 'http://127.0.0.1:8085/?name=test' -o /dev/null
 res=$(curl -s 'http://127.0.0.1:8086')
 
 if [[ "${res}" == "hello test" ]]; then

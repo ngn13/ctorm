@@ -1,11 +1,7 @@
-#include "enc/query.h"
-#include "enc/percent.h"
-
+#include "encoding.h"
 #include "error.h"
 #include "util.h"
-
 #include "uri.h"
-#include "log.h"
 
 #include <string.h>
 #include <stdlib.h>
