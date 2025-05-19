@@ -37,8 +37,8 @@ just for fun.
 
 Here is a list of all the supported platforms and architectures:
 
-- **Supported**: Should work, but not thoroughly tested. Report any issues
 - **Tested**: Should work, well tested. Report any issues
+- **Supported**: Should work, but not thoroughly tested. Report any issues
 - **Planned**: Support planned for the future. May or may not work, not tested
   at all. Do not report issues, feel free help me add support.
 
