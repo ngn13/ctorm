@@ -14,7 +14,7 @@ int main() {
 
   // setup the routes
   GET(app, "/", GET_index);
-  GET(app, "/echo/:param/*", GET_param);
+  GET(app, "/echo/:param/%", GET_param);
 
   // run the app
   if (!ctorm_app_run(app, "0.0.0.0:8082"))

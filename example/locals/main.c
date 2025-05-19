@@ -26,7 +26,7 @@ int main() {
   ctorm_app_local(app, "format", "username: %s");
 
   // setup the routes
-  GET(app, "/*", username_middleware);
+  GET(app, "/%", username_middleware);
   GET(app, "/", GET_index);
 
   // run the app
