@@ -518,6 +518,11 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buffer, int64_t size) {
     return -1;
   }
 
+  if (req->body_size <= 0) {
+    errno = CTORM_ERR_EMPTY_BODY;
+    return -1;
+  }
+
   if (size > req->body_size)
     size = req->body_size;
   req->body_size -= size;
@@ -528,14 +533,14 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buffer, int64_t size) {
   return req_recv(buffer, size, MSG_WAITALL);
 }
 
-char *ctorm_req_ip(ctorm_req_t *req, char *_ipbuf) {
-  char *ipbuf = _ipbuf;
+char *ctorm_req_ip(ctorm_req_t *req, char *buf) {
+  if (NULL == buf)
+    buf = calloc(1,
+        (INET6_ADDRSTRLEN > INET_ADDRSTRLEN ? INET6_ADDRSTRLEN
+                                            : INET_ADDRSTRLEN) +
+            1);
 
-  if (NULL == ipbuf)
-    ipbuf = malloc(INET6_ADDRSTRLEN > INET_ADDRSTRLEN ? INET6_ADDRSTRLEN
-                                                      : INET_ADDRSTRLEN);
-
-  if (NULL == ipbuf) {
+  if (NULL == buf) {
     errno = CTORM_ERR_ALLOC_FAIL;
     return NULL;
   }
@@ -544,19 +549,19 @@ char *ctorm_req_ip(ctorm_req_t *req, char *_ipbuf) {
   case AF_INET:
     inet_ntop(AF_INET,
         &((struct sockaddr_in *)&req->con->addr)->sin_addr,
-        ipbuf,
+        buf,
         INET_ADDRSTRLEN);
     break;
 
   case AF_INET6:
     inet_ntop(AF_INET6,
         &((struct sockaddr_in *)&req->con->addr)->sin_addr,
-        ipbuf,
+        buf,
         INET6_ADDRSTRLEN);
     break;
   }
 
-  return ipbuf;
+  return buf;
 }
 
 bool ctorm_req_persist(ctorm_req_t *req) {

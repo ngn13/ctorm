@@ -2,9 +2,9 @@
 
 /*
 
- * these options are provided as arguments to GCC in the Makefile
- * however in case the library gets compiled differently
- * the default values are defined here as a backup
+ * these options are provided as arguments to GCC in the Makefile however in
+ * case the library gets compiled differently, the default values are also
+ * defined here to make sure they are always defined properly during compilation
 
 */
 

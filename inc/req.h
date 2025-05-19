@@ -130,11 +130,11 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buf, int64_t size);
  * address. You should free this buffer when you are done with it.
 
  * @param[in]  req: HTTP request
- * @param[out] ipbuf: Destination buffer
+ * @param[out] buf: Destination buffer
  * @return     Pointer to the start of the IP string
 
 */
-char *ctorm_req_ip(ctorm_req_t *req, char *ipbuf);
+char *ctorm_req_ip(ctorm_req_t *req, char *buf);
 
 /*!
 

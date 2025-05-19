@@ -293,7 +293,7 @@ bool ctorm_app_add(
   return true;
 }
 
-void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler) {
+void ctorm_app_default(ctorm_app_t *app, ctorm_route_t handler) {
   if (NULL != app && NULL != handler)
     app->default_route = handler;
 }
@@ -360,8 +360,8 @@ bool _ctorm_app_route_matches(struct ctorm_route *route, ctorm_req_t *req) {
       req_pos   = _ctorm_path_next_name(req_pos) + 1) {
     // clang-format on
 
-    // if the name is '*' then it's a wildcard route
-    if (*route_pos == '*' && ctorm_path_is_name_end(route_pos + 1))
+    // if the name is '%' then it's a wildcard route and should match anything
+    if (*route_pos == '%' && ctorm_path_is_name_end(route_pos + 1))
       continue;
 
     // if the name starts with ':' then it's a URL parameter

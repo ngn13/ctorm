@@ -18,9 +18,9 @@ ctorm is a multi-threaded, simple web server microframework for `HTTP/1.1`,
 inspired by [Express](https://expressjs.com/),
 [Fiber](https://github.com/gofiber/fiber) and similar HTTP frameworks.
 
-> [!WARNING] This software is pretty much in alpha state. I don't suggest you
-> use ctorm on production, however it can be used to build simple web
-> applications just for fun.
+This library software is pretty much in alpha state. I don't suggest you use
+ctorm on production, however it can be used to build simple web servers and
+applications just for fun.
 
 ### Features
 
@@ -33,12 +33,27 @@ inspired by [Express](https://expressjs.com/),
 - Default (all) route
 - Sending files and static file serving
 
+### Supported systems
+
+Here is a list of all the supported platforms and architectures:
+
+- **S**upported: Should work, but not thoroughly tested. Report any issues
+- **T**ested: Should work, well tested. Report any issues
+- **P**lanned: Support planned for the future. May or may not work, not tested
+  at all. Do not report issues, feel free help me add support.
+
+| **Platform/Arch** | **amd64** | **i386** |
+| ----------------- | --------- | -------- |
+| GNU/Linux         | T         | S        |
+| FreeBSD           | S         | T        |
+| OpenBSD           | P         | P        |
+
 ### Installation
 
 You will need the following software in order to build and install ctorm:
 
 - GNU tar to extract the release archive (`tar`)
-- GCC and other general build tools (`build-essential`)
+- GCC, GNU make other build tools (`build-essential`)
 - If you want to build the man pages, [`doxygen`](https://www.doxygen.org/)
 - If you want JSON support, cJSON and it's headers (`cjson`, `libcjson-dev`)
 
@@ -48,8 +63,8 @@ not compile from the latest commit or a branch unless you are doing
 development**:
 
 ```bash
-wget https://github.com/ngn13/ctorm/archive/refs/tags/1.5.tar.gz
-tar xf 1.5.tar.gz && cd ctorm-1.5
+wget https://github.com/ngn13/ctorm/archive/refs/tags/1.8.tar.gz
+tar xf 1.8.tar.gz && cd ctorm-1.8
 ```
 
 Then use the `make` command to compile the library:
@@ -58,12 +73,12 @@ Then use the `make` command to compile the library:
 make
 ```
 
-**If you don't have cJSON installed**, you need to run this command with
-`CTORM_JSON_SUPPORT=0` option to disable JSON support:
+Here are all the compile options you can pass to `make`:
 
-```bash
-make CTORM_JSON_SUPPORT=0
-```
+| Option               | Description                    | Default        |
+| -------------------- | ------------------------------ | -------------- |
+| `CTORM_JSON_SUPPORT` | Enable JSON support with cJSON | enabled (`1`)  |
+| `CTORM_DEBUG`        | Enable debug logging           | disabled (`0`) |
 
 **If you installed `doxygen`, and you want to build the man pages** run `make`
 with the `docs` command:
@@ -111,7 +126,7 @@ int main() {
 #### Other functions
 
 Here are some nicely formatted markdown documents that explain all the functions
-you will most likely gonna use:
+and the macros you will most likely gonna use:
 
 - [App](docs/app.md)
 - [Error](docs/error.md)
@@ -119,8 +134,8 @@ you will most likely gonna use:
 - [Request](docs/req.md)
 - [Response](docs/res.md)
 
-You can also checkout the man pages if you built and installed during the
-[installation](#installation).
+If you built and installed them during the [installation](#installation). You
+can also checkout the man pages for different functions, types and macros.
 
 #### Example applications
 
@@ -154,15 +169,9 @@ CMD ["/app/server"]
 
 ### Development
 
-For development, you can compile the library with the `CTORM_DEBUG=1` option to
-enable debug messages:
-
-```bash
-make CTORM_DEBUG=1
-```
-
-Then you can use the example applications and the test scripts in the `scripts`
-directory for testing:
+For development, you can compile the library with debug logging (see the
+`CTORM_DEBUG` option). Then you can use the example applications and the test
+scripts in the `scripts` directory for testing the library:
 
 ```bash
 make test

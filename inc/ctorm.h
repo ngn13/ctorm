@@ -130,9 +130,6 @@
 //! Macro for @ref ctorm_req_method
 #define REQ_METHOD() ctorm_req_method(req)
 
-//! Macro for @ref ctorm_req_body_size
-#define REQ_BODY_SIZE() ctorm_req_body_size(req)
-
 //! Macro for @ref ctorm_req_body
 #define REQ_BODY(buffer, size) ctorm_req_body(req, buffer, size)
 
@@ -154,15 +151,25 @@
 //! Macro for @ref ctorm_req_json
 #define REQ_JSON() ctorm_req_json(req)
 
+//! Macro for @ref ctorm_req_ip
+#define REQ_IP(buf) ctorm_req_ip(req, buf)
+
+//! Macro for @ref ctorm_req_addr
+#define REQ_ADDR() ctorm_req_addr(req)
+
 //! Cancel a HTTP request so it doesn't get processed by the next routes
 #define REQ_CANCEL() (req->cancel = true)
+
+//! Get the HTTP request body size
+#define REQ_BODY_SIZE() (req->body_size < 0 ? 0 : req->body_size)
 
 //! Macro for @ref ctorm_res_code
 #define RES_CODE(code) ctorm_res_code(res, code)
 
 /*!
 
- * Copy NULL terminated character buffer to the response body
+ * Copy NULL terminated character buffer to the response body. Same as calling
+ * @ref ctorm_res_body with 0 as the size
 
  * @param[in] str: NULL terminated character buffer
  * @return    Amount of copied bytes

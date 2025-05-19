@@ -144,13 +144,13 @@ bool ctorm_app_add(
 
 /*!
 
- * Specify a route handler for all the unhandled routes
+ * Set the default route handler for all the unhandled routes
 
  * @param[in] app:     ctorm server application
  * @param[in] handler: Route handler function
 
 */
-void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler);
+void ctorm_app_default(ctorm_app_t *app, ctorm_route_t handler);
 
 /*!
 

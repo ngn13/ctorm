@@ -121,8 +121,7 @@ docs:
 example:
 	$(MAKE) -C $@
 
-test:
-	make example
-	./scripts/test.sh
+test: example
+	bash ./scripts/test.sh
 
 .PHONY: install uninstall docs format check lint clean example test
