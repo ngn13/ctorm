@@ -36,4 +36,4 @@ jobs:
           platforms: linux/amd64,linux/i386
           tags: |
             ${{env.REGISTRY}}/${{env.IMAGE}}:latest
-            ${{env.REGISTRY}}/${{env.IMAGE}}:${GITHUB_REF##*/}
+            ${{env.REGISTRY}}/${{env.IMAGE}}:${{github.ref_name}}
