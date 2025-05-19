@@ -18,11 +18,11 @@ ctorm is a multi-threaded, simple web server microframework for `HTTP/1.1`,
 inspired by [Express](https://expressjs.com/),
 [Fiber](https://github.com/gofiber/fiber) and similar HTTP frameworks.
 
-This library software is pretty much in alpha state. I don't suggest you use
-ctorm on production, however it can be used to build simple web servers and
-applications just for fun.
+This library is pretty much in alpha state. I don't suggest you use ctorm on
+production, however it can be used to build simple web servers and applications
+just for fun.
 
-### Features
+## Features
 
 - Express-like HTTP routes
 - Multi-thread support (multiple servers in one program)
@@ -33,22 +33,22 @@ applications just for fun.
 - Default (all) route
 - Sending files and static file serving
 
-### Supported systems
+## Supported systems
 
 Here is a list of all the supported platforms and architectures:
 
-- **S**upported: Should work, but not thoroughly tested. Report any issues
-- **T**ested: Should work, well tested. Report any issues
-- **P**lanned: Support planned for the future. May or may not work, not tested
+- **Supported**: Should work, but not thoroughly tested. Report any issues
+- **Tested**: Should work, well tested. Report any issues
+- **Planned**: Support planned for the future. May or may not work, not tested
   at all. Do not report issues, feel free help me add support.
 
-| **Platform/Arch** | **amd64** | **i386** |
-| ----------------- | --------- | -------- |
-| GNU/Linux         | T         | S        |
-| FreeBSD           | S         | T        |
-| OpenBSD           | P         | P        |
+| **Platform/Arch** | **amd64** | **i386**  |
+| ----------------- | --------- | --------- |
+| GNU/Linux         | Tested    | Supported |
+| FreeBSD           | Supported | Tested    |
+| OpenBSD           | Planned   | Planned   |
 
-### Installation
+## Installation
 
 You will need the following software in order to build and install ctorm:
 
@@ -94,9 +94,9 @@ with the `install` command **as root**:
 make install
 ```
 
-### Getting started
+## Getting started
 
-#### Hello world application
+### Hello world application
 
 ```c
 #include <ctorm/ctorm.h>
@@ -123,7 +123,7 @@ int main() {
 }
 ```
 
-#### Other functions
+### Documentation
 
 Here are some nicely formatted markdown documents that explain all the functions
 and the macros you will most likely gonna use:
@@ -137,16 +137,16 @@ and the macros you will most likely gonna use:
 If you built and installed them during the [installation](#installation). You
 can also checkout the man pages for different functions, types and macros.
 
-#### Example applications
+### Example applications
 
-Repository also contains few example applications in the `example` directory.
-You can build these by running:
+Repository also contains few example applications in the
+[`example` directory](example). You can build these by running:
 
 ```bash
 make example
 ```
 
-#### Deploying your application
+### Deploying your application
 
 You can use the docker image (built by github actions) to easily deploy your
 application, here is an example:
@@ -167,7 +167,7 @@ RUN make
 CMD ["/app/server"]
 ```
 
-### Development
+## Development
 
 For development, you can compile the library with debug logging (see the
 `CTORM_DEBUG` option). Then you can use the example applications and the test
