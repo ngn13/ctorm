@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include <errno.h>
+#include <time.h>
 
 // request thread lock macro
 #define conn_lock(c)                                                           \
@@ -47,9 +49,9 @@ void ctorm_conn_free(ctorm_conn_t *con) {
 void ctorm_conn_handle(ctorm_conn_t *con) {
   conn_debug("handling new connection");
 
-  ctorm_app_t *app   = con->app; // just for easy access
-  clock_t      ptime = 0;        // request process time
-  bool         ret = false, persist = false;
+  bool            ret = false, persist = false, calc = false;
+  ctorm_app_t    *app = con->app; // just for easy access
+  struct timespec start, end;
 
   // define the HTTP request and the response
   ctorm_req_t req;
@@ -66,7 +68,7 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
 
     // if not disabled, save the current time to calculate the process time
     if (!app->config->disable_logging)
-      ptime = clock();
+      calc = clock_gettime(CLOCK_REALTIME, &start) == 0;
 
     // receive the HTTP request
     ret         = ctorm_req_recv(&req);
@@ -101,10 +103,15 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
     }
 
     // finish process time measurement and log the request
-    if (ret && !app->config->disable_logging) {
-      ptime = (clock() - ptime) / (CLOCKS_PER_SEC / 1000000);
+    if (ret && !app->config->disable_logging && calc &&
+        clock_gettime(CLOCK_REALTIME, &end) == 0) {
+      struct timeval end_val, start_val;
+
+      TIMESPEC_TO_TIMEVAL(&start_val, &start);
+      TIMESPEC_TO_TIMEVAL(&end_val, &end);
+
       conn_lock(con);
-      log(&req, &res, ptime);
+      log(&req, &res, end_val.tv_usec - start_val.tv_usec);
       conn_unlock(con);
     }
 

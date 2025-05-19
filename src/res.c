@@ -123,7 +123,7 @@ void ctorm_res_clear(ctorm_res_t *res) {
   res->body_size = 0;
 }
 
-uint64_t ctorm_res_body(ctorm_res_t *res, char *data, uint64_t size) {
+uint32_t ctorm_res_body(ctorm_res_t *res, char *data, uint32_t size) {
   if (NULL == data) {
     errno = CTORM_ERR_BAD_DATA_PTR;
     return 0;

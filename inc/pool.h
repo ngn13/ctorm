@@ -20,7 +20,7 @@ typedef void ctorm_thread_t;
 
 typedef struct {
   bool     active;  // is the thread pool active
-  uint64_t running; // total running thread count
+  uint32_t running; // total running thread count
 
   pthread_mutex_t mutex;     // locked before reading/writing from the pool
   pthread_cond_t  work_cond; // use to wait for work
@@ -32,7 +32,7 @@ typedef struct {
 
 #ifndef CTORM_EXPORT
 
-ctorm_pool_t *ctorm_pool_new(uint64_t count);
+ctorm_pool_t *ctorm_pool_new(uint32_t count);
 bool ctorm_pool_add(ctorm_pool_t *pool, ctorm_work_func_t func, void *arg);
 void ctorm_pool_free(ctorm_pool_t *pool);
 

@@ -18,7 +18,7 @@ typedef struct {
   bool     server_header;   /// disable the "Server: ctorm" header
   bool     lock_request;    /// locks threads until the request handler returns
   time_t   tcp_timeout; /// TCP socket timeout for sending and receiving data
-  uint64_t pool_size;   /// app threadpool size
+  uint32_t pool_size;   /// app threadpool size
 } ctorm_config_t;
 
 /*!

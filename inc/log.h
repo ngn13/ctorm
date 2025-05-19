@@ -28,8 +28,8 @@
 #define debug(...) asm("nop")
 #endif
 
-void ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t process_time);
-void ctorm_debug(const char *fmt, ...);
+int ctorm_log(ctorm_req_t *req, ctorm_res_t *res, uint64_t time);
+int ctorm_debug(const char *fmt, ...);
 
 #endif
 
@@ -40,9 +40,10 @@ void ctorm_debug(const char *fmt, ...);
 
  * @param[in] fmt: Format string
  * @param[in] ...: Arguments for the format string
+ * @return    Number of characters printed
 
 */
-void ctorm_info(const char *fmt, ...);
+int ctorm_info(const char *fmt, ...);
 
 /*!
 
@@ -50,9 +51,10 @@ void ctorm_info(const char *fmt, ...);
 
  * @param[in] fmt: Format string
  * @param[in] ...: Arguments for the format string
+ * @return    Number of characters printed
 
 */
-void ctorm_warn(const char *fmt, ...);
+int ctorm_warn(const char *fmt, ...);
 
 /*!
 
@@ -60,6 +62,7 @@ void ctorm_warn(const char *fmt, ...);
 
  * @param[in] fmt: Format string
  * @param[in] ...: Arguments for the format string
+ * @return    Number of characters printed
 
 */
-void ctorm_fail(const char *fmt, ...);
+int ctorm_fail(const char *fmt, ...);

@@ -13,7 +13,7 @@
 #define QUERY_KEY_MAX   (256)
 #define QUERY_VALUE_MAX (1024)
 
-ctorm_query_t *ctorm_query_parse(char *data, uint64_t size) {
+ctorm_query_t *ctorm_query_parse(char *data, uint32_t size) {
   if (NULL == data)
     return NULL;
 

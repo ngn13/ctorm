@@ -30,9 +30,9 @@ struct ctorm_http_method_desc ctorm_http_methods[] = {
 bool _ctorm_http_loaded = false;
 
 // all the dynamic values
-uint64_t ctorm_http_target_max       = 0;
-uint64_t ctorm_http_header_name_max  = 0;
-uint64_t ctorm_http_header_value_max = 0;
+uint32_t ctorm_http_target_max       = 0;
+uint32_t ctorm_http_header_name_max  = 0;
+uint32_t ctorm_http_header_value_max = 0;
 
 void ctorm_http_load() {
   // check if ctorm_http_load() is already called
@@ -72,7 +72,7 @@ bool ctorm_http_method(char *buf, ctorm_http_method_t *method) {
 
   for (; NULL != desc->name; desc++) {
     if (cu_streq((char *)desc->name, buf)) {
-      *method = desc - &ctorm_http_methods[0] + 1;
+      *method = desc - &ctorm_http_methods[0];
       return true;
     }
   }
@@ -80,7 +80,7 @@ bool ctorm_http_method(char *buf, ctorm_http_method_t *method) {
   return false;
 }
 
-bool ctorm_http_is_valid_header_name(char *name, uint64_t size) {
+bool ctorm_http_is_valid_header_name(char *name, uint32_t size) {
   if (size > ctorm_http_header_name_max)
     return false;
 
@@ -93,7 +93,7 @@ bool ctorm_http_is_valid_header_name(char *name, uint64_t size) {
   return true;
 }
 
-bool ctorm_http_is_valid_header_value(char *value, uint64_t size) {
+bool ctorm_http_is_valid_header_value(char *value, uint32_t size) {
   if (size > ctorm_http_header_value_max)
     return false;
 

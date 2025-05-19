@@ -23,7 +23,11 @@ bool cu_str_free(cu_str_t *str) {
     return false;
 
   free(str->buf);
+#if __i386__
+  str->len = str->size = (uint32_t)(str->buf = NULL);
+#else
   str->len = str->size = (uint64_t)(str->buf = NULL);
+#endif
   return true;
 }
 
@@ -61,8 +65,8 @@ int32_t cu_str_add(cu_str_t *str, char c) {
 }
 
 bool cu_endswith(char *str, char *suf) {
-  uint64_t str_len = cu_strlen(str);
-  uint64_t suf_len = cu_strlen(suf);
+  uint32_t str_len = cu_strlen(str);
+  uint32_t suf_len = cu_strlen(suf);
 
   if (suf_len > str_len)
     return false;

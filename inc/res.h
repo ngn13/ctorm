@@ -28,7 +28,7 @@ typedef struct {
   ctorm_headers_t      headers; /// HTTP headers
 
   char    *body;      /// HTTP response body
-  uint64_t body_size; /// HTTP response body size
+  uint32_t body_size; /// HTTP response body size
   int      body_fd;   /// file descriptor associated with the body
 } ctorm_res_t;
 
@@ -87,7 +87,7 @@ int ctorm_res_add(ctorm_res_t *res, const char *fmt, ...);
  * @return    Returns the amount of copied bytes
 
 */
-uint64_t ctorm_res_body(ctorm_res_t *res, char *data, uint64_t size);
+uint32_t ctorm_res_body(ctorm_res_t *res, char *data, uint32_t size);
 
 /*!
 

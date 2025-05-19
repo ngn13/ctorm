@@ -10,7 +10,7 @@
  * @param[in] data: Data buffer
  * @param[in] size: Size of the data buffer. If no size is specified, NULL
  *                  terminated string size of the data buffer will be used
- * @return    Pointer to the decoded data buffer
+ * @return    Decoded size of the data buffer
 
 */
-uint64_t ctorm_percent_decode(char *data, uint64_t size);
+uint32_t ctorm_percent_decode(char *data, uint32_t size);

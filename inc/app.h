@@ -14,7 +14,6 @@
 
 #include "req.h"
 #include "res.h"
-#include <pthread.h>
 
 #ifdef CTORM_EXPORT
 
@@ -35,14 +34,13 @@ typedef void (*ctorm_route_t)(ctorm_req_t *, ctorm_res_t *);
 
 #ifndef CTORM_EXPORT
 
-struct ctorm_routemap {
-  struct ctorm_routemap *next;
-  char                  *path;
-  ctorm_http_method_t    method;
-  ctorm_route_t          handler;
+struct ctorm_route {
+  char               *path;
+  bool                all;
+  ctorm_http_method_t method;
+  ctorm_route_t       handler;
+  struct ctorm_route *next;
 };
-
-#define ctorm_routemap_is_all(route) (route->method < 0)
 
 typedef struct ctorm_app {
   bool running; // is the app running?
@@ -53,8 +51,8 @@ typedef struct ctorm_app {
   pthread_mutex_t mod_mutex; // locked before modifying the app
 
   // routes
-  ctorm_route_t          default_route;
-  struct ctorm_routemap *routes;
+  ctorm_route_t       default_route;
+  struct ctorm_route *routes;
 
   cu_str_t static_path; // static route path
   cu_str_t static_dir;  // static route directory
@@ -133,16 +131,16 @@ bool ctorm_app_local(ctorm_app_t *app, char *name, void *value);
  * Add a route handler to the web server, which will handle all the requests
  * for a specific route
 
- * @param[in] app:           ctorm server application
- * @param[in] method:        HTTP method for the route
- * @param[in] path:          Path for the route
- * @param[in] handler:       Route handler function
+ * @param[in] app:     ctorm server application
+ * @param[in] method:  HTTP method for the route
+ * @param[in] path:    Path for the route
+ * @param[in] handler: Route handler function
  * @return    Returns false if an error occurs, you can obtain the error from
  *            the errno
 
 */
-bool ctorm_app_add(ctorm_app_t *app, ctorm_http_method_t method, char *path,
-    ctorm_route_t handler);
+bool ctorm_app_add(
+    ctorm_app_t *app, int method, char *path, ctorm_route_t handler);
 
 /*!
 

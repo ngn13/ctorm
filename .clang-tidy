@@ -21,7 +21,7 @@ CheckOptions:
   - key: readability-identifier-naming.TypedefPrefix
     value: 'ctorm_'
   - key: readability-identifier-naming.TypedefIgnoredRegexp
-    value: '^_ctorm.*|^cu.*'
+    value: '^_ctorm.*|^cu.*|^cJSON$'
 
   # struct
   - key: readability-identifier-naming.StructCase

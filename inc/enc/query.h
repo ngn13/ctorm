@@ -17,7 +17,7 @@ typedef ctorm_pair_t ctorm_query_t; /// Stores URL query data
  * @return    Query data
 
 */
-ctorm_query_t *ctorm_query_parse(char *data, uint64_t size);
+ctorm_query_t *ctorm_query_parse(char *data, uint32_t size);
 
 /*!
 

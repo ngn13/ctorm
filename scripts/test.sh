@@ -17,7 +17,7 @@ function run_example(){
   ./dist/example_${1} &
   sleep 1
 
-  ./scripts/test_${1}.sh
+  bash ./scripts/test_${1}.sh
   res=$?
 
   kill -9 $!

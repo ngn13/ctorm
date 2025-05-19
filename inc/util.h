@@ -35,11 +35,11 @@ bool    cu_str_free(cu_str_t *str);
 int32_t cu_str_append(cu_str_t *str, char *buf, int32_t size);
 int32_t cu_str_add(cu_str_t *str, char c);
 
-bool     cu_streq(char *s1, char *s2);
-uint64_t cu_strlen(char *str);
-bool     cu_strcmpu(char *s1, char *s2, char end);
 bool     cu_startswith(char *buf, char *pre);
 bool     cu_endswith(char *str, char *suf);
 bool     cu_contains(char *str, char c);
+bool     cu_streq(char *s1, char *s2);
+bool     cu_strcmpu(char *s1, char *s2, char end);
+uint32_t cu_strlen(char *str);
 
 #endif

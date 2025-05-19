@@ -68,7 +68,7 @@ void *_ctorm_pool_worker(void *_pool) {
   return NULL;
 }
 
-ctorm_pool_t *ctorm_pool_new(uint64_t count) {
+ctorm_pool_t *ctorm_pool_new(uint32_t count) {
   ctorm_pool_t *pool = calloc(1, sizeof(ctorm_pool_t));
   pthread_t     handle;
 

@@ -66,6 +66,7 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
   // clear the timeout structure
   memset(&timeout, 0, sizeof(timeout));
 
+#ifdef TCP_QUICKACK
   /*
 
    * TCP delayed acknowledgment, buffers and combines multiple ACKs to reduce
@@ -77,6 +78,7 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
     ctorm_error_set(app, CTORM_ERR_SOCKET_OPT_FAIL);
     return false;
   }
+#endif
 
   /*
 

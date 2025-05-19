@@ -1,3 +1,6 @@
+# architecture
+ARCH = $(shell uname -m)
+
 # programs
 DOXYGEN = doxygen
 CC      = gcc
@@ -18,7 +21,13 @@ export MANDIR
 
 # sources & objects
 CSRCS  = $(shell find src/ -type f -name '*.c')
-SSRCS  = $(shell find src/ -type f -name '*.S')
+ifeq ($(ARCH), x86_64)
+  SSRCS  = $(shell find src/amd64 -type f -name '*.S')
+else ifeq ($(ARCH), i386)
+  SSRCS  = $(shell find src/i386 -type f -name '*.S')
+else
+  $(error unsupported architecture: $(ARCH))
+endif
 OBJS   = $(patsubst src/%.c,$(DISTDIR)/%.c.o,$(CSRCS))
 OBJS  += $(patsubst src/%.S,$(DISTDIR)/%.S.o,$(SSRCS))
 HDRS   = $(wildcard inc/*.h)
@@ -47,7 +56,7 @@ CTORM_DEBUG        = 0
 CTORM_JSON_SUPPORT = 1
 
 ifeq ($(CTORM_JSON_SUPPORT), 1)
-LIBS += -lcjson
+  LIBS += -lcjson
 endif
 
 all: $(DISTDIR)/libctorm.so

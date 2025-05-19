@@ -14,4 +14,4 @@ endif
 
 $(DISTDIR)/example_%: %/main.c $(DISTDIR)/libctorm.so
 	@mkdir -pv $(DISTDIR)
-	$(CC) -I$(INCDIR) -L$(DISTDIR) $< -lctorm -lcjson -o $@
+	$(CC) -I$(INCDIR) -L$(DISTDIR) $< -lpthread -lctorm -lcjson -o $@

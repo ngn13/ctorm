@@ -143,7 +143,7 @@ void ctorm_app_free(ctorm_app_t *app) {
   }
 
   // free the routes
-  struct ctorm_routemap *prev = NULL;
+  struct ctorm_route *prev = NULL;
 
   while (app->routes != NULL) {
     prev        = app->routes;
@@ -260,8 +260,8 @@ bool ctorm_app_static(ctorm_app_t *app, char *path, char *dir) {
   return true;
 }
 
-bool ctorm_app_add(ctorm_app_t *app, ctorm_http_method_t method, char *path,
-    ctorm_route_t handler) {
+bool ctorm_app_add(
+    ctorm_app_t *app, int method, char *path, ctorm_route_t handler) {
   app_check_ptr(false);
 
   if (*path != '/') {
@@ -269,16 +269,16 @@ bool ctorm_app_add(ctorm_app_t *app, ctorm_http_method_t method, char *path,
     return false;
   }
 
-  struct ctorm_routemap *new = NULL, *cur = NULL;
+  struct ctorm_route *new = NULL, *cur = NULL;
 
-  if ((new = malloc(sizeof(*new))) == NULL) {
+  if ((new = calloc(1, sizeof(*new))) == NULL) {
     errno = CTORM_ERR_ALLOC_FAIL;
     return false;
   }
 
-  new->method  = method;
+  new->method  = method < 0 ? 0 : method;
+  new->all     = method < 0;
   new->handler = handler;
-  new->next    = NULL;
   new->path    = path;
 
   if (NULL == (cur = app->routes)) {
@@ -298,8 +298,8 @@ void ctorm_app_all(ctorm_app_t *app, ctorm_route_t handler) {
     app->default_route = handler;
 }
 
-uint64_t _ctorm_path_count_names(char *path) {
-  uint64_t count = 0;
+uint32_t _ctorm_path_count_names(char *path) {
+  uint32_t count = 0;
 
   for (; *path != 0; path++)
     if (*path == '/' && *(path + 1) != 0)
@@ -317,14 +317,14 @@ char *_ctorm_path_next_name(char *path) {
 
 #define ctorm_path_is_name_end(name) (*(name) == '/' || *(name) == 0)
 
-bool _ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
+bool _ctorm_app_route_matches(struct ctorm_route *route, ctorm_req_t *req) {
   // check if the request method and route method matches
-  if (!ctorm_routemap_is_all(route) && route->method != req->method)
+  if (!route->all && route->method != req->method)
     return false;
 
   // remove '/' from both names, and check if both are and index route
   char    *route_pos = route->path, *req_pos = req->path;
-  uint64_t count = 0;
+  uint32_t count = 0;
 
   if (*route_pos == '/')
     route_pos++;
@@ -337,8 +337,10 @@ bool _ctorm_app_route_matches(struct ctorm_routemap *route, ctorm_req_t *req) {
 
   // check if both paths have same amount of names (path components)
   if (_ctorm_path_count_names(route_pos) !=
-      (count = _ctorm_path_count_names(req_pos)))
+      (count = _ctorm_path_count_names(req_pos))) {
+    debug("count fail");
     return false;
+  }
 
   char *key = NULL, *value = NULL;
   bool  ret = false;
@@ -399,8 +401,8 @@ end:
 }
 
 void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
-  struct ctorm_routemap *cur         = NULL;
-  bool                   found_route = false;
+  struct ctorm_route *cur     = NULL;
+  bool                handled = false;
 
   // copy the locals to the request
   ctorm_pair_next(app->locals, local)
@@ -410,23 +412,23 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res) {
   for (cur = app->routes; !req->cancel && NULL != cur; cur = cur->next) {
     if (_ctorm_app_route_matches(cur, req)) {
       cur->handler(req, res);
-      found_route = true;
+      handled = true;
     }
   }
 
   // if we found at least one matching route, then route is complete
-  if (found_route)
+  if (handled)
     return;
 
   // if not check if we have a static route configured
   while (!cu_str_empty(&app->static_path) && !cu_str_empty(&app->static_dir) &&
          CTORM_HTTP_GET == req->method) {
     // if so, check if this request can be handled with the static route
-    uint64_t path_len = cu_strlen(req->path), static_fp_len = 0, sub_len = 0;
+    uint32_t path_len = cu_strlen(req->path), static_fp_len = 0, sub_len = 0;
     char    *path_ptr = req->path;
 
     // static request path will be longer than the static route path
-    if (path_len <= (uint64_t)app->static_path.len)
+    if (path_len <= (uint32_t)app->static_path.len)
       break;
 
     // get the position of the sub static directory path

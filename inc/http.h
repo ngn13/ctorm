@@ -195,9 +195,9 @@ extern struct ctorm_http_method_desc ctorm_http_methods[];
 #define CTORM_HTTP_CODE_MAX    599 // max response code
 
 // dynamic values calculated at runtime
-extern uint64_t ctorm_http_target_max;       // max HTTP request target length
-extern uint64_t ctorm_http_header_name_max;  // max HTTP header name length
-extern uint64_t ctorm_http_header_value_max; // max HTTP header value length
+extern uint32_t ctorm_http_target_max;       // max HTTP request target length
+extern uint32_t ctorm_http_header_name_max;  // max HTTP header name length
+extern uint32_t ctorm_http_header_value_max; // max HTTP header value length
 
 // initializes & calculates all the dynamic values
 void ctorm_http_load(void);
@@ -215,22 +215,23 @@ bool ctorm_http_method(char *buf, ctorm_http_method_t *method);
 /*
 
  * these method functions does not check the method argument, so the caller
- * should make sure it's valid, ideally by obtaining it with ctorm_http_method()
+ * should make sure it's valid, ideally by obtaining it with
+ ctorm_http_method()
 
 */
-#define ctorm_http_method_name(method) (ctorm_http_methods[(method) - 1].name)
+#define ctorm_http_method_name(method) (ctorm_http_methods[(method)].name)
 
 #define ctorm_http_method_allows_req_body(method)                              \
-  (ctorm_http_methods[(method) - 1].allows_req_body)
+  (ctorm_http_methods[(method)].allows_req_body)
 #define ctorm_http_method_allows_res_body(method)                              \
-  (ctorm_http_methods[(method) - 1].allows_res_body)
+  (ctorm_http_methods[(method)].allows_res_body)
 
 #define ctorm_http_method_needs_req_body(method)                               \
-  (ctorm_http_methods[(method) - 1].requires_req_body)
+  (ctorm_http_methods[(method)].requires_req_body)
 #define ctorm_http_method_needs_res_body(method)                               \
-  (ctorm_http_methods[(method) - 1].requires_res_body)
+  (ctorm_http_methods[(method)].requires_res_body)
 
-bool ctorm_http_is_valid_header_name(char *name, uint64_t size);
-bool ctorm_http_is_valid_header_value(char *value, uint64_t size);
+bool ctorm_http_is_valid_header_name(char *name, uint32_t size);
+bool ctorm_http_is_valid_header_value(char *value, uint32_t size);
 
 #endif

@@ -5,8 +5,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-uint64_t _ctorm_headers_hasher(const char *data) {
-  uint64_t sum = 0;
+uint32_t _ctorm_headers_hasher(const char *data) {
+  uint32_t sum = 0;
 
   for (; *data != 0; data++)
     sum += cu_lower(*data);
