@@ -44,9 +44,9 @@ Here is a list of all the supported platforms and architectures:
 
 | **Platform/Arch** | **amd64** | **i386**  |
 | ----------------- | --------- | --------- |
-| GNU/Linux         | Tested    | Supported |
-| FreeBSD           | Supported | Tested    |
-| OpenBSD           | Planned   | Planned   |
+| **GNU/Linux**     | Tested    | Supported |
+| **FreeBSD**       | Supported | Tested    |
+| **OpenBSD**       | Planned   | Planned   |
 
 ## Installation
 
