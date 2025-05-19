@@ -30,6 +30,6 @@ jobs:
         with:
           push: true
           platforms: linux/amd64,linux/i386
-          tags:
-            - ${{env.REGISTRY}}/${{env.IMAGE}}:latest
-            - ${{env.REGISTRY}}/${{env.IMAGE}}:${GITHUB_REF##*/}
+          tags: |
+            ${{env.REGISTRY}}/${{env.IMAGE}}:latest
+            ${{env.REGISTRY}}/${{env.IMAGE}}:${GITHUB_REF##*/}
