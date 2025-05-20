@@ -2,7 +2,6 @@
 #include "error.h"
 
 #include "conn.h"
-#include "pool.h"
 #include "uri.h"
 #include "log.h"
 
@@ -111,10 +110,10 @@ bool ctorm_socket_set_opts(ctorm_app_t *app, int sockfd) {
 }
 
 bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
-  ctorm_conn_t   *con = NULL;
+  int             ssock = -1, csock = -1, flag = 1;
+  struct sockaddr caddr;
   struct addrinfo info;
-  socklen_t       len  = 0;
-  int             flag = 1, sock = -1;
+  socklen_t       len = 0;
   bool            ret = false;
 
   // parse the host to get the addrinfo structure
@@ -125,29 +124,29 @@ bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
   }
 
   // create a new TCP socket
-  if ((sock = socket(info.ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+  if ((ssock = socket(info.ai_family, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     debug("failed to create socket: %s", strerror(errno));
     ctorm_error_set(app, CTORM_ERR_SOCKET_FAIL);
     goto end;
   }
 
-  debug("created socket %d for %p", sock, app);
+  debug("created socket %d for %p", ssock, app);
 
   // prevent EADDRINUSE
-  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
+  if (setsockopt(ssock, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag)) < 0) {
     debug("failed to set the REUSEADDR: %s", strerror(errno));
     ctorm_error_set(app, CTORM_ERR_SOCKET_OPT_FAIL);
     goto end;
   }
 
   // bind and listen on the provided host
-  if (bind(sock, info.ai_addr, info.ai_addrlen) < 0) {
+  if (bind(ssock, info.ai_addr, info.ai_addrlen) < 0) {
     debug("failed to bind the socket: %s", strerror(errno));
     ctorm_error_set(app, CTORM_ERR_BIND_FAIL);
     goto end;
   }
 
-  if (listen(sock, app->config->max_connections) < 0) {
+  if (listen(ssock, app->config->max_connections) < 0) {
     debug("failed to listen socket: %s", strerror(errno));
     ctorm_error_set(app, CTORM_ERR_LISTEN_FAIL);
     goto end;
@@ -155,15 +154,7 @@ bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
 
   // new connection handler loop
   while (app->running) {
-    if (NULL == con && (con = ctorm_conn_new()) == NULL) {
-      debug("failed to create a new connection: %s", ctorm_error());
-      goto end; // errno set by ctorm_conn_new
-    }
-
-    len      = sizeof(con->addr);
-    con->app = app;
-
-    if ((con->socket = accept(sock, &con->addr, &len)) < 0) {
+    if ((csock = accept(ssock, &caddr, &len)) < 0) {
       if (errno == EINTR) {
         debug("accept got interrupted");
         break;
@@ -173,19 +164,24 @@ bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
       goto end;
     }
 
-    debug("accepted new connection with socket %d: %p", con->socket, con);
+    debug("new connection: %d", csock);
 
-    if (!ctorm_socket_set_opts(app, con->socket)) {
-      debug("setsockopt failed for %p: %s", con, strerror(errno));
+    if (!ctorm_socket_set_opts(app, csock)) {
+      debug("setsockopt failed for %d: %s", csock, strerror(errno));
       errno = CTORM_ERR_SOCKET_OPT_FAIL;
       goto end;
     }
 
-    debug("adding %p to the thread pool", con);
-    ctorm_pool_add(
-        app->pool, (ctorm_work_func_t)ctorm_conn_handle, (void *)con);
+    debug("creating a new connection for %d", csock);
 
-    con = NULL;
+    if (!ctorm_conn_new(app, &caddr, csock)) {
+      debug("failed to create a new connection");
+      goto end;
+    }
+
+    // clear client connection info
+    memset(&caddr, 0, sizeof(caddr));
+    csock = -1;
   }
 
   // app is no longer running
@@ -195,12 +191,12 @@ bool ctorm_socket_start(ctorm_app_t *app, char *addr) {
 
 end:
   // close the server socket
-  if (sock != -1)
-    close(sock);
+  if (ssock != -1)
+    close(ssock);
 
-  // free the unused connection structure
-  if (NULL != con)
-    ctorm_conn_free(con);
+  // close the recent client socket
+  if (csock != -1)
+    close(csock);
 
   return ret;
 }

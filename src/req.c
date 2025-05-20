@@ -20,11 +20,11 @@
 #define req_debug(f, ...)                                                      \
   debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD                    \
         " request " FG_CYAN "0x%p" FG_RESET ") " f,                            \
-      req->con->socket,                                                        \
+      req->socket,                                                             \
       req,                                                                     \
       ##__VA_ARGS__)
 
-#define req_recv(b, s, f) ctorm_conn_recv(req->con, b, s, f)
+#define req_recv(b, s, f) recv(req->socket, b, s, f)
 
 int64_t _ctorm_req_recv_until(
     ctorm_req_t *req, char *buf, int64_t max, char del) {
@@ -94,11 +94,15 @@ int32_t _ctorm_req_recv_char(ctorm_req_t *req, char *c) {
 #define req_recv_alloc(buf, max, del) _ctorm_req_recv_alloc(req, buf, max, del)
 #define req_recv_char(char)           _ctorm_req_recv_char(req, char)
 
-void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con) {
+void ctorm_req_init(ctorm_req_t *req, int socket, struct sockaddr *addr) {
+  if (NULL == req || NULL == addr)
+    return;
+
   memset(req, 0, sizeof(*req));
 
   // request stuff (not HTTP related)
-  req->con    = con;
+  req->socket = socket;
+  memcpy(&req->addr, addr, sizeof(req->addr));
   req->cancel = false;
 
   // default stuff
@@ -543,17 +547,17 @@ char *ctorm_req_ip(ctorm_req_t *req, char *buf) {
     return NULL;
   }
 
-  switch (req->con->addr.sa_family) {
+  switch (req->addr.sa_family) {
   case AF_INET:
     inet_ntop(AF_INET,
-        &((struct sockaddr_in *)&req->con->addr)->sin_addr,
+        &((struct sockaddr_in *)&req->addr)->sin_addr,
         buf,
         INET_ADDRSTRLEN);
     break;
 
   case AF_INET6:
     inet_ntop(AF_INET6,
-        &((struct sockaddr_in *)&req->con->addr)->sin_addr,
+        &((struct sockaddr_in *)&req->addr)->sin_addr,
         buf,
         INET6_ADDRSTRLEN);
     break;

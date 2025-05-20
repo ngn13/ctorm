@@ -183,9 +183,12 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
   if (app->config->handle_signal) {
     if (NULL == _ctorm_signal_head) {
       _ctorm_signal_head = app;
+
       sigemptyset(&sa.sa_mask);
       sa.sa_handler = _ctorm_app_signal_handler;
       sa.sa_flags   = 0;
+
+      // TODO: handle other signals as well
       sigaction(SIGINT, &sa, NULL);
     }
 
@@ -337,10 +340,8 @@ bool _ctorm_app_route_matches(struct ctorm_route *route, ctorm_req_t *req) {
 
   // check if both paths have same amount of names (path components)
   if (_ctorm_path_count_names(route_pos) !=
-      (count = _ctorm_path_count_names(req_pos))) {
-    debug("count fail");
+      (count = _ctorm_path_count_names(req_pos)))
     return false;
-  }
 
   char *key = NULL, *value = NULL;
   bool  ret = false;

@@ -21,11 +21,11 @@
 #define res_debug(f, ...)                                                      \
   debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD                    \
         " response " FG_CYAN "0x%p" FG_RESET ") " f,                           \
-      res->con->socket,                                                        \
+      res->socket,                                                             \
       res,                                                                     \
       ##__VA_ARGS__)
 
-#define res_send(b, s, f) ctorm_conn_send(res->con, b, s, f)
+#define res_send(b, s, f) send(res->socket, b, s, f)
 
 bool _ctorm_res_send_str(ctorm_res_t *res, char *str) {
   if (NULL == str)
@@ -57,10 +57,14 @@ void _ctorm_res_send_fmt(ctorm_res_t *res, char *fmt, ...) {
 #define res_send_str(str)      _ctorm_res_send_str(res, str)
 #define res_send_fmt(fmt, ...) _ctorm_res_send_fmt(res, fmt, ##__VA_ARGS__)
 
-void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con) {
+void ctorm_res_init(ctorm_res_t *res, int socket, struct sockaddr *addr) {
+  if (NULL == res || NULL == addr)
+    return;
+
   memset(res, 0, sizeof(*res));
 
-  res->con       = con;
+  res->socket = socket;
+  memcpy(&res->addr, addr, sizeof(res->addr));
   res->body_size = 0;
   res->body      = NULL;
   res->body_fd   = -1;

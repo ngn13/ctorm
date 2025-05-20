@@ -1,9 +1,12 @@
-#include "error.h"
-#include "conn.h"
-#include "log.h"
-
 #define _GNU_SOURCE
 #define __USE_GNU
+
+#include "error.h"
+#include "conn.h"
+#include "pool.h"
+#include "log.h"
+
+#include <sys/socket.h>
 #include <sys/time.h>
 
 #include <stdlib.h>
@@ -12,6 +15,14 @@
 
 #include <errno.h>
 #include <time.h>
+
+// TODO: maybe move these to socket.c and remove conn.c entirely?
+
+struct ctorm_conn {
+  ctorm_app_t    *app;
+  int             socket;
+  struct sockaddr addr;
+};
 
 // request thread lock macro
 #define conn_lock(c)                                                           \
@@ -29,28 +40,19 @@
       con->socket,                                                             \
       ##__VA_ARGS__)
 
-ctorm_conn_t *ctorm_conn_new() {
-  ctorm_conn_t *con = calloc(1, sizeof(ctorm_conn_t));
-
-  if (NULL == con) {
-    errno = CTORM_ERR_ALLOC_FAIL;
-    return NULL;
-  }
-
-  return con;
-}
-
-void ctorm_conn_free(ctorm_conn_t *con) {
+void _ctorm_conn_free(struct ctorm_conn *con) {
   if (con->socket != 0)
     close(con->socket);
   free(con);
 }
 
-void ctorm_conn_handle(ctorm_conn_t *con) {
+void _ctorm_conn_handle(void *data) {
+  struct ctorm_conn *con = data;
+  ctorm_app_t       *app = con->app;
+
   conn_debug("handling new connection");
 
   bool            ret = false, persist = false, calc = false;
-  ctorm_app_t    *app = con->app; // just for easy access
   struct timespec start, end;
 
   // define the HTTP request and the response
@@ -59,8 +61,8 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
 
   do {
     // initialize the HTTP request and the response
-    ctorm_req_init(&req, con);
-    ctorm_res_init(&res, con);
+    ctorm_req_init(&req, con->socket, &con->addr);
+    ctorm_res_init(&res, con->socket, &con->addr);
 
     // if disabled, remove the server header from the response
     if (!app->config->server_header)
@@ -123,5 +125,31 @@ void ctorm_conn_handle(ctorm_conn_t *con) {
 
   // close & free the connection
   conn_debug("closing connection");
-  ctorm_conn_free(con);
+  _ctorm_conn_free(con);
+}
+
+void _ctorm_conn_kill(void *data) {
+  struct ctorm_conn *con = data;
+  shutdown(con->socket, SHUT_RDWR);
+}
+
+bool ctorm_conn_new(ctorm_app_t *app, struct sockaddr *addr, int socket) {
+  struct ctorm_conn *con = calloc(1, sizeof(struct ctorm_conn));
+
+  if (NULL == con) {
+    errno = CTORM_ERR_ALLOC_FAIL;
+    return false;
+  }
+
+  con->app    = app;
+  con->socket = socket;
+  memcpy(&con->addr, addr, sizeof(con->addr));
+
+  // TODO: check if we have too much work, if so wait for one to finish
+  if (!ctorm_pool_add(app->pool, _ctorm_conn_handle, _ctorm_conn_kill, con)) {
+    free(con);
+    return false; // errno set by ctorm_pool_add()
+  }
+
+  return true;
 }

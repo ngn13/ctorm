@@ -6,10 +6,10 @@
 */
 #pragma once
 
+#include <sys/socket.h>
 #include "encoding.h"
 #include "headers.h"
 
-#include "conn.h"
 #include "http.h"
 #include "pair.h"
 
@@ -22,7 +22,9 @@
 
 */
 typedef struct {
-  ctorm_conn_t     *con;    /// socket connection
+  int             socket; /// TCP socket
+  struct sockaddr addr;   /// socket address
+
   ctorm_pair_t     *locals; /// local variables to pass along with the request
   bool              cancel; /// is the request cancelled?
   ctorm_http_code_t code;   /// default HTTP response code for this request
@@ -45,7 +47,8 @@ typedef struct {
 
 #ifndef CTORM_EXPORT
 
-void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con); // init HTTP request
+void ctorm_req_init(
+    ctorm_req_t *req, int socket, struct sockaddr *addr); // init HTTP request
 void ctorm_req_free(ctorm_req_t *req);                    // free a HTTP request
 bool ctorm_req_recv(ctorm_req_t *req); // receive the HTTP request
 

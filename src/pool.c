@@ -1,5 +1,5 @@
-#include "pool.h"
 #include "error.h"
+#include "pool.h"
 #include "log.h"
 
 #include <pthread.h>
@@ -7,12 +7,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 
-#define ctorm_pool_lock()   pthread_mutex_lock(&pool->mutex)
-#define ctorm_pool_unlock() pthread_mutex_unlock(&pool->mutex)
 #define pool_debug(f, ...)                                                     \
   debug("(thread %p) " f, pthread_self(), ##__VA_ARGS__)
+
+// lock & unlock the thread pool
+#define pool_lock()   pthread_mutex_lock(&pool->mutex)
+#define pool_unlock() pthread_mutex_unlock(&pool->mutex)
+
+// get the ongoing (current) work of the thread
+#define POOL_WORK (pool->ongoing[id])
+
+// start & stop the provided work
+#define pool_work_start(work) ((work)->start((work)->data))
+#define pool_work_stop(work)  ((work)->stop((work)->data))
 
 // get the next work in the queue
 struct ctorm_work *_ctorm_pool_work(ctorm_pool_t *pool) {
@@ -29,15 +37,15 @@ struct ctorm_work *_ctorm_pool_work(ctorm_pool_t *pool) {
 
 // the worker function
 void *_ctorm_pool_worker(void *_pool) {
-  ctorm_pool_t      *pool = _pool;
-  struct ctorm_work *work = NULL;
+  ctorm_pool_t *pool = _pool;
+  uint32_t      id   = 0;
 
-  ctorm_pool_lock();
-  pool->running++;
-  ctorm_pool_unlock();
+  pool_lock();
+  id = pool->running++;
+  pool_unlock();
 
   while (true) {
-    ctorm_pool_lock();
+    pool_lock();
 
     // hold the thread until we get a work
     while (pool->active && NULL == pool->head) {
@@ -48,21 +56,27 @@ void *_ctorm_pool_worker(void *_pool) {
     if (!pool->active)
       break;
 
-    work = _ctorm_pool_work(pool);
-    ctorm_pool_unlock();
+    POOL_WORK = _ctorm_pool_work(pool);
+    pool_unlock();
 
-    // do the work (if any)
-    if (NULL == work)
+    // check if we got any work
+    if (NULL == POOL_WORK)
       continue;
 
-    pool_debug("picked up new work: %p", work->func);
-    work->func(work->arg);
-    free(work);
+    // do the work
+    pool_debug("picked up new work: %p (%p)", POOL_WORK, POOL_WORK->start);
+    pool_work_start(POOL_WORK);
+
+    // free the work
+    pool_debug("completed work: %p (%p)", POOL_WORK, POOL_WORK->start);
+    struct ctorm_work *saved = POOL_WORK;
+    POOL_WORK                = NULL;
+    free(saved);
   }
 
   pool->running--;
   pthread_cond_signal(&pool->exit_cond);
-  ctorm_pool_unlock();
+  pool_unlock();
 
   pool_debug("returning from the worker");
   return NULL;
@@ -70,26 +84,28 @@ void *_ctorm_pool_worker(void *_pool) {
 
 ctorm_pool_t *ctorm_pool_new(uint32_t count) {
   ctorm_pool_t *pool = calloc(1, sizeof(ctorm_pool_t));
-  pthread_t     handle;
+  pthread_t     thread;
 
   if (NULL == pool)
     return NULL;
 
-  pool->active = true;
+  pool->active  = true;
+  pool->total   = count;
+  pool->ongoing = calloc(count, sizeof(*pool->ongoing));
   pthread_mutex_init(&pool->mutex, NULL);
   pthread_cond_init(&pool->work_cond, NULL);
   pthread_cond_init(&pool->exit_cond, NULL);
 
   for (; count > 0; count--) {
     // create a new worker thread
-    if (pthread_create(&handle, NULL, _ctorm_pool_worker, pool) != 0) {
+    if (pthread_create(&thread, NULL, _ctorm_pool_worker, pool) != 0) {
       pool_debug("failed to create thread %d: %s", count, ctorm_error());
       ctorm_pool_free(pool);
       return NULL; // errno set by pthread_create()
     }
 
     // detach thread so the resources will be freed on exit
-    if (pthread_detach(handle) != 0) {
+    if (pthread_detach(thread) != 0) {
       pool_debug("failed to deattach thread %d: %s", count, ctorm_error());
       ctorm_pool_free(pool);
       return NULL; // errno set by pthread_detach()
@@ -99,8 +115,9 @@ ctorm_pool_t *ctorm_pool_new(uint32_t count) {
   return pool;
 }
 
-bool ctorm_pool_add(ctorm_pool_t *pool, ctorm_work_func_t func, void *arg) {
-  if (NULL == pool || NULL == func || NULL == arg) {
+bool ctorm_pool_add(ctorm_pool_t *pool, ctorm_pool_func_t start,
+    ctorm_pool_func_t stop, void *data) {
+  if (NULL == pool || NULL == start || NULL == stop || NULL == data) {
     errno = EINVAL;
     return false;
   }
@@ -112,10 +129,11 @@ bool ctorm_pool_add(ctorm_pool_t *pool, ctorm_work_func_t func, void *arg) {
     return false;
   }
 
-  work->func = func;
-  work->arg  = arg;
+  work->start = start;
+  work->stop  = stop;
+  work->data  = data;
 
-  ctorm_pool_lock();
+  pool_lock();
 
   // add work to the queue
   if (NULL == pool->head)
@@ -126,12 +144,12 @@ bool ctorm_pool_add(ctorm_pool_t *pool, ctorm_work_func_t func, void *arg) {
   // we have new work, tell it to the bois
   pthread_cond_broadcast(&pool->work_cond);
 
-  ctorm_pool_unlock();
+  pool_unlock();
   return true;
 }
 
 void ctorm_pool_free(ctorm_pool_t *pool) {
-  ctorm_pool_lock();
+  pool_lock();
 
   struct ctorm_work *cur = NULL, *next = pool->head;
 
@@ -146,10 +164,16 @@ void ctorm_pool_free(ctorm_pool_t *pool) {
 
   // tell all the bois that work queue has been updated
   pthread_cond_broadcast(&pool->work_cond);
-  ctorm_pool_unlock();
+  pool_unlock();
+
+  // call the stop function for all the ongoing (current) works
+  for (; NULL != pool->ongoing && pool->total > 0; pool->total--) {
+    if (NULL != pool->ongoing[pool->total - 1])
+      pool_work_stop(pool->ongoing[pool->total - 1]);
+  }
 
   // wait for all the threads to exit
-  ctorm_pool_lock();
+  pool_lock();
 
   while (pool->running > 0) {
     pool_debug("waiting for %d running threads", pool->running);
@@ -157,11 +181,12 @@ void ctorm_pool_free(ctorm_pool_t *pool) {
   }
 
   pool_debug("done waiting for threads");
-  ctorm_pool_unlock();
+  pool_unlock();
 
   // free all the resources
   pthread_mutex_destroy(&pool->mutex);
   pthread_cond_destroy(&pool->work_cond);
   pthread_cond_destroy(&pool->exit_cond);
+  free(pool->ongoing);
   free(pool);
 }
