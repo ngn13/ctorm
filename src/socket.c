@@ -1,10 +1,10 @@
-#include <asm-generic/errno-base.h>
 #define _GNU_SOURCE
 #define __USE_GNU
 
 #include "socket.h"
 #include "error.h"
 
+#include "pool.h"
 #include "conn.h"
 #include "uri.h"
 #include "log.h"
@@ -141,12 +141,18 @@ bool _ctorm_socket_new(ctorm_app_t *app, int socket, struct sockaddr *addr) {
     return false;
   }
 
+  // setup the socket data for the connection
   data->app        = app;
   data->con.socket = socket;
   memcpy(&data->con.addr, addr, sizeof(data->con.addr));
 
-  // TODO: check if we have too much work, if so wait for one to finish
+  // make sure we don't have too many connections in the pool
+  if (ctorm_pool_remaining(app->pool) >= app->config->max_connections) {
+    debug("reached connection limit, waiting for one to finish");
+    ctorm_pool_wait(app->pool, 1);
+  }
 
+  // add new connection to the pool
   if (!ctorm_pool_add(
           app->pool, _ctorm_socket_handle, _ctorm_socket_kill, data)) {
     free(data);

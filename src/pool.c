@@ -5,7 +5,6 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 
 #define pool_debug(f, ...)                                                     \
@@ -72,6 +71,12 @@ void *_ctorm_pool_worker(void *_pool) {
     struct ctorm_work *saved = POOL_WORK;
     POOL_WORK                = NULL;
     free(saved);
+
+    // notify the main thread
+    pool_lock();
+    pool->len--;
+    pthread_cond_broadcast(&pool->done_cond);
+    pool_unlock();
   }
 
   pool->running--;
@@ -94,6 +99,7 @@ ctorm_pool_t *ctorm_pool_new(uint32_t count) {
   pool->ongoing = calloc(count, sizeof(*pool->ongoing));
   pthread_mutex_init(&pool->mutex, NULL);
   pthread_cond_init(&pool->work_cond, NULL);
+  pthread_cond_init(&pool->done_cond, NULL);
   pthread_cond_init(&pool->exit_cond, NULL);
 
   for (; count > 0; count--) {
@@ -141,6 +147,8 @@ bool ctorm_pool_add(ctorm_pool_t *pool, ctorm_pool_func_t start,
   else
     pool->tail = pool->tail->next = work;
 
+  pool->len++;
+
   // we have new work, tell it to the bois
   pthread_cond_broadcast(&pool->work_cond);
 
@@ -186,7 +194,27 @@ void ctorm_pool_free(ctorm_pool_t *pool) {
   // free all the resources
   pthread_mutex_destroy(&pool->mutex);
   pthread_cond_destroy(&pool->work_cond);
+  pthread_cond_destroy(&pool->done_cond);
   pthread_cond_destroy(&pool->exit_cond);
   free(pool->ongoing);
   free(pool);
+}
+
+uint32_t ctorm_pool_remaining(ctorm_pool_t *pool) {
+  int64_t result = 0;
+
+  pool_lock();
+  result = pool->len;
+  pool_unlock();
+
+  return result;
+}
+
+void ctorm_pool_wait(ctorm_pool_t *pool, uint32_t count) {
+  pool_lock();
+
+  for (; count > 0 && pool->len >= count; count--)
+    pthread_cond_wait(&pool->done_cond, &pool->mutex);
+
+  pool_unlock();
 }

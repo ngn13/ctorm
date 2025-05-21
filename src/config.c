@@ -2,7 +2,6 @@
 #include "error.h"
 #include "log.h"
 
-#include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 
@@ -16,7 +15,7 @@ ctorm_config_t *ctorm_config_new(ctorm_config_t *config) {
   }
 
   // set the default values
-  config->max_connections = 1000;
+  config->max_connections = 100;
   config->disable_logging = false;
   config->handle_signal   = true;
   config->server_header   = true;

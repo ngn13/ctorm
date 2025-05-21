@@ -12,13 +12,13 @@
 
 */
 typedef struct {
-  int      max_connections; /// max parallel connection count
   bool     disable_logging; /// disables request logging and the banner
   bool     handle_signal;   /// disables SIGINT handler (which stops app_run())
   bool     server_header;   /// disable the "Server: ctorm" header
   bool     lock_request;    /// locks threads until the request handler returns
   time_t   tcp_timeout; /// TCP socket timeout for sending and receiving data
-  uint32_t pool_size;   /// app threadpool size
+  uint32_t max_connections; /// max parallel connection count
+  uint32_t pool_size;       /// app threadpool size
 } ctorm_config_t;
 
 /*!

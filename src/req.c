@@ -39,6 +39,7 @@ int64_t _ctorm_req_recv(ctorm_req_t *req, char *buf, uint64_t len, int flags) {
 
   switch (errno) {
   case ETIMEDOUT:
+  case EAGAIN:
     req->code = 408;
     break;
   }
