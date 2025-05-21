@@ -61,6 +61,7 @@ struct ctorm_error_desc _ctorm_err_descs[] = {
     {CTORM_ERR_RESOLVE_FAIL,          "failed to resolve the address"         },
     {CTORM_ERR_SOCKET_FAIL,           "failed to create socket"               },
     {CTORM_ERR_BIND_FAIL,             "failed to bind the socket"             },
+    {CTORM_ERR_ACCEPT_FAIL,           "failed to accept new connection"       },
 
     {CTORM_ERR_NOT_EXISTS,            "file does not exist"                   },
     {CTORM_ERR_NO_READ_PERM,          "missing read permission"               },

@@ -28,7 +28,7 @@ permissions:
   pull-requests: read
 
 jobs:
-  format:
+  check:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout the source code"
@@ -37,24 +37,17 @@ jobs:
       - name: "Install dependencies"
         run: |
           sudo apt-get update
-          sudo apt-get install -y make clang-format-19 black
+          sudo apt-get install -y make sed grep \
+            clang-format-19 clang-tidy-19 black
 
-      - name: "Check formatting"
-        run: make check
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout the source code"
-        uses: actions/checkout@v3
-
-      - name: "Install dependencies"
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y make clang-tidy-19
+      - name: "Run check scripts"
+        run: make check_scripts
 
       - name: "Check linting"
-        run: make lint
+        run: make check_lint
+
+      - name: "Check formatting"
+        run: make check_format
 
   test:
     if: github.event.pull_request.draft == false

@@ -1,6 +1,7 @@
 #include "encoding.h"
 #include "error.h"
 
+#include "conn.h"
 #include "http.h"
 #include "util.h"
 
@@ -25,7 +26,7 @@
       res,                                                                     \
       ##__VA_ARGS__)
 
-#define res_send(b, s, f) send(res->socket, b, s, f)
+#define res_send(buf, len, flags) ctorm_conn_send(res->conn, buf, len, flags)
 
 bool _ctorm_res_send_str(ctorm_res_t *res, char *str) {
   if (NULL == str)
@@ -57,14 +58,13 @@ void _ctorm_res_send_fmt(ctorm_res_t *res, char *fmt, ...) {
 #define res_send_str(str)      _ctorm_res_send_str(res, str)
 #define res_send_fmt(fmt, ...) _ctorm_res_send_fmt(res, fmt, ##__VA_ARGS__)
 
-void ctorm_res_init(ctorm_res_t *res, int socket, struct sockaddr *addr) {
-  if (NULL == res || NULL == addr)
+void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *conn) {
+  if (NULL == res || NULL == conn)
     return;
 
   memset(res, 0, sizeof(*res));
 
-  res->socket = socket;
-  memcpy(&res->addr, addr, sizeof(res->addr));
+  res->conn      = conn;
   res->body_size = 0;
   res->body      = NULL;
   res->body_fd   = -1;
@@ -73,15 +73,18 @@ void ctorm_res_init(ctorm_res_t *res, int socket, struct sockaddr *addr) {
   ctorm_headers_init(&res->headers);
   ctorm_headers_set(res->headers, CTORM_HTTP_SERVER, "ctorm", false);
 
-  struct tm *gmt;
-  time_t     raw;
+  char      date[50];
+  struct tm gmt;
+  time_t    now;
 
-  time(&raw);
-  gmt = gmtime(&raw);
+  if (time(&now) == -1)
+    return;
 
-  char date[50];
+  if (NULL == gmtime_r(&now, &gmt))
+    return;
+
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Date
-  strftime(date, 50, "%a, %d %b %Y %H:%M:%S GMT", gmt);
+  strftime(date, 50, "%a, %d %b %Y %H:%M:%S GMT", &gmt);
   ctorm_res_set(res, CTORM_HTTP_DATE, date);
 }
 

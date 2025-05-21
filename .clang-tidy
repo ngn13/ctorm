@@ -1,19 +1,21 @@
 ---
-# "DeprecatedOrUnsafeBufferHandling" ignored because C11 "_s" functions are not
-# secure either
-
 # "gnu-zero-variadic-macro-arguments" ignored because we are using GNU99
 # standart
 
 # "clang-diagnostic-language-extension-token" is ignored because we need the
 # asm() extension token
+
+# "DeprecatedOrUnsafeBufferHandling" ignored because C11 "_s" functions are not
+# secure either
 Checks: >-
   clang-diagnostic-*,
+    -clang-diagnostic-gnu-zero-variadic-macro-arguments,
+    -clang-diagnostic-language-extension-token,
   clang-analyzer-*,
+    -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
   readability-identifier-naming,
-  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
-  -clang-diagnostic-gnu-zero-variadic-macro-arguments,
-  -clang-diagnostic-language-extension-token,
+  portability-*,
+  performance-*,
 CheckOptions:
   # typedef
   - key: readability-identifier-naming.TypedefCase
