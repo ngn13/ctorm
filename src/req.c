@@ -438,19 +438,24 @@ char *ctorm_req_param(ctorm_req_t *req, char *name) {
   return NULL == param ? NULL : param->value;
 }
 
-void *ctorm_req_local(ctorm_req_t *req, char *name, char *value) {
+void *ctorm_req_local(ctorm_req_t *req, char *name, ...) {
   if (NULL == name) {
     errno = CTORM_ERR_BAD_LOCAL_PTR;
     return NULL;
   }
 
   ctorm_pair_t *local = NULL;
+  char         *value = NULL;
+  va_list       args;
 
-  if (NULL == value)
+  va_start(args, name);
+
+  if (NULL == (value = va_arg(args, char *)))
     local = ctorm_pair_find(req->locals, name);
   else
     local = ctorm_pair_add(&req->locals, name, value);
 
+  va_end(args);
   return NULL == local ? NULL : local->value;
 }
 

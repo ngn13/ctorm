@@ -15,7 +15,7 @@ void username_middleware(ctorm_req_t *req, ctorm_res_t *res) {
     return;
   }
 
-  REQ_LOCAL("username");
+  REQ_LOCAL("username", username);
 }
 
 int main() {

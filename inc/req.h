@@ -96,7 +96,7 @@ char *ctorm_req_param(ctorm_req_t *req, char *name);
  * @return    Local variable value
 
 */
-void *ctorm_req_local(ctorm_req_t *req, char *name, char *value);
+void *ctorm_req_local(ctorm_req_t *req, char *name, ...);
 
 /*!
 
