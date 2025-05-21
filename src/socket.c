@@ -10,6 +10,7 @@
 #include "log.h"
 
 #include <netinet/tcp.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
