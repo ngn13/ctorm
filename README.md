@@ -53,19 +53,13 @@ Here is a list of all the supported platforms and architectures:
 You will need the following software in order to build and install ctorm:
 
 - GNU tar to extract the release archive (`tar`)
-- GCC, GNU make other build tools (`build-essential`)
+- GCC, GNU make and other build tools (`build-essential`)
 - If you want to build the man pages, [`doxygen`](https://www.doxygen.org/)
 - If you want JSON support, cJSON and it's headers (`cjson`, `libcjson-dev`)
 
-First
-[download the latest release archive](https://github.com/ngn13/ctorm/tags), **do
-not compile from the latest commit or a branch unless you are doing
-development**:
-
-```bash
-wget https://github.com/ngn13/ctorm/archive/refs/tags/1.8.tar.gz
-tar xf 1.8.tar.gz && cd ctorm-1.8
-```
+First [download the latest release archive](https://github.com/ngn13/ctorm/tags)
+and extract it using the `tar` command, **do not compile from the latest commit
+or a branch unless you are doing development**.
 
 Then use the `make` command to compile the library:
 
@@ -115,7 +109,7 @@ int main() {
 
   // run the app
   if (!ctorm_app_run(app, "0.0.0.0:8080"))
-    ctorm_fail("failed to start the application: %s", ctorm_geterror());
+    ctorm_fail("failed to start the application: %s", ctorm_error());
 
   // clean up
   ctorm_app_free(app);
@@ -170,9 +164,32 @@ CMD ["/app/server"]
 ## Development
 
 For development, you can compile the library with debug logging (see the
-`CTORM_DEBUG` option). Then you can use the example applications and the test
-scripts in the `scripts` directory for testing the library:
+`CTORM_DEBUG` option). Then you can use the example applications and the bash
+test scripts in the `scripts` directory.
+
+To run these test scripts, you will need GNU bash and and
+[curl](https://curl.se/). After installing these required software packages, you
+can run the scripts:
 
 ```bash
 make test
 ```
+
+To format the code properly, you can use the `format` command, which requires
+`clang-format`:
+
+```bash
+make format
+```
+
+To check for any linting and formatting errors, you can use the `check` command,
+which requires `clang-tidy`, `clang-format`, GNU bash, grep and sed:
+
+```bash
+make check
+```
+
+If you make any changes, you should run all of these make commands and address
+any issues, warnings or errors you might encounter. After doing this, you can
+submit your changes by creating a pull request, or you can directly email your
+patch to me.
