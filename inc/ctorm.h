@@ -37,6 +37,8 @@
 #include "log.h"
 #include "error.h"
 
+#define CTORM_VERSION "1.8.1" /// ctorm version number
+
 /*!
 
  * Create a route that will handle all HTTP method requests for a given path
@@ -143,7 +145,7 @@
 #define REQ_PARAM(param) ctorm_req_param(req, param)
 
 //! Macro for @ref ctorm_req_local
-#define REQ_LOCAL(name, value) ctorm_req_local(req, name, value)
+#define REQ_LOCAL(...) ctorm_req_local(req, ##__VA_ARGS__, NULL)
 
 //! Macro for @ref ctorm_req_form
 #define REQ_FORM() ctorm_req_form(req)

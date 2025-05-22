@@ -22,7 +22,8 @@
 
 */
 typedef struct {
-  ctorm_conn_t     *con;    /// socket connection
+  ctorm_conn_t *conn; /// client connection
+
   ctorm_pair_t     *locals; /// local variables to pass along with the request
   bool              cancel; /// is the request cancelled?
   ctorm_http_code_t code;   /// default HTTP response code for this request
@@ -45,8 +46,8 @@ typedef struct {
 
 #ifndef CTORM_EXPORT
 
-void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con); // init HTTP request
-void ctorm_req_free(ctorm_req_t *req);                    // free a HTTP request
+void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *conn); // init HTTP request
+void ctorm_req_free(ctorm_req_t *req); // free a HTTP request
 bool ctorm_req_recv(ctorm_req_t *req); // receive the HTTP request
 
 #endif
@@ -95,7 +96,7 @@ char *ctorm_req_param(ctorm_req_t *req, char *name);
  * @return    Local variable value
 
 */
-void *ctorm_req_local(ctorm_req_t *req, char *name, char *value);
+void *ctorm_req_local(ctorm_req_t *req, char *name, ...);
 
 /*!
 
@@ -133,16 +134,16 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buf, int64_t size);
  * @return     Pointer to the start of the IP string
 
 */
-char *ctorm_req_ip(ctorm_req_t *req, char *buf);
+#define ctorm_req_ip(req, buf) ctorm_conn_ip((req)->conn, buf)
 
 /*!
 
- * @brief     Get socket address (struct sockaddr) of the sender
+ * @brief     Get socket address (struct sockaddr) of the client
  * @param[in] req: HTTP request
  * @return    Socket address (struct sockaddr)
 
 */
-#define ctorm_req_addr(req) ((req)->con->addr)
+#define ctorm_req_addr(req) ((req)->conn->addr)
 
 /*!
 

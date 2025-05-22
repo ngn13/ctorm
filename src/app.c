@@ -183,10 +183,22 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
   if (app->config->handle_signal) {
     if (NULL == _ctorm_signal_head) {
       _ctorm_signal_head = app;
+
+      // initialize the signal action
       sigemptyset(&sa.sa_mask);
       sa.sa_handler = _ctorm_app_signal_handler;
       sa.sa_flags   = 0;
+
+      /*
+
+       * set the signal action for possible signals we might receive, we only
+       * care about signals that would be used to stop execution, as
+       * _ctorm_app_signal_handler just stops application
+
+      */
       sigaction(SIGINT, &sa, NULL);
+      sigaction(SIGTERM, &sa, NULL);
+      sigaction(SIGQUIT, &sa, NULL);
     }
 
     else {
@@ -223,9 +235,14 @@ bool ctorm_app_run(ctorm_app_t *app, const char *addr) {
 
     // remove the signal handler if the list is empty
     if (NULL == _ctorm_signal_head) {
+      // modify the signal action to use the default handler
       sa.sa_handler = SIG_DFL;
       sa.sa_flags   = 0;
+
+      // apply the action to previous signals
       sigaction(SIGINT, &sa, NULL);
+      sigaction(SIGTERM, &sa, NULL);
+      sigaction(SIGQUIT, &sa, NULL);
     }
   }
 
@@ -337,10 +354,8 @@ bool _ctorm_app_route_matches(struct ctorm_route *route, ctorm_req_t *req) {
 
   // check if both paths have same amount of names (path components)
   if (_ctorm_path_count_names(route_pos) !=
-      (count = _ctorm_path_count_names(req_pos))) {
-    debug("count fail");
+      (count = _ctorm_path_count_names(req_pos)))
     return false;
-  }
 
   char *key = NULL, *value = NULL;
   bool  ret = false;

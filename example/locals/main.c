@@ -1,8 +1,8 @@
 #include <ctorm.h>
 
 void GET_index(ctorm_req_t *req, ctorm_res_t *res) {
-  char *username = REQ_LOCAL("username", NULL);
-  char *format   = REQ_LOCAL("format", NULL);
+  char *username = REQ_LOCAL("username");
+  char *format   = REQ_LOCAL("format");
   RES_FMT(format, username);
 }
 

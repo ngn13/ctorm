@@ -71,8 +71,6 @@ void ctorm_app_route(ctorm_app_t *app, ctorm_req_t *req, ctorm_res_t *res);
 
 #endif
 
-#define CTORM_VERSION "1.8"
-
 /*!
 
  * Create a new ctorm web server with the given configuration. If no

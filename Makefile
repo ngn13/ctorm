@@ -76,6 +76,14 @@ $(DISTDIR)/%.S.o: src/%.S $(HDRS)
 		-DCTORM_JSON_SUPPORT=$(CTORM_JSON_SUPPORT)               \
 		-DCTORM_DEBUG=$(CTORM_DEBUG)
 
+docs:
+	$(DOXYGEN)
+	cd $(MANDIR) && \
+		find * -type f -not -name 'ctorm*' -exec mv -v {} ctorm_{} \;
+
+clean:
+	rm -rf $(DISTDIR)
+
 install:
 ifeq (,$(wildcard $(DISTDIR)/libctorm.so))
 	@$(error you should first compile libctorm)
@@ -101,27 +109,31 @@ uninstall:
 
 format:
 	clang-format -i -style=file $(CSRCS) $(HDRS) example/*/*.c
-	black -l 80 scripts/*.py
+	black -q -l 80 scripts/*.py
 
-check:
-	clang-format -n --Werror -style=file $(CSRCS) $(HDRS) example/*/*.c
-	black -l 80 --check scripts/*.py
-
-lint:
-	clang-tidy --warnings-as-errors --config= $(CSRCS) $(HDRS) -- $(INCLUDE)
-
-clean:
-	rm -rf $(DISTDIR)
-
-docs:
-	$(DOXYGEN)
-	cd $(MANDIR) && \
-		find * -type f -not -name 'ctorm*' -exec mv -v {} ctorm_{} \;
-
-example:
+example: $(DISTDIR)/libctorm.so
 	$(MAKE) -C $@
 
 test: example
 	bash ./scripts/test.sh
 
-.PHONY: install uninstall docs format check lint clean example test
+check_scripts:
+	# run check scripts
+	@for script in scripts/check_*.sh; do \
+		echo "running check script: $$script"; \
+		bash $$script; \
+	done
+
+check_lint:
+	# check for lint errors
+	clang-tidy --warnings-as-errors --config= $(CSRCS) $(HDRS) -- $(INCLUDE)
+
+check_format:
+	# check formatting
+	clang-format -n --Werror -style=file $(CSRCS) $(HDRS) example/*/*.c
+	black -q -l 80 --check scripts/*.py
+
+check: check_scripts check_lint check_format
+
+.PHONY: docs clean install uninstall format example test \
+	check_scripts check_lint check_format check

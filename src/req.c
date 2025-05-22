@@ -2,6 +2,7 @@
 #include "headers.h"
 #include "error.h"
 
+#include "conn.h"
 #include "http.h"
 #include "pair.h"
 #include "util.h"
@@ -13,18 +14,38 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#include <stdint.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define req_debug(f, ...)                                                      \
-  debug("(" FG_BOLD "socket " FG_CYAN "%d" FG_RESET FG_BOLD                    \
-        " request " FG_CYAN "0x%p" FG_RESET ") " f,                            \
-      req->con->socket,                                                        \
+  debug("(" FG_BOLD "request " FG_CYAN "0x%p %d" FG_RESET FG_BOLD FG_RESET     \
+        ") " f,                                                                \
       req,                                                                     \
+      req->conn->socket,                                                       \
       ##__VA_ARGS__)
 
-#define req_recv(b, s, f) ctorm_conn_recv(req->con, b, s, f)
+#define req_recv(buf, len, flags)     _ctorm_req_recv(req, buf, len, flags)
+#define req_recv_until(buf, max, del) _ctorm_req_recv_until(req, buf, max, del)
+#define req_recv_alloc(buf, max, del) _ctorm_req_recv_alloc(req, buf, max, del)
+#define req_recv_char(char)           _ctorm_req_recv_char(req, char)
+
+int64_t _ctorm_req_recv(ctorm_req_t *req, char *buf, uint64_t len, int flags) {
+  int64_t ret = ctorm_conn_recv(req->conn, buf, len, flags);
+
+  if (ret >= 0)
+    return ret;
+
+  switch (errno) {
+  case ETIMEDOUT:
+  case EAGAIN:
+    req->code = 408;
+    break;
+  }
+
+  return ret;
+}
 
 int64_t _ctorm_req_recv_until(
     ctorm_req_t *req, char *buf, int64_t max, char del) {
@@ -90,15 +111,14 @@ int32_t _ctorm_req_recv_char(ctorm_req_t *req, char *c) {
   return tc;
 }
 
-#define req_recv_until(buf, max, del) _ctorm_req_recv_until(req, buf, max, del)
-#define req_recv_alloc(buf, max, del) _ctorm_req_recv_alloc(req, buf, max, del)
-#define req_recv_char(char)           _ctorm_req_recv_char(req, char)
+void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *conn) {
+  if (NULL == req || NULL == conn)
+    return;
 
-void ctorm_req_init(ctorm_req_t *req, ctorm_conn_t *con) {
   memset(req, 0, sizeof(*req));
 
   // request stuff (not HTTP related)
-  req->con    = con;
+  req->conn   = conn;
   req->cancel = false;
 
   // default stuff
@@ -418,19 +438,24 @@ char *ctorm_req_param(ctorm_req_t *req, char *name) {
   return NULL == param ? NULL : param->value;
 }
 
-void *ctorm_req_local(ctorm_req_t *req, char *name, char *value) {
+void *ctorm_req_local(ctorm_req_t *req, char *name, ...) {
   if (NULL == name) {
     errno = CTORM_ERR_BAD_LOCAL_PTR;
     return NULL;
   }
 
   ctorm_pair_t *local = NULL;
+  char         *value = NULL;
+  va_list       args;
 
-  if (NULL == value)
+  va_start(args, name);
+
+  if (NULL == (value = va_arg(args, char *)))
     local = ctorm_pair_find(req->locals, name);
   else
     local = ctorm_pair_add(&req->locals, name, value);
 
+  va_end(args);
   return NULL == local ? NULL : local->value;
 }
 
@@ -529,37 +554,6 @@ int64_t ctorm_req_body(ctorm_req_t *req, char *buffer, int64_t size) {
     return 0;
 
   return req_recv(buffer, size, MSG_WAITALL);
-}
-
-char *ctorm_req_ip(ctorm_req_t *req, char *buf) {
-  if (NULL == buf)
-    buf = calloc(1,
-        (INET6_ADDRSTRLEN > INET_ADDRSTRLEN ? INET6_ADDRSTRLEN
-                                            : INET_ADDRSTRLEN) +
-            1);
-
-  if (NULL == buf) {
-    errno = CTORM_ERR_ALLOC_FAIL;
-    return NULL;
-  }
-
-  switch (req->con->addr.sa_family) {
-  case AF_INET:
-    inet_ntop(AF_INET,
-        &((struct sockaddr_in *)&req->con->addr)->sin_addr,
-        buf,
-        INET_ADDRSTRLEN);
-    break;
-
-  case AF_INET6:
-    inet_ntop(AF_INET6,
-        &((struct sockaddr_in *)&req->con->addr)->sin_addr,
-        buf,
-        INET6_ADDRSTRLEN);
-    break;
-  }
-
-  return buf;
 }
 
 bool ctorm_req_persist(ctorm_req_t *req) {

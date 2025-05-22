@@ -21,7 +21,7 @@
 
 */
 typedef struct {
-  ctorm_conn_t *con; /// socket connection
+  ctorm_conn_t *conn; /// client connection
 
   ctorm_http_code_t    code;    /// HTTP response code
   ctorm_http_version_t version; /// HTTP version
@@ -34,7 +34,7 @@ typedef struct {
 
 #ifndef CTORM_EXPORT
 
-void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *con); // init HTTP response
+void ctorm_res_init(ctorm_res_t *res, ctorm_conn_t *conn); // init HTTP response
 void ctorm_res_free(ctorm_res_t *res); // free a HTTP response
 bool ctorm_res_send(ctorm_res_t *res); // send the HTTP response
 

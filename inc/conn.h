@@ -1,24 +1,19 @@
 #pragma once
-
-#include <netinet/in.h>
 #include <sys/socket.h>
 
-#include <stdbool.h>
-#include <stdint.h>
-
 typedef struct {
-  void           *app;
-  struct sockaddr addr;
   int             socket;
+  struct sockaddr addr;
 } ctorm_conn_t;
+
+char *ctorm_conn_ip(ctorm_conn_t *conn, char *buf);
 
 #ifndef CTORM_EXPORT
 
-ctorm_conn_t *ctorm_conn_new(void);
-void          ctorm_conn_free(ctorm_conn_t *con);
-void          ctorm_conn_handle(ctorm_conn_t *con);
-
-#define ctorm_conn_recv(c, b, s, f) recv(c->socket, b, s, f)
-#define ctorm_conn_send(c, b, s, f) send(c->socket, b, s, f)
+#define ctorm_conn_recv(conn, buf, len, flags)                                 \
+  recv((conn)->socket, buf, len, flags)
+#define ctorm_conn_send(conn, buf, len, flags)                                 \
+  send((conn)->socket, buf, len, flags)
+void ctorm_conn_close(ctorm_conn_t *conn);
 
 #endif

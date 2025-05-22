@@ -24,18 +24,24 @@
 #endif
 
 int _ctorm_log_prefix(FILE *stream, const char *color, const char *prefix) {
-  time_t     now   = time(NULL);
-  struct tm *local = localtime(&now);
+  time_t    now;
+  struct tm local;
+
+  if (time(&now) < 0)
+    return -1;
+
+  if (NULL == localtime_r(&now, &local))
+    return -1;
 
   return fprintf(stream,
       FG_GRAY "%02d/%02d/%04d %02d:%02d:%02d" FG_RESET " %s%5s" FG_BOLD FG_RESET
               " ",
-      local->tm_mday,
-      local->tm_mon + 1,
-      (local->tm_year + 1900),
-      local->tm_hour,
-      local->tm_min,
-      local->tm_sec,
+      local.tm_mday,
+      local.tm_mon + 1,
+      (local.tm_year + 1900),
+      local.tm_hour,
+      local.tm_min,
+      local.tm_sec,
       color,
       prefix);
 }
