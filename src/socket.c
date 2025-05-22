@@ -1,4 +1,3 @@
-#include <bits/types/struct_timeval.h>
 #define _GNU_SOURCE
 #define __USE_GNU
 
