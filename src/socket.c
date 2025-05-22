@@ -1,3 +1,4 @@
+#include <bits/types/struct_timeval.h>
 #define _GNU_SOURCE
 #define __USE_GNU
 
@@ -53,8 +54,8 @@ void _ctorm_socket_handle(void *_data) {
   struct ctorm_socket_data *data = _data;
   socket_debug("handling new connection");
 
-  bool            ret = false, persist = false, calc = false;
-  struct timespec start, end;
+  bool ret = false, persist = false, log = !data->app->config->disable_logging;
+  struct timeval start, end;
 
   // define the HTTP request and the response
   ctorm_req_t req;
@@ -69,14 +70,20 @@ void _ctorm_socket_handle(void *_data) {
     if (!data->app->config->server_header)
       ctorm_res_del(&res, CTORM_HTTP_SERVER);
 
-    // if not disabled, save the current time to calculate the process time
-    if (!data->app->config->disable_logging)
-      calc = clock_gettime(CLOCK_REALTIME, &start) == 0;
-
     // receive the HTTP request
     ret         = ctorm_req_recv(&req);
     res.version = req.version;
     res.code    = req.code;
+
+    /*
+
+     * if request logging is not disabled, then store the current time to
+     * later calculate the processing time of the request, which is used for
+     * logging the request and response
+
+    */
+    if (log)
+      gettimeofday(&start, NULL);
 
     // route the request if we successfuly received a HTTP request
     if (ret) {
@@ -106,16 +113,14 @@ void _ctorm_socket_handle(void *_data) {
     }
 
     // finish process time measurement and log the request
-    if (ret && !data->app->config->disable_logging && calc &&
-        clock_gettime(CLOCK_REALTIME, &end) == 0) {
-      struct timeval end_val, start_val;
+    if (ret && log) {
+      gettimeofday(&end, NULL);
 
-      TIMESPEC_TO_TIMEVAL(&start_val, &start);
-      TIMESPEC_TO_TIMEVAL(&end_val, &end);
+      uint64_t env_val   = 1000000 * end.tv_sec + end.tv_usec;
+      uint64_t start_val = 1000000 * start.tv_sec + start.tv_usec;
 
       socket_lock();
-      // BUG: something is wrong with this time measurement method
-      log(&req, &res, end_val.tv_usec - start_val.tv_usec);
+      log(&req, &res, env_val - start_val);
       socket_unlock();
     }
 
