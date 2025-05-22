@@ -37,6 +37,8 @@
 #include "log.h"
 #include "error.h"
 
+#define CTORM_VERSION "1.8.1" /// ctorm version number
+
 /*!
 
  * Create a route that will handle all HTTP method requests for a given path

@@ -114,7 +114,7 @@ void _ctorm_socket_handle(void *_data) {
       TIMESPEC_TO_TIMEVAL(&end_val, &end);
 
       socket_lock();
-      // TODO: something is wrong with this measurement
+      // BUG: something is wrong with this time measurement method
       log(&req, &res, end_val.tv_usec - start_val.tv_usec);
       socket_unlock();
     }
